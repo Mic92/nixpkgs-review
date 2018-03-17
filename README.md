@@ -7,7 +7,7 @@ nix-review automatically builds packages changed in the pull requests
 
 ## Features
 
-- [ofborg](https://github.com/NixOS/ofborg) support: reuses evaluation output of CI for skip local evaluation, but
+- [ofborg](https://github.com/NixOS/ofborg) support: reuses evaluation output of CI to skip local evaluation, but
   also fallbacks if ofborg is not finished
 - automatically detects target branch of pull request
 - provides a `nix-shell` with all build packages in scope
@@ -68,10 +68,11 @@ $ nix-review --build-args="--builders 'ssh://joerg@10.243.29.170'" pr 37244
 
 ## Roadmap
 
-- [ ] Build multiple pull requests at once and schedule in serial.
-- [ ] trigger ofBorg builds
+- [ ] Build multiple pull requests in parallel and review in serial.
+- [ ] trigger ofBorg builds (write @GrahamcOfBorg build foo into pull request discussion)
 - [ ] build on multiple platforms
 - [ ] test backports
+- [ ] show pull request description + diff during review
 
 ## Run tests
 
