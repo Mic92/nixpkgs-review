@@ -17,14 +17,24 @@ nix-review automatically builds packages changed in the pull requests
 
 `nix-review` depends on python 3.6 or higher and nix 2.0 or higher:
 
+Install with:
+
+```console
+$ nix-build
+./result/bin/nix-review
 ```
+
+or just use:
+
+```console
+./bin/nix-review
 ```
 
 ## Usage
 
 Change to your local nixpkgs repository checkout, i.e.:
 
-```
+```console
 cd ~/git/nixpkgs
 ```
 
@@ -65,8 +75,10 @@ $ nix-review --build-args="--builders 'ssh://joerg@10.243.29.170'" pr 37244
 
 ## Run tests
 
-```
-python3 -m unittest discover .
+Just like `nix-review` also the tests are lightning fast:
+
+```console
+$ python3 -m unittest discover .
 ```
 
 ## Related projects:
