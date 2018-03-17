@@ -73,6 +73,7 @@ $ nix-review --build-args="--builders 'ssh://joerg@10.243.29.170'" pr 37244
 - [ ] build on multiple platforms
 - [ ] test backports
 - [ ] show pull request description + diff during review
+- [ ] spawn nix-shell also if some packages did not build
 
 ## Run tests
 
