@@ -46,8 +46,9 @@ class Review():
             packages = packages_per_system[system]
             return build_in_path(self.worktree_dir, packages, self.build_args)
 
-    def review_commit(self, base_commit, reviewed_commit):
-        attrs = self.build_commit(base_commit, reviewed_commit)
+    def review_commit(self, branch, reviewed_commit):
+        branch_rev = fetch_refs(branch)[0]
+        attrs = self.build_commit(branch_rev, reviewed_commit)
         if attrs:
             nix_shell(attrs)
 
@@ -149,7 +150,7 @@ def list_packages(path, check_meta=False):
     if check_meta:
         cmd.append("--meta")
     output = subprocess.check_output(cmd)
-    context = ET.iterparse(io.StringIO(output), events=("start", ))
+    context = ET.iterparse(io.StringIO(output.decode("utf-8")), events=("start", ))
     packages = set()
     for (event, elem) in context:
         if elem.tag == "item":

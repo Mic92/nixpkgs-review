@@ -35,7 +35,7 @@ def expect_side_effects(test, arg_spec):
 
     return side_effect
 
-pkg_list = read_asset("package_list_after.txt")
+pkg_list = read_asset("package_list_after.txt").encode("utf-8")
 
 
 def local_eval_cmds():
@@ -46,7 +46,7 @@ def local_eval_cmds():
        (['git', 'rev-parse', '--verify', 'refs/nix-review/0'], b"hash1"),
        (['git', 'rev-parse', '--verify', 'refs/nix-review/1'], b"hash2"),
        (['git', 'worktree', 'add', './.review/pr-1', 'hash1'], 0),
-       (['nix-env', '-f', './.review/pr-1', '-qaP', '--xml', '--out-path', '--show-trace'], "<items></items>"),
+       (['nix-env', '-f', './.review/pr-1', '-qaP', '--xml', '--out-path', '--show-trace'], b"<items></items>"),
        (['git', 'merge', 'hash2', '-m', 'auto merge'], 0),
        (['nix-env', '-f', './.review/pr-1', '-qaP', '--xml', '--out-path', '--show-trace', '--meta'], pkg_list),
     ]

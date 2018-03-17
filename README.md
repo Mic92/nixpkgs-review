@@ -44,7 +44,7 @@ will use [git-worktree](https://git-scm.com/docs/git-worktree) to perform fast c
 Then run `nix-review` by providing the pull request number
 
 ```console
-$ nix-review 37242
+$ nix-review pr 37242
 $ git fetch --force https://github.com/NixOS/nixpkgs pull/37242/head:refs/nix-review/0
 $ git worktree add /home/joerg/git/nixpkgs/.review/pr-37242 1cb9f643480612696de93fb2f2a2f3340d0e3156
 Preparing /home/joerg/git/nixpkgs/.review/pr-37242 (identifier pr-37242)
@@ -58,13 +58,23 @@ $ nix-shell -p redis
 redis-cli 4.0.8
 ```
 
-Remote builder support:
+To review a local command without pull request, use the following command:
+
+```
+$ nix-review rev HEAD
+```
+
+Instead of `HEAD` also a commit or branch can be given.
+
+## Remote builder:
 
 Nix-review will pass all arguments given in `--build-arg` to `nix-build`:
 
 ```console
 $ nix-review --build-args="--builders 'ssh://joerg@10.243.29.170'" pr 37244
 ```
+
+This allows to parallelize builds across multiple machines.
 
 ## Roadmap
 

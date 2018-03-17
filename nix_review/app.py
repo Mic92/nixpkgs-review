@@ -16,9 +16,9 @@ def pr_command(args):
 
 
 def rev_command(args):
-    with worktree(f"rev-{args.rev}") as worktree_dir:
+    with worktree(f"rev-{args.commit}") as worktree_dir:
         r = Review(worktree_dir, args.build_args)
-        r.review_pr(args.rev)
+        r.review_commit(args.branch, args.commit)
 
 
 def parse_args(command, args):
@@ -43,8 +43,11 @@ def parse_args(command, args):
     rev_parser = subparsers.add_parser(
         "rev", help="review a change in the local pull request repository")
     rev_parser.add_argument(
-        "rev",
-        type=int,
+        "--branch",
+        default="master",
+        help="branch to compare against with")
+    rev_parser.add_argument(
+        "commit",
         help="commit/tag/ref/branch in your local git repository")
     rev_parser.set_defaults(func=rev_command)
 
