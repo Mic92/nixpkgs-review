@@ -2,6 +2,7 @@ import unittest
 import tempfile
 import os
 import random
+import multiprocessing
 from unittest.mock import patch, mock_open
 
 from nix_review.app import real_main
@@ -66,7 +67,7 @@ build_cmds = [
    (['nix-build',
      '--no-out-link',
      '--keep-going',
-     '--max-jobs', '4',
+     '--max-jobs', str(multiprocessing.cpu_count()),
      '--option', 'build-use-sandbox', 'true',
      '--builders', 'ssh://joerg@10.243.29.170 aarch64-linux',
      '<nixpkgs>',
