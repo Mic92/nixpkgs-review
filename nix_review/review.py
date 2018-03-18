@@ -75,10 +75,11 @@ def get_borg_eval_gist(pr):
     packages_per_system = defaultdict(list)
     statuses = json.load(urllib.request.urlopen(pr["statuses_url"]))
     for status in statuses:
+        url = status.get("target_url", "")
         if status["description"] == "^.^!" and \
            status["creator"]["login"] == "GrahamcOfBorg" and \
-           "target_url" in status:
-            url = urllib.parse.urlparse(status["target_url"])
+           url != "":
+            url = urllib.parse.urlparse(url)
             raw_gist_url = f"https://gist.githubusercontent.com/GrahamcOfBorg{url.path}/raw/"
             for line in urllib.request.urlopen(raw_gist_url):
                 if line == b"":
