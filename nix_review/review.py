@@ -34,13 +34,13 @@ class Review():
 
     def build_pr(self, pr):
         packages_per_system = get_borg_eval_gist(pr)
+        (base_rev, pr_rev) = fetch_refs(pr["base"]["ref"],
+                                        f"pull/{pr['number']}/head")
         if packages_per_system is None:
-            (base_rev, pr_rev) = fetch_refs(pr["base"]["ref"],
-                                            f"pull/{pr['number']}/head")
             return self.build_commit(base_rev, pr_rev)
         else:
-            pr_rev = fetch_refs(f"pull/{pr['number']}/head")[0]
-            git_worktree(self.worktree_dir, pr_rev)
+            git_worktree(self.worktree_dir, base_rev)
+            sh(["git", "merge", pr_rev, "-m", "auto merge"], cwd=self.worktree_dir)
             system = subprocess.check_output(
                 ["nix", "eval", "--raw", "nixpkgs.system"]).decode("utf-8")
             packages = packages_per_system[system]
@@ -96,7 +96,8 @@ def git_worktree(worktree_dir, commit):
 def filter_broken_attrs(attrs):
     expression = "(with import <nixpkgs> {}; {\n"
     for attr in attrs:
-        expression += '\t"%s" = (builtins.tryEval "${%s}").success;\n' % (attr, attr)
+        expression += '\t"%s" = (builtins.tryEval "${%s}").success;\n' % (attr,
+                                                                          attr)
     expression += "})"
     cmd = ["nix", "eval", "--json", expression]
     evaluates = json.loads(subprocess.check_output(cmd))
@@ -111,7 +112,9 @@ def build_in_path(path, attrs, args):
     result_dir = tempfile.mkdtemp(prefix="nox-review-")
     working_attrs = filter_broken_attrs(attrs)
     if not working_attrs:
-        print(f"the following packages are marked as broken and where skipped: {' '.join(attrs)}")
+        print(
+            f"the following packages are marked as broken and where skipped: {' '.join(attrs)}"
+        )
         return working_attrs
     print("Building in {}: {}".format(result_dir, " ".join(working_attrs)))
     command = [
@@ -150,7 +153,8 @@ def list_packages(path, check_meta=False):
     if check_meta:
         cmd.append("--meta")
     output = subprocess.check_output(cmd)
-    context = ET.iterparse(io.StringIO(output.decode("utf-8")), events=("start", ))
+    context = ET.iterparse(
+        io.StringIO(output.decode("utf-8")), events=("start", ))
     packages = set()
     for (event, elem) in context:
         if elem.tag == "item":

@@ -56,9 +56,11 @@ def borg_eval_cmds():
        ("https://api.github.com/repos/NixOS/nixpkgs/pulls/37200", mock_open(read_data=read_asset("github-pull-37200.json"))()),
        ("https://api.github.com/repos/NixOS/nixpkgs/statuses/aa02248781700e8a4030f1e1c7ee5aa1bd835226", mock_open(read_data=read_asset("github-pull-37200-statuses.json"))()),
        ("https://gist.githubusercontent.com/GrahamcOfBorg/4c9ebc3e608308c6096202375b0dc902/raw/", read_asset("gist-37200.txt").encode("utf-8").split(b"\n")),
-       (['git', 'fetch', '--force', 'https://github.com/NixOS/nixpkgs', 'pull/37200/head:refs/nix-review/0'], 0),
+       (['git', 'fetch', '--force', 'https://github.com/NixOS/nixpkgs', 'master:refs/nix-review/0', 'pull/37200/head:refs/nix-review/1'], 0),
        (['git', 'rev-parse', '--verify', 'refs/nix-review/0'], b"hash1"),
+       (['git', 'rev-parse', '--verify', 'refs/nix-review/1'], b"hash2"),
        (['git', 'worktree', 'add', './.review/pr-37200', 'hash1'], 0),
+       (['git', 'merge', 'hash2', '-m', 'auto merge'], 0),
        (['nix', 'eval', '--raw', 'nixpkgs.system'], b"x86_64-linux"),
    ]
 
