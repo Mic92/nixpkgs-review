@@ -73,7 +73,7 @@ build_cmds = [
      '--option', 'build-use-sandbox', 'true',
      '--builders', 'ssh://joerg@10.243.29.170 aarch64-linux',
      '<nixpkgs>',
-     '-A', 'pong3d'], 0),
+     '-p', 'pong3d'], 0),
    (['nix-shell', '-p', 'pong3d'], 0),
    (['git', 'worktree', 'prune'], 0)
 ]
