@@ -131,7 +131,7 @@ def build_in_path(path, attrs, args):
     ] + shlex.split(args)
     command.append('<nixpkgs>')
     for a in working_attrs:
-        command.append("-A")
+        command.append("-p")
         command.append(a)
 
     try:
