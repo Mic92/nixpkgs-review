@@ -17,6 +17,12 @@ class Review():
         self.worktree_dir = worktree_dir
         self.build_args = build_args
 
+    def git_merge(self, commit):
+        sh([
+            "git", "merge", commit, "--no-commit"
+        ],
+           cwd=self.worktree_dir)
+
     def build_commit(self, base_commit, reviewed_commit):
         """
         Review a local git commit
@@ -24,8 +30,7 @@ class Review():
         git_worktree(self.worktree_dir, base_commit)
         base_packages = list_packages(self.worktree_dir)
 
-        sh(["git", "merge", reviewed_commit, "-m", "auto merge"],
-           cwd=self.worktree_dir)
+        self.git_merge(reviewed_commit)
 
         merged_packages = list_packages(self.worktree_dir, check_meta=True)
 
@@ -40,7 +45,7 @@ class Review():
             return self.build_commit(base_rev, pr_rev)
         else:
             git_worktree(self.worktree_dir, base_rev)
-            sh(["git", "merge", pr_rev, "-m", "auto merge"], cwd=self.worktree_dir)
+            self.git_merge(pr_rev)
             system = subprocess.check_output(
                 ["nix", "eval", "--raw", "nixpkgs.system"]).decode("utf-8")
             packages = packages_per_system[system]
