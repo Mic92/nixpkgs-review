@@ -18,10 +18,7 @@ class Review():
         self.build_args = build_args
 
     def git_merge(self, commit):
-        sh([
-            "git", "merge", commit, "--no-commit"
-        ],
-           cwd=self.worktree_dir)
+        sh(["git", "merge", commit, "--no-commit"], cwd=self.worktree_dir)
 
     def build_commit(self, base_commit, reviewed_commit):
         """
@@ -124,7 +121,7 @@ def build_in_path(path, attrs, args):
         return working_attrs
     print("Building in {}: {}".format(result_dir, " ".join(working_attrs)))
     command = [
-        "nix-build",
+        "nix-shell",
         "--no-out-link",
         "--keep-going",
         "--max-jobs",
@@ -132,9 +129,9 @@ def build_in_path(path, attrs, args):
         # only matters for single-user nix and trusted users
         "--option",
         "build-use-sandbox",
-        "true"
+        "true",
+        "--run", "true",
     ] + shlex.split(args)
-    command.append('<nixpkgs>')
     for a in working_attrs:
         command.append("-p")
         command.append(a)

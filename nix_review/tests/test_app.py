@@ -66,13 +66,13 @@ def borg_eval_cmds():
 
 build_cmds = [
    (['nix', 'eval', '--json', '(with import <nixpkgs> {}; {\n\t"pong3d" = (builtins.tryEval "${pong3d}").success;\n})'], b'{"pong3d":true}'),
-   (['nix-build',
+   (['nix-shell',
      '--no-out-link',
      '--keep-going',
      '--max-jobs', str(multiprocessing.cpu_count()),
      '--option', 'build-use-sandbox', 'true',
+     '--run', 'true',
      '--builders', 'ssh://joerg@10.243.29.170 aarch64-linux',
-     '<nixpkgs>',
      '-p', 'pong3d'], 0),
    (['nix-shell', '-p', 'pong3d'], 0),
    (['git', 'worktree', 'prune'], 0)
