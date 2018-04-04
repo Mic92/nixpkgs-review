@@ -58,7 +58,7 @@ $ nix-shell -p redis
 redis-cli 4.0.8
 ```
 
-To review a local command without pull request, use the following command:
+To review a local commit without pull request, use the following command:
 
 ```
 $ nix-review rev HEAD
