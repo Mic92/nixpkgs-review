@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="nix-review",
-    version="0.0.1",
+    version="0.1.1",
     description="Review nixpkgs pull requests",
     author="Jörg Thalheim",
     author_email="joerg@thalheim.io",
