@@ -18,7 +18,10 @@ class Review():
         self.build_args = build_args
 
     def git_merge(self, commit):
-        sh(["git", "merge", commit, "--no-commit"], cwd=self.worktree_dir)
+        sh([
+            "git", "merge", commit, "--no-commit", "--author", "Snail Mail <>"
+        ],
+           cwd=self.worktree_dir)
 
     def build_commit(self, base_commit, reviewed_commit):
         """
@@ -130,7 +133,8 @@ def build_in_path(path, attrs, args):
         "--option",
         "build-use-sandbox",
         "true",
-        "--run", "true",
+        "--run",
+        "true",
     ] + shlex.split(args)
     for a in working_attrs:
         command.append("-p")

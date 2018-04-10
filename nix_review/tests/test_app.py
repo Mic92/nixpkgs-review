@@ -47,7 +47,7 @@ def local_eval_cmds():
        (['git', 'rev-parse', '--verify', 'refs/nix-review/1'], b"hash2"),
        (['git', 'worktree', 'add', './.review/pr-1', 'hash1'], 0),
        (['nix-env', '-f', './.review/pr-1', '-qaP', '--xml', '--out-path', '--show-trace'], b"<items></items>"),
-       (['git', 'merge', 'hash2', '--no-commit'], 0),
+       (['git', 'merge', 'hash2', '--no-commit', '--author', 'Snail Mail <>'], 0),
        (['nix-env', '-f', './.review/pr-1', '-qaP', '--xml', '--out-path', '--show-trace', '--meta'], pkg_list),
     ]
 
@@ -60,7 +60,7 @@ def borg_eval_cmds():
        (['git', 'rev-parse', '--verify', 'refs/nix-review/0'], b"hash1"),
        (['git', 'rev-parse', '--verify', 'refs/nix-review/1'], b"hash2"),
        (['git', 'worktree', 'add', './.review/pr-37200', 'hash1'], 0),
-       (['git', 'merge', 'hash2', '--no-commit'], 0),
+       (['git', 'merge', 'hash2', '--no-commit', '--author', 'Snail Mail <>'], 0),
        (['nix', 'eval', '--raw', 'nixpkgs.system'], b"x86_64-linux"),
    ]
 
