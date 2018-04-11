@@ -19,7 +19,7 @@ class Review():
 
     def git_merge(self, commit):
         sh([
-            "git", "merge", commit, "--no-commit", "--author", "Snail Mail <>"
+            "git", "merge", "--no-commit", commit
         ],
            cwd=self.worktree_dir)
 
