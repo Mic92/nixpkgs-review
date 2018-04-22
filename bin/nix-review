@@ -8,7 +8,7 @@ if sys.version_info < (3, 6):
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 
-from nix_review import main
+from nix_review import main  # NOQA
 
 if __name__ == "__main__":
     main()

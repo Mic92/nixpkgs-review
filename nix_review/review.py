@@ -5,25 +5,41 @@ import xml.etree.ElementTree as ET
 import multiprocessing
 import json
 import urllib.request
+import urllib.parse
 import io
 from collections import defaultdict
 import shlex
+from typing import List, Dict, Tuple, Any, DefaultDict, Set
 
 from .utils import sh
 
 
+class GithubClient():
+    def __init__(self, api_token):
+        self.api_token = api_token
+
+    def get(self, path: str) -> Any:
+        url = urllib.parse.urljoin("https://api.github.com/", path)
+        req = urllib.request.Request(url)
+        if self.api_token:
+            req.add_header("Authorization", f"token {self.api_token}")
+        return json.loads(urllib.request.urlopen(req).read())
+
+
 class Review():
-    def __init__(self, worktree_dir, build_args):
+    def __init__(self,
+                 worktree_dir: str,
+                 build_args: str,
+                 api_token: str = None) -> None:
         self.worktree_dir = worktree_dir
         self.build_args = build_args
+        self.github_client = GithubClient(api_token)
 
-    def git_merge(self, commit):
-        sh([
-            "git", "merge", "--no-commit", commit
-        ],
-           cwd=self.worktree_dir)
+    def git_merge(self, commit: str) -> None:
+        sh(["git", "merge", "--no-commit", commit], cwd=self.worktree_dir)
 
-    def build_commit(self, base_commit, reviewed_commit):
+    def build_commit(self, base_commit: str,
+                     reviewed_commit: str) -> List[str]:
         """
         Review a local git commit
         """
@@ -37,8 +53,8 @@ class Review():
         attrs = differences(base_packages, merged_packages)
         return build_in_path(self.worktree_dir, attrs, self.build_args)
 
-    def build_pr(self, pr):
-        packages_per_system = get_borg_eval_gist(pr)
+    def build_pr(self, pr: Dict[str, Any]) -> List[str]:
+        packages_per_system = self.get_borg_eval_gist(pr)
         (base_rev, pr_rev) = fetch_refs(pr["base"]["ref"],
                                         f"pull/{pr['number']}/head")
         if packages_per_system is None:
@@ -51,24 +67,41 @@ class Review():
             packages = packages_per_system[system]
             return build_in_path(self.worktree_dir, packages, self.build_args)
 
-    def review_commit(self, branch, reviewed_commit):
+    def review_commit(self, branch: str, reviewed_commit: str) -> None:
         branch_rev = fetch_refs(branch)[0]
         attrs = self.build_commit(branch_rev, reviewed_commit)
         if attrs:
             nix_shell(attrs)
 
-    def review_pr(self, pr_number):
+    def review_pr(self, pr_number: int) -> None:
         """
         Review a pull request from the nixpkgs github repository
         """
-        api_url = f"https://api.github.com/repos/NixOS/nixpkgs/pulls/{pr_number}"
-        pr = json.load(urllib.request.urlopen(api_url))
+        pr = self.github_client.get(f"repos/NixOS/nixpkgs/pulls/{pr_number}")
         attrs = self.build_pr(pr)
         if attrs:
             nix_shell(attrs)
 
+    def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Dict[str, Any]:
+        packages_per_system: DefaultDict[str, list] = defaultdict(list)
+        statuses = self.github_client.get(pr["statuses_url"])
+        for status in statuses:
+            url = status.get("target_url", "")
+            if status["description"] == "^.^!" and \
+               status["creator"]["login"] == "GrahamcOfBorg" and \
+               url != "":
+                url = urllib.parse.urlparse(url)
+                raw_gist_url = f"https://gist.githubusercontent.com/GrahamcOfBorg{url.path}/raw/"
+                for line in urllib.request.urlopen(raw_gist_url):
+                    if line == b"":
+                        break
+                    system, attribute = line.decode("utf-8").split()
+                    packages_per_system[system].append(attribute)
+                return packages_per_system
+        return None
 
-def nix_shell(attrs):
+
+def nix_shell(attrs: List[str]) -> None:
     cmd = ["nix-shell"]
     for a in attrs:
         cmd.append(f"-p")
@@ -76,30 +109,11 @@ def nix_shell(attrs):
     sh(cmd)
 
 
-def get_borg_eval_gist(pr):
-    packages_per_system = defaultdict(list)
-    statuses = json.load(urllib.request.urlopen(pr["statuses_url"]))
-    for status in statuses:
-        url = status.get("target_url", "")
-        if status["description"] == "^.^!" and \
-           status["creator"]["login"] == "GrahamcOfBorg" and \
-           url != "":
-            url = urllib.parse.urlparse(url)
-            raw_gist_url = f"https://gist.githubusercontent.com/GrahamcOfBorg{url.path}/raw/"
-            for line in urllib.request.urlopen(raw_gist_url):
-                if line == b"":
-                    break
-                system, attribute = line.decode("utf-8").split()
-                packages_per_system[system].append(attribute)
-            return packages_per_system
-    return None
-
-
-def git_worktree(worktree_dir, commit):
+def git_worktree(worktree_dir: str, commit: str) -> None:
     sh(["git", "worktree", "add", worktree_dir, commit])
 
 
-def filter_broken_attrs(attrs):
+def filter_broken_attrs(attrs: Set[str]) -> List[str]:
     expression = "(with import <nixpkgs> {}; {\n"
     for attr in attrs:
         expression += '\t"%s" = (builtins.tryEval "${%s}").success;\n' % (attr,
@@ -110,7 +124,7 @@ def filter_broken_attrs(attrs):
     return list(filter(lambda attr: evaluates[attr], attrs))
 
 
-def build_in_path(path, attrs, args):
+def build_in_path(path: str, attrs: Set[str], args: str) -> List[str]:
     if not attrs:
         print("Nothing changed")
         return []
@@ -153,7 +167,10 @@ def build_in_path(path, attrs, args):
         raise
 
 
-def list_packages(path, check_meta=False):
+PackageSet = Set[Tuple[str, str]]
+
+
+def list_packages(path: str, check_meta=False) -> PackageSet:
     cmd = [
         "nix-env", "-f", path, "-qaP", "--xml", "--out-path", "--show-trace"
     ]
@@ -173,7 +190,7 @@ def list_packages(path, check_meta=False):
     return packages
 
 
-def fetch_refs(*refs):
+def fetch_refs(*refs: str) -> List[str]:
     cmd = ["git", "fetch", "--force", "https://github.com/NixOS/nixpkgs"]
     for i, ref in enumerate(refs):
         cmd.append(f"{ref}:refs/nix-review/{i}")
@@ -186,6 +203,6 @@ def fetch_refs(*refs):
     return shas
 
 
-def differences(old, new):
+def differences(old: PackageSet, new: PackageSet) -> Set[str]:
     raw = new - old
     return {l[0] for l in raw}
