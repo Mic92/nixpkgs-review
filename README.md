@@ -76,6 +76,17 @@ $ nix-review --build-args="--builders 'ssh://joerg@10.243.29.170'" pr 37244
 
 This allows to parallelize builds across multiple machines.
 
+## Github api token
+
+In case your IP exceeds the rate limit, github will return an 403 error message.
+To increase your limit first create a [personal access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/).
+Then use either the `--token` parameter of the `pr` subcommand or
+set the `GITHUB_OAUTH_TOKEN` environment variable.
+
+```console
+$ nix-review pr --token "5ae04810f1e9f17c3297ee4c9e25f3ac1f437c26" 37244
+```
+
 ## Roadmap
 
 - [ ] Build multiple pull requests in parallel and review in serial.
@@ -91,6 +102,12 @@ Just like `nix-review` also the tests are lightning fast:
 
 ```console
 $ python3 -m unittest discover .
+```
+
+We also use python3's type hints. To check them use `mypy`:
+
+```console
+$ mypy nix_review
 ```
 
 ## Related projects:
