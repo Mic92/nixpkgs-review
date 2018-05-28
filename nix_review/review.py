@@ -9,7 +9,7 @@ import urllib.parse
 import io
 from collections import defaultdict
 import shlex
-from typing import List, Dict, Tuple, Any, DefaultDict, Set
+from typing import List, Dict, Tuple, Any, DefaultDict, Set, Optional
 
 from .utils import sh
 
@@ -82,7 +82,7 @@ class Review():
         if attrs:
             nix_shell(attrs)
 
-    def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Dict[str, Any]:
+    def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         packages_per_system: DefaultDict[str, list] = defaultdict(list)
         statuses = self.github_client.get(pr["statuses_url"])
         for status in statuses:

@@ -4,7 +4,7 @@ import os
 import shutil
 import tempfile
 from contextlib import contextmanager
-from typing import List, Generator
+from typing import List, Generator, Optional
 
 from .utils import sh
 from .review import Review
@@ -62,7 +62,7 @@ def die(message: str) -> None:
     sys.exit(1)
 
 
-def find_nixpkgs_root() -> str:
+def find_nixpkgs_root() -> Optional[str]:
     prefix = ["."]
     release_nix = ["nixos", "release.nix"]
     while True:
@@ -96,8 +96,8 @@ def main(command: str, raw_args: List[str]) -> None:
     root = find_nixpkgs_root()
     if root is None:
         die("Has to be execute from nixpkgs repository")
-
-    os.chdir(root)
+    else:
+        os.chdir(root)
 
     args = parse_args(command, raw_args)
     args.func(args)
