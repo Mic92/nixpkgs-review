@@ -15,7 +15,7 @@ from .utils import sh
 
 
 class GithubClient():
-    def __init__(self, api_token):
+    def __init__(self, api_token: Optional[str]) -> None:
         self.api_token = api_token
 
     def get(self, path: str) -> Any:
@@ -170,7 +170,7 @@ def build_in_path(path: str, attrs: Set[str], args: str) -> List[str]:
 PackageSet = Set[Tuple[str, str]]
 
 
-def list_packages(path: str, check_meta=False) -> PackageSet:
+def list_packages(path: str, check_meta: bool=False) -> PackageSet:
     cmd = [
         "nix-env", "-f", path, "-qaP", "--xml", "--out-path", "--show-trace"
     ]
