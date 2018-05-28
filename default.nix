@@ -1,8 +1,9 @@
 with import <nixpkgs> {};
 
-python3.pkgs.buildPythonApplication {
+python3.pkgs.buildPythonApplication rec {
   name = "nix-review";
   src = ./.;
+  env = buildEnv { inherit name; paths = buildInputs ++ checkInputs; };
   buildInputs = [ makeWrapper ];
   checkInputs = [ mypy ];
   checkPhase = ''
