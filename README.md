@@ -24,6 +24,11 @@ $ nix-build
 ./result/bin/nix-review
 ```
 
+### Development Environment
+```console
+$ nix-build -A env -o .venv
+```
+
 or just use:
 
 ```console
