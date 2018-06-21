@@ -2,18 +2,49 @@ import argparse
 import sys
 import os
 import shutil
+import re
 import tempfile
 from contextlib import contextmanager
 from typing import List, Generator, Optional
 
 from .utils import sh
-from .review import Review
+from .review import Review, nix_shell
+
+
+def parse_pr_numbers(number_args: List[str]) -> List[int]:
+    prs: List[int] = []
+    for arg in number_args:
+        m = re.match(r"(\d+)-(\d+)", arg)
+        if m:
+            prs.extend(range(int(m.group(1)), int(m.group(2))))
+        else:
+            try:
+                prs.append(int(arg))
+            except ValueError:
+                print(f"expected number, got {m}", file=sys.stderr)
+                sys.exit(1)
+    return prs
+
+
+def _pr_command(prs: List[int], build_args: str, token: str):
+    if prs == []:
+        return None
+    pr = prs[0]
+    with worktree(f"pr-{pr}") as worktree_dir:
+        r = Review(worktree_dir, build_args, token)
+        attrs = r.build_pr(pr)
+        try:
+            res = _pr_command(prs[1:], build_args, token)
+        finally:
+            print(f"https://github.com/NixOS/nixpkgs/pull/{pr}")
+            if attrs:
+                nix_shell(attrs)
+    return res
 
 
 def pr_command(args: argparse.Namespace) -> None:
-    with worktree(f"pr-{args.number}") as worktree_dir:
-        r = Review(worktree_dir, args.build_args, args.token)
-        r.review_pr(args.number)
+    prs = parse_pr_numbers(args.number)
+    _pr_command(prs, args.build_args, args.token)
 
 
 def rev_command(args: argparse.Namespace) -> None:
@@ -43,7 +74,7 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
         default=os.environ.get("GITHUB_OAUTH_TOKEN", None),
         help="Github access token (optional if request limit exceeds)")
     pr_parser.add_argument(
-        "number", type=int, help="the nixpkgs pull request number")
+        "number", nargs="+", help="one or more nixpkgs pull request numbers (ranges are also supported)")
     pr_parser.set_defaults(func=pr_command)
 
     rev_parser = subparsers.add_parser(
@@ -83,13 +114,15 @@ def worktree(name: str) -> Generator[str, None, None]:
         with tempfile.NamedTemporaryFile() as cfg:
             cfg.write(b"pkgs: { allowUnfree = true; }")
             cfg.flush()
+            environ = os.environ.copy()
             os.environ["NIXPKGS_CONFIG"] = cfg.name
-            os.environ[
-                "NIX_PATH"] = f"nixpkgs={os.path.realpath(worktree_dir)}"
+            os.environ["NIX_PATH"] = f"nixpkgs={os.path.realpath(worktree_dir)}"
             yield worktree_dir
     finally:
         shutil.rmtree(worktree_dir)
         sh(["git", "worktree", "prune"])
+        os.environ.clear()
+        os.environ.update(environ)
 
 
 def main(command: str, raw_args: List[str]) -> None:

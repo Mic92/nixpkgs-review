@@ -39,7 +39,7 @@ class Review():
         sh(["git", "merge", "--no-commit", commit], cwd=self.worktree_dir)
 
     def build_commit(self, base_commit: str,
-                     reviewed_commit: str) -> List[str]:
+            reviewed_commit: str) -> List[str]:
         """
         Review a local git commit
         """
@@ -53,7 +53,8 @@ class Review():
         attrs = differences(base_packages, merged_packages)
         return build_in_path(self.worktree_dir, attrs, self.build_args)
 
-    def build_pr(self, pr: Dict[str, Any]) -> List[str]:
+    def build_pr(self, pr_number: int) -> List[str]:
+        pr = self.github_client.get(f"repos/NixOS/nixpkgs/pulls/{pr_number}")
         packages_per_system = self.get_borg_eval_gist(pr)
         (base_rev, pr_rev) = fetch_refs(pr["base"]["ref"],
                                         f"pull/{pr['number']}/head")
@@ -77,12 +78,12 @@ class Review():
         """
         Review a pull request from the nixpkgs github repository
         """
-        pr = self.github_client.get(f"repos/NixOS/nixpkgs/pulls/{pr_number}")
-        attrs = self.build_pr(pr)
+        attrs = self.build_pr(pr_number)
         if attrs:
             nix_shell(attrs)
 
-    def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def get_borg_eval_gist(self,
+                           pr: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         packages_per_system: DefaultDict[str, list] = defaultdict(list)
         statuses = self.github_client.get(pr["statuses_url"])
         for status in statuses:
@@ -170,7 +171,7 @@ def build_in_path(path: str, attrs: Set[str], args: str) -> List[str]:
 PackageSet = Set[Tuple[str, str]]
 
 
-def list_packages(path: str, check_meta: bool=False) -> PackageSet:
+def list_packages(path: str, check_meta: bool = False) -> PackageSet:
     cmd = [
         "nix-env", "-f", path, "-qaP", "--xml", "--out-path", "--show-trace"
     ]
