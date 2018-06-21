@@ -30,7 +30,7 @@ class Review():
     def __init__(self,
                  worktree_dir: str,
                  build_args: str,
-                 api_token: str = None) -> None:
+                 api_token: Optional[str] = None) -> None:
         self.worktree_dir = worktree_dir
         self.build_args = build_args
         self.github_client = GithubClient(api_token)

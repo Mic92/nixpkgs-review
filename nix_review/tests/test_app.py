@@ -13,7 +13,7 @@ class IgnoreArgument:
     pass
 
 
-def read_asset(asset):
+def read_asset(asset: str) -> str:
     with open(os.path.join(TEST_ROOT, "assets", asset)) as f:
         return f.read()
 

@@ -26,7 +26,7 @@ def parse_pr_numbers(number_args: List[str]) -> List[int]:
     return prs
 
 
-def _pr_command(prs: List[int], build_args: str, token: str):
+def _pr_command(prs: List[int], build_args: str, token: str) -> None:
     if prs == []:
         return None
     pr = prs[0]
@@ -34,12 +34,11 @@ def _pr_command(prs: List[int], build_args: str, token: str):
         r = Review(worktree_dir, build_args, token)
         attrs = r.build_pr(pr)
         try:
-            res = _pr_command(prs[1:], build_args, token)
+            _pr_command(prs[1:], build_args, token)
         finally:
             print(f"https://github.com/NixOS/nixpkgs/pull/{pr}")
             if attrs:
                 nix_shell(attrs)
-    return res
 
 
 def pr_command(args: argparse.Namespace) -> None:
