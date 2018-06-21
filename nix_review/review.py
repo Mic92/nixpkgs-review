@@ -39,7 +39,7 @@ class Review():
         sh(["git", "merge", "--no-commit", commit], cwd=self.worktree_dir)
 
     def build_commit(self, base_commit: str,
-            reviewed_commit: str) -> List[str]:
+                     reviewed_commit: str) -> List[str]:
         """
         Review a local git commit
         """
