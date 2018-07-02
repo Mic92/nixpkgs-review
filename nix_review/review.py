@@ -30,10 +30,12 @@ class Review():
     def __init__(self,
                  worktree_dir: str,
                  build_args: str,
-                 api_token: Optional[str] = None) -> None:
+                 api_token: Optional[str] = None,
+                 use_ofborg_eval: Optional[bool] = True) -> None:
         self.worktree_dir = worktree_dir
         self.build_args = build_args
         self.github_client = GithubClient(api_token)
+        self.use_ofborg_eval = use_ofborg_eval
 
     def git_merge(self, commit: str) -> None:
         sh(["git", "merge", "--no-commit", commit], cwd=self.worktree_dir)
@@ -55,7 +57,10 @@ class Review():
 
     def build_pr(self, pr_number: int) -> List[str]:
         pr = self.github_client.get(f"repos/NixOS/nixpkgs/pulls/{pr_number}")
-        packages_per_system = self.get_borg_eval_gist(pr)
+        if self.use_ofborg_eval:
+            packages_per_system = self.get_borg_eval_gist(pr)
+        else:
+            packages_per_system = None
         (base_rev, pr_rev) = fetch_refs(pr["base"]["ref"],
                                         f"pull/{pr['number']}/head")
         if packages_per_system is None:

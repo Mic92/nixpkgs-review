@@ -26,15 +26,15 @@ def parse_pr_numbers(number_args: List[str]) -> List[int]:
     return prs
 
 
-def _pr_command(prs: List[int], build_args: str, token: str) -> None:
+def _pr_command(prs: List[int], build_args: str, token: str, use_ofborg_eval: bool) -> None:
     if prs == []:
         return None
     pr = prs[0]
     with worktree(f"pr-{pr}") as worktree_dir:
-        r = Review(worktree_dir, build_args, token)
+        r = Review(worktree_dir, build_args, token, use_ofborg_eval)
         attrs = r.build_pr(pr)
         try:
-            _pr_command(prs[1:], build_args, token)
+            _pr_command(prs[1:], build_args, token, use_ofborg_eval)
         finally:
             print(f"https://github.com/NixOS/nixpkgs/pull/{pr}")
             if attrs:
@@ -43,7 +43,8 @@ def _pr_command(prs: List[int], build_args: str, token: str) -> None:
 
 def pr_command(args: argparse.Namespace) -> None:
     prs = parse_pr_numbers(args.number)
-    _pr_command(prs, args.build_args, args.token)
+    use_ofborg_eval = args.eval == "ofborg"
+    _pr_command(prs, args.build_args, args.token, use_ofborg_eval)
 
 
 def rev_command(args: argparse.Namespace) -> None:
@@ -72,6 +73,9 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
         type=str,
         default=os.environ.get("GITHUB_OAUTH_TOKEN", None),
         help="Github access token (optional if request limit exceeds)")
+    pr_parser.add_argument(
+        "--eval", default="ofborg", choices=["ofborg", "local"],
+        help="whether to use ofborg's evaluation result")
     pr_parser.add_argument(
         "number", nargs="+", help="one or more nixpkgs pull request numbers (ranges are also supported)")
     pr_parser.set_defaults(func=pr_command)
