@@ -14,7 +14,7 @@ from typing import List, Dict, Tuple, Any, DefaultDict, Set, Optional
 from .utils import sh
 
 
-class GithubClient():
+class GithubClient:
     def __init__(self, api_token: Optional[str]) -> None:
         self.api_token = api_token
 
@@ -26,12 +26,14 @@ class GithubClient():
         return json.loads(urllib.request.urlopen(req).read())
 
 
-class Review():
-    def __init__(self,
-                 worktree_dir: str,
-                 build_args: str,
-                 api_token: Optional[str] = None,
-                 use_ofborg_eval: Optional[bool] = True) -> None:
+class Review:
+    def __init__(
+        self,
+        worktree_dir: str,
+        build_args: str,
+        api_token: Optional[str] = None,
+        use_ofborg_eval: Optional[bool] = True,
+    ) -> None:
         self.worktree_dir = worktree_dir
         self.build_args = build_args
         self.github_client = GithubClient(api_token)
@@ -40,8 +42,7 @@ class Review():
     def git_merge(self, commit: str) -> None:
         sh(["git", "merge", "--no-commit", commit], cwd=self.worktree_dir)
 
-    def build_commit(self, base_commit: str,
-                     reviewed_commit: str) -> List[str]:
+    def build_commit(self, base_commit: str, reviewed_commit: str) -> List[str]:
         """
         Review a local git commit
         """
@@ -61,15 +62,15 @@ class Review():
             packages_per_system = self.get_borg_eval_gist(pr)
         else:
             packages_per_system = None
-        (base_rev, pr_rev) = fetch_refs(pr["base"]["ref"],
-                                        f"pull/{pr['number']}/head")
+        (base_rev, pr_rev) = fetch_refs(pr["base"]["ref"], f"pull/{pr['number']}/head")
         if packages_per_system is None:
             return self.build_commit(base_rev, pr_rev)
         else:
             git_worktree(self.worktree_dir, base_rev)
             self.git_merge(pr_rev)
             system = subprocess.check_output(
-                ["nix", "eval", "--raw", "nixpkgs.system"]).decode("utf-8")
+                ["nix", "eval", "--raw", "nixpkgs.system"]
+            ).decode("utf-8")
             packages = packages_per_system[system]
             return build_in_path(self.worktree_dir, packages, self.build_args)
 
@@ -87,17 +88,20 @@ class Review():
         if attrs:
             nix_shell(attrs)
 
-    def get_borg_eval_gist(self,
-                           pr: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         packages_per_system: DefaultDict[str, list] = defaultdict(list)
         statuses = self.github_client.get(pr["statuses_url"])
         for status in statuses:
             url = status.get("target_url", "")
-            if status["description"] == "^.^!" and \
-               status["creator"]["login"] == "GrahamcOfBorg" and \
-               url != "":
+            if (
+                status["description"] == "^.^!"
+                and status["creator"]["login"] == "GrahamcOfBorg"
+                and url != ""
+            ):
                 url = urllib.parse.urlparse(url)
-                raw_gist_url = f"https://gist.githubusercontent.com/GrahamcOfBorg{url.path}/raw/"
+                raw_gist_url = (
+                    f"https://gist.githubusercontent.com/GrahamcOfBorg{url.path}/raw/"
+                )
                 for line in urllib.request.urlopen(raw_gist_url):
                     if line == b"":
                         break
@@ -122,8 +126,7 @@ def git_worktree(worktree_dir: str, commit: str) -> None:
 def filter_broken_attrs(attrs: Set[str]) -> List[str]:
     expression = "(with import <nixpkgs> {}; {\n"
     for attr in attrs:
-        expression += '\t"%s" = (builtins.tryEval "${%s}").success;\n' % (attr,
-                                                                          attr)
+        expression += '\t"%s" = (builtins.tryEval "${%s}").success;\n' % (attr, attr)
     expression += "})"
     cmd = ["nix", "eval", "--json", expression]
     evaluates = json.loads(subprocess.check_output(cmd))
@@ -177,14 +180,11 @@ PackageSet = Set[Tuple[str, str]]
 
 
 def list_packages(path: str, check_meta: bool = False) -> PackageSet:
-    cmd = [
-        "nix-env", "-f", path, "-qaP", "--xml", "--out-path", "--show-trace"
-    ]
+    cmd = ["nix-env", "-f", path, "-qaP", "--xml", "--out-path", "--show-trace"]
     if check_meta:
         cmd.append("--meta")
     output = subprocess.check_output(cmd)
-    context = ET.iterparse(
-        io.StringIO(output.decode("utf-8")), events=("start", ))
+    context = ET.iterparse(io.StringIO(output.decode("utf-8")), events=("start",))
     packages = set()
     for (event, elem) in context:
         if elem.tag == "item":
@@ -204,7 +204,8 @@ def fetch_refs(*refs: str) -> List[str]:
     shas = []
     for i, ref in enumerate(refs):
         o = subprocess.check_output(
-            ["git", "rev-parse", "--verify", f"refs/nix-review/{i}"])
+            ["git", "rev-parse", "--verify", f"refs/nix-review/{i}"]
+        )
         shas.append(o.strip().decode("utf-8"))
     return shas
 

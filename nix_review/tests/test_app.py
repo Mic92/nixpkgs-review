@@ -45,99 +45,168 @@ pkg_list = read_asset("package_list_after.txt").encode("utf-8")
 
 def local_eval_cmds():
     return [
-        (IgnoreArgument,
-         mock_open(read_data=read_asset("github-pull-1.json"))()),
-        (IgnoreArgument,
-         mock_open(read_data=read_asset("github-pull-1-statuses.json"))()),
-        ([
-            'git', 'fetch', '--force', 'https://github.com/NixOS/nixpkgs',
-            'master:refs/nix-review/0', 'pull/1/head:refs/nix-review/1'
-        ], 0),
-        (['git', 'rev-parse', '--verify', 'refs/nix-review/0'], b"hash1"),
-        (['git', 'rev-parse', '--verify', 'refs/nix-review/1'], b"hash2"),
-        (['git', 'worktree', 'add', './.review/pr-1', 'hash1'], 0),
-        ([
-            'nix-env', '-f', './.review/pr-1', '-qaP', '--xml', '--out-path',
-            '--show-trace'
-        ], b"<items></items>"),
-        (['git', 'merge', '--no-commit', 'hash2'], 0),
-        ([
-            'nix-env', '-f', './.review/pr-1', '-qaP', '--xml', '--out-path',
-            '--show-trace', '--meta'
-        ], pkg_list),
+        (IgnoreArgument, mock_open(read_data=read_asset("github-pull-1.json"))()),
+        (
+            IgnoreArgument,
+            mock_open(read_data=read_asset("github-pull-1-statuses.json"))(),
+        ),
+        (
+            [
+                "git",
+                "fetch",
+                "--force",
+                "https://github.com/NixOS/nixpkgs",
+                "master:refs/nix-review/0",
+                "pull/1/head:refs/nix-review/1",
+            ],
+            0,
+        ),
+        (["git", "rev-parse", "--verify", "refs/nix-review/0"], b"hash1"),
+        (["git", "rev-parse", "--verify", "refs/nix-review/1"], b"hash2"),
+        (["git", "worktree", "add", "./.review/pr-1", "hash1"], 0),
+        (
+            [
+                "nix-env",
+                "-f",
+                "./.review/pr-1",
+                "-qaP",
+                "--xml",
+                "--out-path",
+                "--show-trace",
+            ],
+            b"<items></items>",
+        ),
+        (["git", "merge", "--no-commit", "hash2"], 0),
+        (
+            [
+                "nix-env",
+                "-f",
+                "./.review/pr-1",
+                "-qaP",
+                "--xml",
+                "--out-path",
+                "--show-trace",
+                "--meta",
+            ],
+            pkg_list,
+        ),
     ]
 
 
 def borg_eval_cmds():
     return [
-        (IgnoreArgument,
-         mock_open(read_data=read_asset("github-pull-37200.json"))()),
-        (IgnoreArgument,
-         mock_open(read_data=read_asset("github-pull-37200-statuses.json"))()),
-        ("https://gist.githubusercontent.com/GrahamcOfBorg/4c9ebc3e608308c6096202375b0dc902/raw/",
-         read_asset("gist-37200.txt").encode("utf-8").split(b"\n")),
-        ([
-            'git', 'fetch', '--force', 'https://github.com/NixOS/nixpkgs',
-            'master:refs/nix-review/0', 'pull/37200/head:refs/nix-review/1'
-        ], 0),
-        (['git', 'rev-parse', '--verify', 'refs/nix-review/0'], b"hash1"),
-        (['git', 'rev-parse', '--verify', 'refs/nix-review/1'], b"hash2"),
-        (['git', 'worktree', 'add', './.review/pr-37200', 'hash1'], 0),
-        (['git', 'merge', '--no-commit', 'hash2'], 0),
-        (['nix', 'eval', '--raw', 'nixpkgs.system'], b"x86_64-linux"),
+        (IgnoreArgument, mock_open(read_data=read_asset("github-pull-37200.json"))()),
+        (
+            IgnoreArgument,
+            mock_open(read_data=read_asset("github-pull-37200-statuses.json"))(),
+        ),
+        (
+            "https://gist.githubusercontent.com/GrahamcOfBorg/4c9ebc3e608308c6096202375b0dc902/raw/",
+            read_asset("gist-37200.txt").encode("utf-8").split(b"\n"),
+        ),
+        (
+            [
+                "git",
+                "fetch",
+                "--force",
+                "https://github.com/NixOS/nixpkgs",
+                "master:refs/nix-review/0",
+                "pull/37200/head:refs/nix-review/1",
+            ],
+            0,
+        ),
+        (["git", "rev-parse", "--verify", "refs/nix-review/0"], b"hash1"),
+        (["git", "rev-parse", "--verify", "refs/nix-review/1"], b"hash2"),
+        (["git", "worktree", "add", "./.review/pr-37200", "hash1"], 0),
+        (["git", "merge", "--no-commit", "hash2"], 0),
+        (["nix", "eval", "--raw", "nixpkgs.system"], b"x86_64-linux"),
     ]
 
 
-build_cmds = [([
-    'nix', 'eval', '--json',
-    '(with import <nixpkgs> {}; {\n\t"pong3d" = (builtins.tryEval "${pong3d}").success;\n})'
-], b'{"pong3d":true}'), ([
-    'nix-shell', '--no-out-link', '--keep-going', '--max-jobs',
-    str(multiprocessing.cpu_count()), '--option', 'build-use-sandbox', 'true',
-    '--run', 'true', '--builders', 'ssh://joerg@10.243.29.170 aarch64-linux',
-    '-p', 'pong3d'
-], 0), (['nix-shell', '-p', 'pong3d'], 0), (['git', 'worktree', 'prune'], 0)]
+build_cmds = [
+    (
+        [
+            "nix",
+            "eval",
+            "--json",
+            '(with import <nixpkgs> {}; {\n\t"pong3d" = (builtins.tryEval "${pong3d}").success;\n})',
+        ],
+        b'{"pong3d":true}',
+    ),
+    (
+        [
+            "nix-shell",
+            "--no-out-link",
+            "--keep-going",
+            "--max-jobs",
+            str(multiprocessing.cpu_count()),
+            "--option",
+            "build-use-sandbox",
+            "true",
+            "--run",
+            "true",
+            "--builders",
+            "ssh://joerg@10.243.29.170 aarch64-linux",
+            "-p",
+            "pong3d",
+        ],
+        0,
+    ),
+    (["nix-shell", "-p", "pong3d"], 0),
+    (["git", "worktree", "prune"], 0),
+]
 
 
 class TestStringMethods(unittest.TestCase):
     def setUp(self):
         os.chdir(os.path.join(TEST_ROOT, "assets/nixpkgs"))
 
-    @patch('urllib.request.urlopen')
-    @patch('subprocess.Popen')
-    @patch('subprocess.check_call')
-    @patch('subprocess.check_output')
-    def test_pr_local_eval(self, mock_check_output, mock_check_call,
-                           mock_popen, mock_urlopen):
+    @patch("urllib.request.urlopen")
+    @patch("subprocess.Popen")
+    @patch("subprocess.check_call")
+    @patch("subprocess.check_output")
+    def test_pr_local_eval(
+        self, mock_check_output, mock_check_call, mock_popen, mock_urlopen
+    ):
         effects = expect_side_effects(self, local_eval_cmds() + build_cmds)
         mock_check_call.side_effect = effects
         mock_popen.stdout.side_effect = effects
         mock_check_output.side_effect = effects
         mock_urlopen.side_effect = effects
 
-        main("nix-review", [
-            "--build-args",
-            '--builders "ssh://joerg@10.243.29.170 aarch64-linux"', "pr", "1"
-        ])
+        main(
+            "nix-review",
+            [
+                "--build-args",
+                '--builders "ssh://joerg@10.243.29.170 aarch64-linux"',
+                "pr",
+                "1",
+            ],
+        )
 
-    @patch('urllib.request.urlopen')
-    @patch('subprocess.Popen')
-    @patch('subprocess.check_call')
-    @patch('subprocess.check_output')
-    def test_pr_borg_eval(self, mock_check_output, mock_check_call, mock_popen,
-                          mock_urlopen):
+    @patch("urllib.request.urlopen")
+    @patch("subprocess.Popen")
+    @patch("subprocess.check_call")
+    @patch("subprocess.check_output")
+    def test_pr_borg_eval(
+        self, mock_check_output, mock_check_call, mock_popen, mock_urlopen
+    ):
         effects = expect_side_effects(self, borg_eval_cmds() + build_cmds)
         mock_check_call.side_effect = effects
         mock_popen.stdout.side_effect = effects
         mock_check_output.side_effect = effects
         mock_urlopen.side_effect = effects
 
-        main("nix-review", [
-            "--build-args",
-            '--builders "ssh://joerg@10.243.29.170 aarch64-linux"', "pr",
-            "37200"
-        ])
+        main(
+            "nix-review",
+            [
+                "--build-args",
+                '--builders "ssh://joerg@10.243.29.170 aarch64-linux"',
+                "pr",
+                "37200",
+            ],
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(failfast=True)

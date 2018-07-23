@@ -26,7 +26,9 @@ def parse_pr_numbers(number_args: List[str]) -> List[int]:
     return prs
 
 
-def _pr_command(prs: List[int], build_args: str, token: str, use_ofborg_eval: bool) -> None:
+def _pr_command(
+    prs: List[int], build_args: str, token: str, use_ofborg_eval: bool
+) -> None:
     if prs == []:
         return None
     pr = prs[0]
@@ -56,36 +58,45 @@ def rev_command(args: argparse.Namespace) -> None:
 def parse_args(command: str, args: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog=command)
     parser.add_argument(
-        "--build-args",
-        default="",
-        help="arguments passed to nix when building")
+        "--build-args", default="", help="arguments passed to nix when building"
+    )
     subparsers = parser.add_subparsers(
         dest="subcommand",
         title="subcommands",
         description="valid subcommands",
-        help="use --help on the additional subcommands")
+        help="use --help on the additional subcommands",
+    )
     subparsers.required = True  # type: ignore
 
-    pr_parser = subparsers.add_parser(
-        "pr", help="review a pull request on nixpkgs")
+    pr_parser = subparsers.add_parser("pr", help="review a pull request on nixpkgs")
     pr_parser.add_argument(
         "--token",
         type=str,
         default=os.environ.get("GITHUB_OAUTH_TOKEN", None),
-        help="Github access token (optional if request limit exceeds)")
+        help="Github access token (optional if request limit exceeds)",
+    )
     pr_parser.add_argument(
-        "--eval", default="ofborg", choices=["ofborg", "local"],
-        help="whether to use ofborg's evaluation result")
+        "--eval",
+        default="ofborg",
+        choices=["ofborg", "local"],
+        help="whether to use ofborg's evaluation result",
+    )
     pr_parser.add_argument(
-        "number", nargs="+", help="one or more nixpkgs pull request numbers (ranges are also supported)")
+        "number",
+        nargs="+",
+        help="one or more nixpkgs pull request numbers (ranges are also supported)",
+    )
     pr_parser.set_defaults(func=pr_command)
 
     rev_parser = subparsers.add_parser(
-        "rev", help="review a change in the local pull request repository")
+        "rev", help="review a change in the local pull request repository"
+    )
     rev_parser.add_argument(
-        "--branch", default="master", help="branch to compare against with")
+        "--branch", default="master", help="branch to compare against with"
+    )
     rev_parser.add_argument(
-        "commit", help="commit/tag/ref/branch in your local git repository")
+        "commit", help="commit/tag/ref/branch in your local git repository"
+    )
     rev_parser.set_defaults(func=rev_command)
 
     return parser.parse_args(args)
