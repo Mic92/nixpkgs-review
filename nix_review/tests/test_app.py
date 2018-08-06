@@ -120,6 +120,15 @@ def borg_eval_cmds():
         (["git", "worktree", "add", "./.review/pr-37200", "hash1"], 0),
         (["git", "merge", "--no-commit", "hash2"], 0),
         (["nix", "eval", "--raw", "nixpkgs.system"], b"x86_64-linux"),
+        (
+            [
+                "nix",
+                "eval",
+                "--json",
+                "(with builtins;\nlet pkgs = import <nixpkgs> {}; in\nfilter (attr: hasAttr attr pkgs) (fromJSON (readFile ./.review/pr-37200/.nix-review-filter.json)))\n",
+            ],
+            b'["pong3d"]',
+        ),
     ]
 
 

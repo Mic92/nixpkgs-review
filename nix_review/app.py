@@ -4,11 +4,11 @@ import os
 import shutil
 import re
 import tempfile
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from typing import List, Generator, Optional
 
 from .utils import sh
-from .review import Review, nix_shell
+from .review import Review, nix_shell, CheckoutOption
 
 
 def parse_pr_numbers(number_args: List[str]) -> List[int]:
@@ -26,27 +26,39 @@ def parse_pr_numbers(number_args: List[str]) -> List[int]:
     return prs
 
 
-def _pr_command(
-    prs: List[int], build_args: str, token: str, use_ofborg_eval: bool
-) -> None:
-    if prs == []:
-        return None
-    pr = prs[0]
-    with worktree(f"pr-{pr}") as worktree_dir:
-        r = Review(worktree_dir, build_args, token, use_ofborg_eval)
-        attrs = r.build_pr(pr)
-        try:
-            _pr_command(prs[1:], build_args, token, use_ofborg_eval)
-        finally:
-            print(f"https://github.com/NixOS/nixpkgs/pull/{pr}")
-            if attrs:
-                nix_shell(attrs)
-
-
 def pr_command(args: argparse.Namespace) -> None:
     prs = parse_pr_numbers(args.number)
     use_ofborg_eval = args.eval == "ofborg"
-    _pr_command(prs, args.build_args, args.token, use_ofborg_eval)
+    checkout_option = (
+        CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
+    )
+
+    attrsets = []
+
+    with ExitStack() as stack:
+        for pr in prs:
+            worktree_dir = stack.enter_context(worktree(f"pr-{pr}"))
+            try:
+                r = Review(
+                    worktree_dir,
+                    args.build_args,
+                    args.token,
+                    use_ofborg_eval,
+                    checkout_option,
+                )
+                attrsets.append(r.build_pr(pr))
+            except Exception:
+                print(
+                    f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build",
+                    file=sys.stderr,
+                )
+
+        for attrs in attrsets:
+            print(f"https://github.com/NixOS/nixpkgs/pull/{pr}")
+            nix_shell(attrs)
+
+        if len(attrsets) != len(prs):
+            sys.exit(1)
 
 
 def rev_command(args: argparse.Namespace) -> None:
@@ -56,7 +68,9 @@ def rev_command(args: argparse.Namespace) -> None:
 
 
 def parse_args(command: str, args: List[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog=command)
+    parser = argparse.ArgumentParser(
+        prog=command, formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     parser.add_argument(
         "--build-args", default="", help="arguments passed to nix when building"
     )
@@ -80,6 +94,16 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
         default="ofborg",
         choices=["ofborg", "local"],
         help="whether to use ofborg's evaluation result",
+    )
+
+    checkout_help = (
+        "What to source checkout when building: "
+        + "`merge` will merge the pull request into the target branch, "
+        + "while `commit` will checkout pull request as the user has committed it"
+    )
+
+    pr_parser.add_argument(
+        "--checkout", default="merge", choices=["merge", "commit"], help=checkout_help
     )
     pr_parser.add_argument(
         "number",

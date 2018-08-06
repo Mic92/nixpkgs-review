@@ -1,4 +1,5 @@
 import sys
+import os
 import tempfile
 import subprocess
 import xml.etree.ElementTree as ET
@@ -10,6 +11,7 @@ import io
 from collections import defaultdict
 import shlex
 from typing import List, Dict, Tuple, Any, DefaultDict, Set, Optional
+from enum import Enum
 
 from .utils import sh
 
@@ -26,6 +28,16 @@ class GithubClient:
         return json.loads(urllib.request.urlopen(req).read())
 
 
+class CheckoutOption(Enum):
+    # Merge pull request into the target branch
+    MERGE = 1
+    # Checkout the committer's pull request. This is useful if changes in the
+    # target branch has not been build yet by hydra and would trigger too many
+    # builds. This option comes at the cost of ignoring the latest changes of
+    # the target branch.
+    COMMIT = 2
+
+
 class Review:
     def __init__(
         self,
@@ -33,11 +45,32 @@ class Review:
         build_args: str,
         api_token: Optional[str] = None,
         use_ofborg_eval: Optional[bool] = True,
+        checkout: CheckoutOption = CheckoutOption.MERGE,
     ) -> None:
         self.worktree_dir = worktree_dir
         self.build_args = build_args
         self.github_client = GithubClient(api_token)
         self.use_ofborg_eval = use_ofborg_eval
+        self.checkout = checkout
+
+    def get_existing_packages(self, attrs: Set[str]) -> Set[str]:
+        """
+        Filter those attrs actually present in nixpkgs checkout, in case ofborg's output is out-of-date
+        """
+
+        package_file = os.path.join(self.worktree_dir, ".nix-review-filter.json")
+        with open(package_file, "w+") as f:
+            json.dump(attrs, f)
+            f.flush()
+            expr = f"""(with builtins;
+let pkgs = import <nixpkgs> {{}}; in
+filter (attr: hasAttr attr pkgs) (fromJSON (readFile {package_file})))
+"""
+            cmd = ["nix", "eval", "--json", expr]
+
+            output = subprocess.check_output(cmd)
+
+            return json.loads(output)
 
     def git_merge(self, commit: str) -> None:
         sh(["git", "merge", "--no-commit", commit], cwd=self.worktree_dir)
@@ -56,22 +89,42 @@ class Review:
         attrs = differences(base_packages, merged_packages)
         return build_in_path(self.worktree_dir, attrs, self.build_args)
 
+    def checkout_pr(self, base_rev: str, pr_rev: str) -> None:
+        if self.checkout == CheckoutOption.MERGE:
+            git_worktree(self.worktree_dir, base_rev)
+            self.git_merge(pr_rev)
+        else:
+            git_worktree(self.worktree_dir, pr_rev)
+
+    def select_packages(self, packages_per_system: Dict[str, Set[str]]) -> Set[str]:
+        system = subprocess.check_output(
+            ["nix", "eval", "--raw", "nixpkgs.system"]
+        ).decode("utf-8")
+        packages = packages_per_system[system]
+        return self.get_existing_packages(packages)
+
     def build_pr(self, pr_number: int) -> List[str]:
         pr = self.github_client.get(f"repos/NixOS/nixpkgs/pulls/{pr_number}")
         if self.use_ofborg_eval:
             packages_per_system = self.get_borg_eval_gist(pr)
         else:
             packages_per_system = None
-        (base_rev, pr_rev) = fetch_refs(pr["base"]["ref"], f"pull/{pr['number']}/head")
+        (merge_rev, pr_rev) = fetch_refs(pr["base"]["ref"], f"pull/{pr['number']}/head")
+
+        if self.checkout == CheckoutOption.MERGE:
+            base_rev = merge_rev
+        else:
+            base_rev = subprocess.check_output(
+                ["git", "merge-base", merge_rev, pr_rev]
+            ).decode("utf-8")
+
         if packages_per_system is None:
             return self.build_commit(base_rev, pr_rev)
         else:
-            git_worktree(self.worktree_dir, base_rev)
-            self.git_merge(pr_rev)
-            system = subprocess.check_output(
-                ["nix", "eval", "--raw", "nixpkgs.system"]
-            ).decode("utf-8")
-            packages = packages_per_system[system]
+            self.checkout_pr(base_rev, pr_rev)
+
+            packages = self.select_packages(packages_per_system)
+
             return build_in_path(self.worktree_dir, packages, self.build_args)
 
     def review_commit(self, branch: str, reviewed_commit: str) -> None:
