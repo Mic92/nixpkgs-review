@@ -7,4 +7,5 @@ install:
 script:
   - python3 -m unittest discover .
   - mypy nix_review
+  - black --check .
   - flake8
