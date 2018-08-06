@@ -95,13 +95,14 @@ set the `GITHUB_OAUTH_TOKEN` environment variable.
 $ nix-review pr --token "5ae04810f1e9f17c3297ee4c9e25f3ac1f437c26" 37244
 ```
 
-## Ofborg eval
 
-By default, nix-review will use ofborg's evaluation result if available.
-This can be turned of using `--eval local`,
-which is useful if ofborg's evaluation result is outdated.
-Even if using `--eval ofborg`, nix-review will fallback to local evaluation
-if ofborg's result is not (yet) available.
+## Controlling what packages are build
+
+By default, nix-review will use ofborg's evaluation result if available to
+figure out what packages need to be rebuild. This can be turned off using
+`--eval local`, which is useful if ofborg's evaluation result is outdated. Even
+if using `--eval ofborg`, nix-review will fallback to local evaluation if
+ofborg's result is not (yet) available.
 
 ## Roadmap
 
