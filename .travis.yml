@@ -7,5 +7,7 @@ install:
 script:
   - python3 -m unittest discover .
   - mypy nix_review
-  - black --check .
   - flake8
+  # broken on 3.7 atm (https://github.com/ambv/black/issues/425)
+  - |
+    [[ $TRAVIS_PYTHON_VERSION == 3.7-dev ]] || black --check .
