@@ -95,6 +95,19 @@ set the `GITHUB_OAUTH_TOKEN` environment variable.
 $ nix-review pr --token "5ae04810f1e9f17c3297ee4c9e25f3ac1f437c26" 37244
 ```
 
+## Checkout strategy
+
+By default `nix-review pr` will merge the pull request into the pull request's
+target branch (most commonly master). However at times mass-rebuilding commits
+have been applied in the target branch, but not yet build by hydra. Often those
+are not relevant for the current review, but will significantly increase the
+local build time. For this case the `--checkout` option can specified to
+override the default behavior (`merge`). By setting its value to `commit`,
+`nix-review` will checkout the user's pull request branch without merging it:
+
+```
+$ nix-review pr --checkout commit 44534
+```
 
 ## Controlling what packages are build
 
