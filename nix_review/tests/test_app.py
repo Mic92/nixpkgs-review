@@ -10,34 +10,41 @@ DEBUG = False
 
 
 class IgnoreArgument:
-    pass
+    def __repr__(self) -> str:
+        return "(ignored)"
 
 
 def read_asset(asset: str) -> str:
     with open(os.path.join(TEST_ROOT, "assets", asset)) as f:
         return f.read()
 
+class MockError(Exception):
+    pass
 
-def expect_side_effects(test, arg_spec):
-    arg_spec_iterator = iter(arg_spec)
 
-    def side_effect(*args, **kwargs):
-        try:
-            (expected_args, ret) = next(arg_spec_iterator)
-            if DEBUG:
-                print(f"({expected_args}) -> {ret}")
-            if expected_args is IgnoreArgument:
-                return ret
-            if expected_args != args[0]:
-                print(args[0])
-            test.assertEqual(expected_args, args[0])
-            return ret
-        except StopIteration:
-            test.fail(
-                f"run out of calls, you can mock it with following arguments:\n({args}, 0)"
-            )
+class Mock():
+    def __init__(self, test, arg_spec):
+        self.test = test
+        self.arg_spec_iterator = iter(arg_spec)
+        self.expected_args = []
+        self.ret = None
 
-    return side_effect
+    def __iter__(self):
+        return self
+
+    def __call__(self, *args, **kwargs):
+        (self.expected_args, self.ret) = next(self.arg_spec_iterator)
+        if DEBUG:
+            print(f"({self.expected_args}) -> {self.ret}")
+        if self.expected_args is IgnoreArgument:
+            return self.ret
+        if len(args[0]) == len(self.expected_args):
+            for (i, arg) in enumerate(self.expected_args):
+                if arg is IgnoreArgument:
+                    args[0][i] = IgnoreArgument
+        if self.expected_args != args[0]:
+            raise MockError(f"expected {self.expected_args}\n got {args[0]}")
+        return self.ret
 
 
 pkg_list = read_asset("package_list_after.txt").encode("utf-8")
@@ -177,7 +184,7 @@ class TestStringMethods(unittest.TestCase):
     def test_pr_local_eval(
         self, mock_check_output, mock_check_call, mock_popen, mock_urlopen
     ):
-        effects = expect_side_effects(self, local_eval_cmds() + build_cmds)
+        effects = Mock(self, local_eval_cmds() + build_cmds)
         mock_check_call.side_effect = effects
         mock_popen.stdout.side_effect = effects
         mock_check_output.side_effect = effects
@@ -200,7 +207,7 @@ class TestStringMethods(unittest.TestCase):
     def test_pr_borg_eval(
         self, mock_check_output, mock_check_call, mock_popen, mock_urlopen
     ):
-        effects = expect_side_effects(self, borg_eval_cmds() + build_cmds)
+        effects = Mock(self, borg_eval_cmds() + build_cmds)
         mock_check_call.side_effect = effects
         mock_popen.stdout.side_effect = effects
         mock_check_output.side_effect = effects

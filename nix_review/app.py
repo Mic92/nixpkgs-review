@@ -4,8 +4,9 @@ import os
 import shutil
 import re
 import tempfile
+import subprocess
 from contextlib import contextmanager, ExitStack
-from typing import List, Generator, Optional
+from typing import List, Generator, Optional, Any
 
 from .utils import sh
 from .review import Review, nix_shell, CheckoutOption
@@ -37,7 +38,7 @@ def pr_command(args: argparse.Namespace) -> None:
 
     with ExitStack() as stack:
         for pr in prs:
-            worktree_dir = stack.enter_context(worktree(f"pr-{pr}"))
+            worktree_dir = stack.enter_context(Worktree(f"pr-{pr}"))
             try:
                 r = Review(
                     worktree_dir,
@@ -47,7 +48,7 @@ def pr_command(args: argparse.Namespace) -> None:
                     checkout_option,
                 )
                 attrsets.append(r.build_pr(pr))
-            except Exception:
+            except subprocess.CalledProcessError:
                 print(
                     f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build",
                     file=sys.stderr,
@@ -62,7 +63,7 @@ def pr_command(args: argparse.Namespace) -> None:
 
 
 def rev_command(args: argparse.Namespace) -> None:
-    with worktree(f"rev-{args.commit}") as worktree_dir:
+    with Worktree(f"rev-{args.commit}") as worktree_dir:
         r = Review(worktree_dir, args.build_args)
         r.review_commit(args.branch, args.commit)
 
@@ -144,23 +145,25 @@ def find_nixpkgs_root() -> Optional[str]:
         prefix.append("..")
 
 
-@contextmanager
-def worktree(name: str) -> Generator[str, None, None]:
-    worktree_dir = os.path.join(f"./.review/{name}")
-    os.makedirs(worktree_dir, exist_ok=True)
-    try:
+class Worktree():
+    def __init__(self, name: str) -> None:
+        self.worktree_dir = os.path.join(f"./.review/{name}")
+        os.makedirs(self.worktree_dir, exist_ok=True)
         with tempfile.NamedTemporaryFile() as cfg:
             cfg.write(b"pkgs: { allowUnfree = true; }")
             cfg.flush()
-            environ = os.environ.copy()
+            self.environ = os.environ.copy()
             os.environ["NIXPKGS_CONFIG"] = cfg.name
-            os.environ["NIX_PATH"] = f"nixpkgs={os.path.realpath(worktree_dir)}"
-            yield worktree_dir
-    finally:
-        shutil.rmtree(worktree_dir)
+            os.environ["NIX_PATH"] = f"nixpkgs={os.path.realpath(self.worktree_dir)}"
+
+    def __enter__(self) -> str:
+        return self.worktree_dir
+
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        shutil.rmtree(self.worktree_dir)
         sh(["git", "worktree", "prune"])
         os.environ.clear()
-        os.environ.update(environ)
+        os.environ.update(self.environ)
 
 
 def main(command: str, raw_args: List[str]) -> None:
