@@ -1,4 +1,3 @@
-import sys
 import os
 import tempfile
 import subprocess
@@ -14,6 +13,9 @@ from typing import List, Dict, Tuple, Any, DefaultDict, Set, Optional
 from enum import Enum
 
 from .utils import sh
+from pathlib import Path
+
+ROOT = Path(os.path.dirname(os.path.realpath(__file__)))
 
 
 class GithubClient:
@@ -38,6 +40,19 @@ class CheckoutOption(Enum):
     COMMIT = 2
 
 
+class Attr:
+    def __init__(
+        self, name: str, exists: bool, broken: bool, path: Optional[str]
+    ) -> None:
+        self.name = name
+        self.exists = exists
+        self.broken = broken
+        self.path = path
+
+    def was_build(self) -> bool:
+        return self.path is not None and os.path.exists(self.path)
+
+
 class Review:
     def __init__(
         self,
@@ -53,29 +68,10 @@ class Review:
         self.use_ofborg_eval = use_ofborg_eval
         self.checkout = checkout
 
-    def get_existing_packages(self, attrs: Set[str]) -> Set[str]:
-        """
-        Filter those attrs actually present in nixpkgs checkout, in case ofborg's output is out-of-date
-        """
-
-        package_file = os.path.join(self.worktree_dir, ".nix-review-filter.json")
-        with open(package_file, "w+") as f:
-            json.dump(attrs, f)
-            f.flush()
-            expr = f"""(with builtins;
-let pkgs = import <nixpkgs> {{}}; in
-filter (attr: hasAttr attr pkgs) (fromJSON (readFile {package_file})))
-"""
-            cmd = ["nix", "eval", "--json", expr]
-
-            output = subprocess.check_output(cmd)
-
-            return json.loads(output)
-
     def git_merge(self, commit: str) -> None:
         sh(["git", "merge", "--no-commit", commit], cwd=self.worktree_dir)
 
-    def build_commit(self, base_commit: str, reviewed_commit: str) -> List[str]:
+    def build_commit(self, base_commit: str, reviewed_commit: str) -> List[Attr]:
         """
         Review a local git commit
         """
@@ -100,10 +96,9 @@ filter (attr: hasAttr attr pkgs) (fromJSON (readFile {package_file})))
         system = subprocess.check_output(
             ["nix", "eval", "--raw", "nixpkgs.system"]
         ).decode("utf-8")
-        packages = packages_per_system[system]
-        return self.get_existing_packages(packages)
+        return packages_per_system[system]
 
-    def build_pr(self, pr_number: int) -> List[str]:
+    def build_pr(self, pr_number: int) -> List[Attr]:
         pr = self.github_client.get(f"repos/NixOS/nixpkgs/pulls/{pr_number}")
         if self.use_ofborg_eval:
             packages_per_system = self.get_borg_eval_gist(pr)
@@ -129,17 +124,13 @@ filter (attr: hasAttr attr pkgs) (fromJSON (readFile {package_file})))
 
     def review_commit(self, branch: str, reviewed_commit: str) -> None:
         branch_rev = fetch_refs(branch)[0]
-        attrs = self.build_commit(branch_rev, reviewed_commit)
-        if attrs:
-            nix_shell(attrs)
+        nix_shell(self.build_commit(branch_rev, reviewed_commit))
 
     def review_pr(self, pr_number: int) -> None:
         """
         Review a pull request from the nixpkgs github repository
         """
-        attrs = self.build_pr(pr_number)
-        if attrs:
-            nix_shell(attrs)
+        nix_shell(self.build_pr(pr_number))
 
     def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         packages_per_system: DefaultDict[str, list] = defaultdict(list)
@@ -164,41 +155,86 @@ filter (attr: hasAttr attr pkgs) (fromJSON (readFile {package_file})))
         return None
 
 
-def nix_shell(attrs: List[str]) -> None:
+def nix_shell(attrs: List[Attr]) -> None:
     cmd = ["nix-shell"]
+
+    broken = []
+    failed = []
+    non_existant = []
+
     for a in attrs:
-        cmd.append(f"-p")
-        cmd.append(a)
-    sh(cmd)
+        if a.broken:
+            broken.append(a.name)
+        elif not a.exists:
+            non_existant.append(a.name)
+        elif not a.was_build():
+            failed.append(a.name)
+        else:
+            cmd.append(f"-p")
+            cmd.append(a.name)
+
+    if len(broken) > 0:
+        print(f"The {len(broken)} packages are marked as broken and were skipped:")
+        print(" ".join(broken))
+
+    if len(non_existant) > 0:
+        print(
+            f"The {len(non_existant)} packages were present in ofBorgs evaluation, but not found in our checkout:"
+        )
+        print(" ".join(non_existant))
+
+    if len(failed) > 0:
+        print(f"The {len(failed)} packages failed to build:")
+        print(" ".join(failed))
+
+    if len(cmd) == 1:
+        print("No packages were successfully build, skip nix-shell")
+    else:
+        sh(cmd)
 
 
 def git_worktree(worktree_dir: str, commit: str) -> None:
     sh(["git", "worktree", "add", worktree_dir, commit])
 
 
-def filter_broken_attrs(attrs: Set[str]) -> List[str]:
-    expression = "(with import <nixpkgs> {}; {\n"
-    for attr in attrs:
-        expression += '\t"%s" = (builtins.tryEval "${%s}").success;\n' % (attr, attr)
-    expression += "})"
-    cmd = ["nix", "eval", "--json", expression]
-    evaluates = json.loads(subprocess.check_output(cmd))
-    return list(filter(lambda attr: evaluates[attr], attrs))
+def eval_attrs(resultdir: str, attrs: Set[str]) -> List[Attr]:
+    """
+    Filter broken or non-existing attributes.
+    """
+    attr_json = os.path.join(resultdir, "attr.json")
+    with open(attr_json, "w+") as f:
+        json.dump(list(attrs), f)
+        f.flush()
+    cmd = [
+        "nix",
+        "eval",
+        "--json",
+        f"((import {str(ROOT.joinpath('nix/evalAttrs.nix'))}) {{ attr-json = {attr_json}; }})",
+    ]
+
+    results = []
+    for name, props in json.loads(subprocess.check_output(cmd)).items():
+        attr = Attr(name, props["exists"], props["broken"], props["path"])
+        results.append(attr)
+    return results
 
 
-def build_in_path(path: str, attrs: Set[str], args: str) -> List[str]:
-    if not attrs:
+def build_in_path(path: str, attr_names: Set[str], args: str) -> List[Attr]:
+    if not attr_names:
         print("Nothing changed")
         return []
 
     result_dir = tempfile.mkdtemp(prefix="nox-review-")
-    working_attrs = filter_broken_attrs(attrs)
-    if not working_attrs:
-        print(
-            f"the following packages are marked as broken and where skipped: {' '.join(attrs)}"
-        )
-        return working_attrs
-    print("Building in {}: {}".format(result_dir, " ".join(working_attrs)))
+    attrs = eval_attrs(result_dir, attr_names)
+    non_broken = []
+    for attr in attrs:
+        if not attr.broken:
+            non_broken.append(attr.name)
+
+    if len(non_broken) == 0:
+        return attrs
+
+    print("Building in {}: {}".format(result_dir, " ".join(non_broken)))
     command = [
         "nix-shell",
         "--no-out-link",
@@ -212,21 +248,13 @@ def build_in_path(path: str, attrs: Set[str], args: str) -> List[str]:
         "--run",
         "true",
     ] + shlex.split(args)
-    for a in working_attrs:
+
+    for a in non_broken:
         command.append("-p")
         command.append(a)
 
-    try:
-        sh(command, cwd=result_dir)
-        return working_attrs
-    except subprocess.CalledProcessError:
-        msg = f"The invocation of '{' '.join(command)}' failed\n\n"
-        msg += "Your NIX_PATH still points to the merged pull requests, so you can make attempts to fix it and rerun the command above"
-        print(msg, file=sys.stderr)
-        # XXX personal nit to use bash here,
-        # since my zsh overrides NIX_PATH.
-        sh(["bash"], cwd=result_dir)
-        raise
+    sh(command, cwd=result_dir)
+    return attrs
 
 
 PackageSet = Set[Tuple[str, str]]

@@ -18,11 +18,12 @@ def read_asset(asset: str) -> str:
     with open(os.path.join(TEST_ROOT, "assets", asset)) as f:
         return f.read()
 
+
 class MockError(Exception):
     pass
 
 
-class Mock():
+class Mock:
     def __init__(self, test, arg_spec):
         self.test = test
         self.arg_spec_iterator = iter(arg_spec)
@@ -127,27 +128,16 @@ def borg_eval_cmds():
         (["git", "worktree", "add", "./.review/pr-37200", "hash1"], 0),
         (["git", "merge", "--no-commit", "hash2"], 0),
         (["nix", "eval", "--raw", "nixpkgs.system"], b"x86_64-linux"),
-        (
-            [
-                "nix",
-                "eval",
-                "--json",
-                "(with builtins;\nlet pkgs = import <nixpkgs> {}; in\nfilter (attr: hasAttr attr pkgs) (fromJSON (readFile ./.review/pr-37200/.nix-review-filter.json)))\n",
-            ],
-            b'["pong3d"]',
-        ),
     ]
 
 
 build_cmds = [
     (
-        [
-            "nix",
-            "eval",
-            "--json",
-            '(with import <nixpkgs> {}; {\n\t"pong3d" = (builtins.tryEval "${pong3d}").success;\n})',
-        ],
-        b'{"pong3d":true}',
+        ["nix", "eval", "--json", IgnoreArgument],
+        # hack to make sure the path exists
+        b'{"pong3d": {"exists": true, "broken": false, "path": "'
+        + __file__.encode("utf8")
+        + b'"}}',
     ),
     (
         [

@@ -5,8 +5,8 @@ import shutil
 import re
 import tempfile
 import subprocess
-from contextlib import contextmanager, ExitStack
-from typing import List, Generator, Optional, Any
+from contextlib import ExitStack
+from typing import List, Optional, Any
 
 from .utils import sh
 from .review import Review, nix_shell, CheckoutOption
@@ -145,7 +145,7 @@ def find_nixpkgs_root() -> Optional[str]:
         prefix.append("..")
 
 
-class Worktree():
+class Worktree:
     def __init__(self, name: str) -> None:
         self.worktree_dir = os.path.join(f"./.review/{name}")
         os.makedirs(self.worktree_dir, exist_ok=True)

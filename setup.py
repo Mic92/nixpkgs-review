@@ -14,6 +14,7 @@ setup(
     url="https://github.com/Mic92/nix-review",
     license="MIT",
     packages=find_packages(),
+    package_data={"nix_review": ["nix/*.nix"]},
     entry_points={"console_scripts": ["nix-review = nix_review:main"]},
     extras_require={"dev": ["mypy", "flake8>=3.5,<3.6", "black"]},
     classifiers=[
