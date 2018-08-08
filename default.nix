@@ -10,7 +10,7 @@ python3.pkgs.buildPythonApplication rec {
     ${python3.interpreter} -m unittest discover .
     mypy nix_review
   '';
-  preFixup = ''
-    wrapProgram $out/bin/nix-review --prefix PATH : ${nix}/bin
-  '';
+  makeWrapperArgs = [
+    "--prefix PATH" ":" "${nix}/bin"
+  ];
 }

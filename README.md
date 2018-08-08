@@ -124,7 +124,6 @@ ofborg's result is not (yet) available.
 - [ ] build on multiple platforms
 - [ ] test backports
 - [ ] show pull request description + diff during review
-- [ ] spawn nix-shell also if some packages did not build
 
 ## Run tests
 
