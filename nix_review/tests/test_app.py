@@ -133,14 +133,11 @@ def borg_eval_cmds():
 
 build_cmds = [
     (
-        [
-            "nix",
-            "eval",
-            "--json",
-            IgnoreArgument,
-        ],
+        ["nix", "eval", "--json", IgnoreArgument],
         # hack to make sure the path exists
-        b'{"pong3d": {"exists": true, "broken": false, "path": "' + __file__.encode("utf8") + b'"}}',
+        b'{"pong3d": {"exists": true, "broken": false, "path": "'
+        + __file__.encode("utf8")
+        + b'"}}',
     ),
     (
         [
