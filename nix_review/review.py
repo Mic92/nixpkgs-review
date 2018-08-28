@@ -109,9 +109,11 @@ class Review:
         if self.checkout == CheckoutOption.MERGE:
             base_rev = merge_rev
         else:
-            base_rev = subprocess.check_output(
-                ["git", "merge-base", merge_rev, pr_rev]
-            ).decode("utf-8").strip()
+            base_rev = (
+                subprocess.check_output(["git", "merge-base", merge_rev, pr_rev])
+                .decode("utf-8")
+                .strip()
+            )
 
         if packages_per_system is None:
             return self.build_commit(base_rev, pr_rev)
