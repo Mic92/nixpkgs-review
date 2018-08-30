@@ -95,7 +95,7 @@ set the `GITHUB_OAUTH_TOKEN` environment variable.
 $ nix-review pr --token "5ae04810f1e9f17c3297ee4c9e25f3ac1f437c26" 37244
 ```
 
-## Checkout strategy
+## Checkout strategy (recommend for r-ryantm + cachix)
 
 By default `nix-review pr` will merge the pull request into the pull request's
 target branch (most commonly master). However at times mass-rebuilding commits
