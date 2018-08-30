@@ -1,15 +1,16 @@
 import argparse
-import sys
 import os
-import shutil
 import re
-import tempfile
+import shutil
+import signal
 import subprocess
+import sys
+import tempfile
 from contextlib import ExitStack
-from typing import List, Optional, Any
+from typing import Any, List, Optional
 
+from .review import CheckoutOption, Review, nix_shell
 from .utils import sh
-from .review import Review, nix_shell, CheckoutOption
 
 
 def parse_pr_numbers(number_args: List[str]) -> List[int]:
@@ -145,25 +146,48 @@ def find_nixpkgs_root() -> Optional[str]:
         prefix.append("..")
 
 
+class DisableKeyboardInterrupt:
+    def __enter__(self) -> None:
+        self.signal_received = False
+        self.old_handler = signal.signal(signal.SIGINT, self.handler)
+
+    def handler(self, sig: Any, frame: Any) -> None:
+        print("Ignore Ctlr-C: Cleanup in progress... Don't be so impatient human!")
+
+    def __exit__(self, type: Any, value: Any, traceback: Any) -> None:
+        signal.signal(signal.SIGINT, self.old_handler)
+
+
 class Worktree:
     def __init__(self, name: str) -> None:
-        self.worktree_dir = os.path.join(f"./.review/{name}")
-        os.makedirs(self.worktree_dir, exist_ok=True)
+        worktree_dir = os.path.join("./.review", name)
+        try:
+            os.makedirs(worktree_dir)
+        except FileExistsError:
+            print(
+                f"{worktree_dir} already exists. Is a different review already running?"
+            )
+            raise
+        self.worktree_dir: Optional[str] = worktree_dir
         with tempfile.NamedTemporaryFile() as cfg:
             cfg.write(b"pkgs: { allowUnfree = true; }")
             cfg.flush()
             self.environ = os.environ.copy()
             os.environ["NIXPKGS_CONFIG"] = cfg.name
-            os.environ["NIX_PATH"] = f"nixpkgs={os.path.realpath(self.worktree_dir)}"
+            os.environ["NIX_PATH"] = f"nixpkgs={os.path.realpath(worktree_dir)}"
 
     def __enter__(self) -> str:
+        assert self.worktree_dir is not None
         return self.worktree_dir
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        shutil.rmtree(self.worktree_dir)
-        sh(["git", "worktree", "prune"])
-        os.environ.clear()
-        os.environ.update(self.environ)
+        if self.worktree_dir is None:
+            return
+        with DisableKeyboardInterrupt():
+            shutil.rmtree(self.worktree_dir)
+            sh(["git", "worktree", "prune"])
+            os.environ.clear()
+            os.environ.update(self.environ)
 
 
 def main(command: str, raw_args: List[str]) -> None:
