@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-from setuptools import setup, find_packages
 import sys
+
+from setuptools import find_packages, setup
 
 assert sys.version_info >= (3, 6, 0), "nix-review requires Python 3.6+"
 

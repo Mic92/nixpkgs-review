@@ -1,19 +1,19 @@
-import os
-import tempfile
-import subprocess
-import xml.etree.ElementTree as ET
-import multiprocessing
-import json
-import urllib.request
-import urllib.parse
 import io
-from collections import defaultdict
+import json
+import multiprocessing
+import os
 import shlex
-from typing import List, Dict, Tuple, Any, DefaultDict, Set, Optional
+import subprocess
+import tempfile
+import urllib.parse
+import urllib.request
+import xml.etree.ElementTree as ET
+from collections import defaultdict
 from enum import Enum
+from pathlib import Path
+from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple
 
 from .utils import sh
-from pathlib import Path
 
 ROOT = Path(os.path.dirname(os.path.realpath(__file__)))
 

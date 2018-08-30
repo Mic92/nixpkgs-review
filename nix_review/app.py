@@ -1,15 +1,16 @@
 import argparse
-import sys
 import os
-import shutil
 import re
-import tempfile
+import shutil
+import signal
 import subprocess
+import sys
+import tempfile
 from contextlib import ExitStack
-from typing import List, Optional, Any
+from typing import Any, List, Optional
 
+from .review import CheckoutOption, Review, nix_shell
 from .utils import sh
-from .review import Review, nix_shell, CheckoutOption
 
 
 def parse_pr_numbers(number_args: List[str]) -> List[int]:
