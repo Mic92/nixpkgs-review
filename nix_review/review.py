@@ -236,7 +236,7 @@ def build_in_path(path: str, attr_names: Set[str], args: str) -> List[Attr]:
     if len(non_broken) == 0:
         return attrs
 
-    print("Building in {}: {}".format(result_dir, " ".join(non_broken)))
+    print("Building in {}".format(result_dir))
     command = [
         "nix-shell",
         "--no-out-link",
@@ -251,8 +251,8 @@ def build_in_path(path: str, attr_names: Set[str], args: str) -> List[Attr]:
         "true",
     ] + shlex.split(args)
 
+    command.append("-p")
     for a in non_broken:
-        command.append("-p")
         command.append(a)
 
     sh(command, cwd=result_dir)
