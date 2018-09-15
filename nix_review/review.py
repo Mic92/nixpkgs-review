@@ -53,6 +53,13 @@ class Attr:
         return self.path is not None and os.path.exists(self.path)
 
 
+def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
+    system = subprocess.check_output(["nix", "eval", "--raw", "nixpkgs.system"]).decode(
+        "utf-8"
+    )
+    return packages_per_system[system]
+
+
 class Review:
     def __init__(
         self,
@@ -83,7 +90,7 @@ class Review:
         merged_packages = list_packages(self.worktree_dir, check_meta=True)
 
         attrs = differences(base_packages, merged_packages)
-        return build_in_path(self.worktree_dir, attrs, self.build_args)
+        return build(attrs, self.build_args)
 
     def checkout_pr(self, base_rev: str, pr_rev: str) -> None:
         if self.checkout == CheckoutOption.MERGE:
@@ -92,19 +99,13 @@ class Review:
         else:
             git_worktree(self.worktree_dir, pr_rev)
 
-    def select_packages(self, packages_per_system: Dict[str, Set[str]]) -> Set[str]:
-        system = subprocess.check_output(
-            ["nix", "eval", "--raw", "nixpkgs.system"]
-        ).decode("utf-8")
-        return packages_per_system[system]
-
     def build_pr(self, pr_number: int) -> List[Attr]:
         pr = self.github_client.get(f"repos/NixOS/nixpkgs/pulls/{pr_number}")
         if self.use_ofborg_eval:
             packages_per_system = self.get_borg_eval_gist(pr)
         else:
             packages_per_system = None
-        (merge_rev, pr_rev) = fetch_refs(pr["base"]["ref"], f"pull/{pr['number']}/head")
+        merge_rev, pr_rev = fetch_refs(pr["base"]["ref"], f"pull/{pr['number']}/head")
 
         if self.checkout == CheckoutOption.MERGE:
             base_rev = merge_rev
@@ -117,12 +118,12 @@ class Review:
 
         if packages_per_system is None:
             return self.build_commit(base_rev, pr_rev)
-        else:
-            self.checkout_pr(base_rev, pr_rev)
 
-            packages = self.select_packages(packages_per_system)
+        self.checkout_pr(base_rev, pr_rev)
 
-            return build_in_path(self.worktree_dir, packages, self.build_args)
+        packages = native_packages(packages_per_system)
+
+        return build(packages, self.build_args)
 
     def review_commit(self, branch: str, reviewed_commit: str) -> None:
         branch_rev = fetch_refs(branch)[0]
@@ -221,7 +222,7 @@ def eval_attrs(resultdir: str, attrs: Set[str]) -> List[Attr]:
     return results
 
 
-def build_in_path(path: str, attr_names: Set[str], args: str) -> List[Attr]:
+def build(attr_names: Set[str], args: str) -> List[Attr]:
     if not attr_names:
         print("Nothing changed")
         return []

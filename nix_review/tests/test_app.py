@@ -1,7 +1,8 @@
-import unittest
-import os
 import multiprocessing
-from unittest.mock import patch, mock_open
+import os
+import unittest
+from typing import List, Any
+from unittest.mock import mock_open, patch
 
 from nix_review.app import main
 
@@ -48,7 +49,7 @@ class Mock:
         return self.ret
 
 
-pkg_list = read_asset("package_list_after.txt").encode("utf-8")
+PKG_LIST = read_asset("package_list_after.txt").encode("utf-8")
 
 
 def local_eval_cmds():
@@ -96,12 +97,12 @@ def local_eval_cmds():
                 "--show-trace",
                 "--meta",
             ],
-            pkg_list,
+            PKG_LIST,
         ),
     ]
 
 
-def borg_eval_cmds():
+def borg_eval_cmds() -> List[Any]:
     return [
         (IgnoreArgument, mock_open(read_data=read_asset("github-pull-37200.json"))()),
         (

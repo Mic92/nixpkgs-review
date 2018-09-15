@@ -149,12 +149,13 @@ def find_nixpkgs_root() -> Optional[str]:
 class DisableKeyboardInterrupt:
     def __enter__(self) -> None:
         self.signal_received = False
-        self.old_handler = signal.signal(signal.SIGINT, self.handler)
 
-    def handler(self, sig: Any, frame: Any) -> None:
-        print("Ignore Ctlr-C: Cleanup in progress... Don't be so impatient human!")
+        def handler(_sig: Any, _frame: Any) -> None:
+            print("Ignore Ctlr-C: Cleanup in progress... Don't be so impatient human!")
 
-    def __exit__(self, type: Any, value: Any, traceback: Any) -> None:
+        self.old_handler = signal.signal(signal.SIGINT, handler)
+
+    def __exit__(self, _type: Any, _value: Any, _traceback: Any) -> None:
         signal.signal(signal.SIGINT, self.old_handler)
 
 
