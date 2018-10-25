@@ -177,6 +177,10 @@ class Worktree:
         self.environ = os.environ.copy()
         os.environ["NIXPKGS_CONFIG"] = self.nixpkgs_config.name
         os.environ["NIX_PATH"] = f"nixpkgs={os.path.realpath(worktree_dir)}"
+        os.environ["GIT_AUTHOR_NAME"] = "nix-review"
+        os.environ["GIT_AUTHOR_EMAIL"] = "nix-review@example.com"
+        os.environ["GIT_COMMITTER_NAME"] = "nix-review"
+        os.environ["GIT_COMMITTER_EMAIL"] = "nix-review@example.com"
 
     def __enter__(self) -> str:
         assert self.worktree_dir is not None
