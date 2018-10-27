@@ -1,7 +1,7 @@
 import multiprocessing
 import os
 import unittest
-from typing import List, Any
+from typing import Any, List
 from unittest.mock import mock_open, patch
 
 from nix_review.app import main
@@ -24,8 +24,13 @@ class MockError(Exception):
     pass
 
 
+class MockCompletedProcess:
+    def __init__(self) -> None:
+        self.returncode = 0
+
+
 class Mock:
-    def __init__(self, test, arg_spec):
+    def __init__(self, test, arg_spec) -> None:
         self.test = test
         self.arg_spec_iterator = iter(arg_spec)
         self.expected_args = []
@@ -159,6 +164,14 @@ build_cmds = [
         ],
         0,
     ),
+    (
+        [
+            "nix-store",
+            "--verify-path",
+            "/home/joerg/git/nix-review/nix_review/tests/test_app.py",
+        ],
+        MockCompletedProcess(),
+    ),
     (["nix-shell", "-p", "pong3d"], 0),
     (["git", "worktree", "prune"], 0),
 ]
@@ -169,17 +182,19 @@ class TestStringMethods(unittest.TestCase):
         os.chdir(os.path.join(TEST_ROOT, "assets/nixpkgs"))
 
     @patch("urllib.request.urlopen")
+    @patch("subprocess.run")
     @patch("subprocess.Popen")
     @patch("subprocess.check_call")
     @patch("subprocess.check_output")
     def test_pr_local_eval(
-        self, mock_check_output, mock_check_call, mock_popen, mock_urlopen
+        self, mock_check_output, mock_check_call, mock_popen, mock_run, mock_urlopen
     ):
         effects = Mock(self, local_eval_cmds() + build_cmds)
         mock_check_call.side_effect = effects
         mock_popen.stdout.side_effect = effects
         mock_check_output.side_effect = effects
         mock_urlopen.side_effect = effects
+        mock_run.side_effect = effects
 
         main(
             "nix-review",
@@ -192,16 +207,18 @@ class TestStringMethods(unittest.TestCase):
         )
 
     @patch("urllib.request.urlopen")
+    @patch("subprocess.run")
     @patch("subprocess.Popen")
     @patch("subprocess.check_call")
     @patch("subprocess.check_output")
     def test_pr_borg_eval(
-        self, mock_check_output, mock_check_call, mock_popen, mock_urlopen
+        self, mock_check_output, mock_check_call, mock_popen, mock_run, mock_urlopen
     ):
         effects = Mock(self, borg_eval_cmds() + build_cmds)
         mock_check_call.side_effect = effects
         mock_popen.stdout.side_effect = effects
         mock_check_output.side_effect = effects
+        mock_run.side_effect = effects
         mock_urlopen.side_effect = effects
 
         main(
