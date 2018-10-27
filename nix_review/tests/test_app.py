@@ -33,7 +33,7 @@ class Mock:
     def __init__(self, test, arg_spec) -> None:
         self.test = test
         self.arg_spec_iterator = iter(arg_spec)
-        self.expected_args = []
+        self.expected_args: List[Any] = []
         self.ret = None
 
     def __iter__(self):
@@ -164,14 +164,7 @@ build_cmds = [
         ],
         0,
     ),
-    (
-        [
-            "nix-store",
-            "--verify-path",
-            "/home/joerg/git/nix-review/nix_review/tests/test_app.py",
-        ],
-        MockCompletedProcess(),
-    ),
+    (["nix-store", "--verify-path", IgnoreArgument], MockCompletedProcess()),
     (["nix-shell", "-p", "pong3d"], 0),
     (["git", "worktree", "prune"], 0),
 ]
