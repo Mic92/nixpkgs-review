@@ -109,7 +109,15 @@ override the default behavior (`merge`). By setting its value to `commit`,
 $ nix-review pr --checkout commit 44534
 ```
 
-## Controlling what packages are build
+## Only building a subset of packages
+
+To build only certain packages use the `--package` (or `-p`) flag.
+
+```
+nix-review pr -p openjpeg -p ImageMagick 49262
+```
+
+## Ignoring ofborg evaluations
 
 By default, nix-review will use ofborg's evaluation result if available to
 figure out what packages need to be rebuild. This can be turned off using

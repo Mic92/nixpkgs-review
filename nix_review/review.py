@@ -4,6 +4,7 @@ import multiprocessing
 import os
 import shlex
 import subprocess
+import sys
 import tempfile
 import urllib.parse
 import urllib.request
@@ -62,7 +63,7 @@ def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
     system = subprocess.check_output(["nix", "eval", "--raw", "nixpkgs.system"]).decode(
         "utf-8"
     )
-    return packages_per_system[system]
+    return set(packages_per_system[system])
 
 
 class Review:
@@ -72,6 +73,7 @@ class Review:
         build_args: str,
         api_token: Optional[str] = None,
         use_ofborg_eval: Optional[bool] = True,
+        only_packages: Set[str] = set(),
         checkout: CheckoutOption = CheckoutOption.MERGE,
     ) -> None:
         self.worktree_dir = worktree_dir
@@ -79,6 +81,7 @@ class Review:
         self.github_client = GithubClient(api_token)
         self.use_ofborg_eval = use_ofborg_eval
         self.checkout = checkout
+        self.only_packages = only_packages
 
     def git_merge(self, commit: str) -> None:
         sh(["git", "merge", "--no-commit", commit], cwd=self.worktree_dir)
@@ -95,7 +98,7 @@ class Review:
         merged_packages = list_packages(self.worktree_dir, check_meta=True)
 
         attrs = differences(base_packages, merged_packages)
-        return build(attrs, self.build_args)
+        return self.build(attrs, self.build_args)
 
     def checkout_pr(self, base_rev: str, pr_rev: str) -> None:
         if self.checkout == CheckoutOption.MERGE:
@@ -103,6 +106,11 @@ class Review:
             self.git_merge(pr_rev)
         else:
             git_worktree(self.worktree_dir, pr_rev)
+
+    def build(self, packages: Set[str], args: str) -> List[Attr]:
+        if len(self.only_packages) > 0:
+            packages = filter_packages(packages, self.only_packages)
+        return build(packages, args)
 
     def build_pr(self, pr_number: int) -> List[Attr]:
         pr = self.github_client.get(f"repos/NixOS/nixpkgs/pulls/{pr_number}")
@@ -127,8 +135,7 @@ class Review:
         self.checkout_pr(base_rev, pr_rev)
 
         packages = native_packages(packages_per_system)
-
-        return build(packages, self.build_args)
+        return self.build(packages, self.build_args)
 
     def review_commit(self, branch: str, reviewed_commit: str) -> None:
         branch_rev = fetch_refs(branch)[0]
@@ -140,8 +147,8 @@ class Review:
         """
         nix_shell(self.build_pr(pr_number))
 
-    def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        packages_per_system: DefaultDict[str, list] = defaultdict(list)
+    def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Optional[Dict[str, Set[str]]]:
+        packages_per_system: DefaultDict[str, Set[str]] = defaultdict(set)
         statuses = self.github_client.get(pr["statuses_url"])
         for status in statuses:
             url = status.get("target_url", "")
@@ -158,7 +165,7 @@ class Review:
                     if line == b"":
                         break
                     system, attribute = line.decode("utf-8").split()
-                    packages_per_system[system].append(attribute)
+                    packages_per_system[system].add(attribute)
                 return packages_per_system
         return None
 
@@ -232,8 +239,9 @@ def build(attr_names: Set[str], args: str) -> List[Attr]:
         print("Nothing changed")
         return []
 
-    result_dir = tempfile.mkdtemp(prefix="nox-review-")
-    attrs = eval_attrs(result_dir, attr_names)
+    result_dir = tempfile.TemporaryDirectory(prefix="nix-review-")
+
+    attrs = eval_attrs(result_dir.name, attr_names)
     non_broken = []
     for attr in attrs:
         if not attr.broken:
@@ -242,7 +250,7 @@ def build(attr_names: Set[str], args: str) -> List[Attr]:
     if len(non_broken) == 0:
         return attrs
 
-    print("Building in {}".format(result_dir))
+    print("Building in {}".format(result_dir.name))
     command = [
         "nix-shell",
         "--no-out-link",
@@ -261,7 +269,7 @@ def build(attr_names: Set[str], args: str) -> List[Attr]:
     for a in non_broken:
         command.append(a)
     try:
-        sh(command, cwd=result_dir)
+        sh(command, cwd=result_dir.name)
     except subprocess.CalledProcessError:
         pass
     return attrs
@@ -285,6 +293,49 @@ def list_packages(path: str, check_meta: bool = False) -> PackageSet:
             path = elem.attrib["path"]
             packages.add((attrib, path))
     return packages
+
+
+def package_attrs(
+    tempdir: str, package_set: Set[str], ignore_nonexisting: bool = True
+) -> Dict[str, Attr]:
+    attrs: Dict[str, Attr] = {}
+
+    nonexisting = []
+
+    for attr in eval_attrs(tempdir, package_set):
+        if not attr.exists:
+            nonexisting.append(attr.name)
+        elif not attr.broken:
+            assert attr.path is not None
+            attrs[attr.path] = attr
+
+    if not ignore_nonexisting and len(nonexisting) > 0:
+        print(f"The packages do not exists:", file=sys.stderr)
+        print(" ".join(nonexisting), file=sys.stderr)
+        sys.exit(1)
+    return attrs
+
+
+def filter_packages(
+    changed_packages: Set[str], specified_packages: Set[str]
+) -> Set[str]:
+    with tempfile.TemporaryDirectory(prefix="nix-review-") as tempdir:
+
+        changed_attrs = package_attrs(tempdir, changed_packages)
+        specified_attrs = package_attrs(
+            tempdir, specified_packages, ignore_nonexisting=False
+        )
+
+        nonexistant = specified_attrs.keys() - changed_attrs.keys()
+        if len(nonexistant) != 0:
+            print(
+                "The following packages specified with `-p` are not rebuild by the pull request",
+                file=sys.stderr,
+            )
+            print(" ".join(specified_attrs[path].name for path in nonexistant))
+            sys.exit(1)
+        union_paths = changed_attrs.keys() & specified_attrs.keys()
+        return set(specified_attrs[path].name for path in union_paths)
 
 
 def fetch_refs(*refs: str) -> List[str]:
