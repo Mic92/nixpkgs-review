@@ -50,7 +50,11 @@ class Attr:
         self.path = path
 
     def was_build(self) -> bool:
-        return self.path is not None and os.path.exists(self.path)
+        if self.path is None:
+            return False
+        else:
+            res = subprocess.run(["nix-store", "--verify-path", self.path], stderr=subprocess.DEVNULL)
+            return res.returncode == 0
 
 
 def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
@@ -255,8 +259,10 @@ def build(attr_names: Set[str], args: str) -> List[Attr]:
     command.append("-p")
     for a in non_broken:
         command.append(a)
-
-    sh(command, cwd=result_dir)
+    try:
+        sh(command, cwd=result_dir)
+    except subprocess.CalledProcessError:
+        pass
     return attrs
 
 
