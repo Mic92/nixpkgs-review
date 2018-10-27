@@ -41,14 +41,15 @@ def pr_command(args: argparse.Namespace) -> None:
         for pr in prs:
             worktree_dir = stack.enter_context(Worktree(f"pr-{pr}"))
             try:
-                r = Review(
-                    worktree_dir,
-                    args.build_args,
-                    args.token,
-                    use_ofborg_eval,
-                    checkout_option,
+                review = Review(
+                    worktree_dir=worktree_dir,
+                    build_args=args.build_args,
+                    api_token=args.token,
+                    use_ofborg_eval=use_ofborg_eval,
+                    only_packages=set(args.package),
+                    checkout=checkout_option,
                 )
-                attrsets.append(r.build_pr(pr))
+                attrsets.append(review.build_pr(pr))
             except subprocess.CalledProcessError:
                 print(
                     f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build",
@@ -95,7 +96,14 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
         "--eval",
         default="ofborg",
         choices=["ofborg", "local"],
-        help="whether to use ofborg's evaluation result",
+        help="Whether to use ofborg's evaluation result",
+    )
+    pr_parser.add_argument(
+        "-p",
+        "--package",
+        action="append",
+        default=[],
+        help="Package to build (can be passed multiple times)",
     )
 
     checkout_help = (
