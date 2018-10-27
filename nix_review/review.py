@@ -14,7 +14,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple
 
-from .utils import sh
+from .utils import warn, info, sh
 
 ROOT = Path(os.path.dirname(os.path.realpath(__file__)))
 
@@ -185,25 +185,32 @@ def nix_shell(attrs: List[Attr]) -> None:
         elif not a.was_build():
             failed.append(a.name)
         else:
-            cmd.append(f"-p")
+            cmd.append("-p")
             cmd.append(a.name)
 
+    error_msgs = []
+
     if len(broken) > 0:
-        print(f"The {len(broken)} packages are marked as broken and were skipped:")
-        print(" ".join(broken))
+        error_msgs.append(
+            f"The {len(broken)} packages are marked as broken and were skipped:"
+        )
+        error_msgs.append(" ".join(broken))
 
     if len(non_existant) > 0:
-        print(
+        error_msgs.append(
             f"The {len(non_existant)} packages were present in ofBorgs evaluation, but not found in our checkout:"
         )
-        print(" ".join(non_existant))
+        error_msgs.append(" ".join(non_existant))
 
     if len(failed) > 0:
-        print(f"The {len(failed)} packages failed to build:")
-        print(" ".join(failed))
+        error_msgs.append(f"The {len(failed)} packages failed to build:")
+        error_msgs.append(" ".join(failed))
+
+    if len(error_msgs) > 0:
+        warn("\n".join(error_msgs))
 
     if len(cmd) == 1:
-        print("No packages were successfully build, skip nix-shell")
+        info("No packages were successfully build, skip nix-shell")
     else:
         sh(cmd)
 
@@ -236,7 +243,7 @@ def eval_attrs(resultdir: str, attrs: Set[str]) -> List[Attr]:
 
 def build(attr_names: Set[str], args: str) -> List[Attr]:
     if not attr_names:
-        print("Nothing changed")
+        info("Nothing changed")
         return []
 
     result_dir = tempfile.TemporaryDirectory(prefix="nix-review-")
@@ -250,7 +257,7 @@ def build(attr_names: Set[str], args: str) -> List[Attr]:
     if len(non_broken) == 0:
         return attrs
 
-    print("Building in {}".format(result_dir.name))
+    info("Building in {}".format(result_dir.name))
     command = [
         "nix-shell",
         "--no-out-link",
@@ -310,8 +317,8 @@ def package_attrs(
             attrs[attr.path] = attr
 
     if not ignore_nonexisting and len(nonexisting) > 0:
-        print(f"The packages do not exists:", file=sys.stderr)
-        print(" ".join(nonexisting), file=sys.stderr)
+        warn(f"The packages do not exists:")
+        warn(" ".join(nonexisting))
         sys.exit(1)
     return attrs
 
