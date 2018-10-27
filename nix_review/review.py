@@ -52,9 +52,10 @@ class Attr:
     def was_build(self) -> bool:
         if self.path is None:
             return False
-        else:
-            res = subprocess.run(["nix-store", "--verify-path", self.path], stderr=subprocess.DEVNULL)
-            return res.returncode == 0
+        res = subprocess.run(
+            ["nix-store", "--verify-path", self.path], stderr=subprocess.DEVNULL
+        )
+        return res.returncode == 0
 
 
 def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
