@@ -10,8 +10,10 @@ nix-review automatically builds packages changed in the pull requests
 - [ofborg](https://github.com/NixOS/ofborg) support: reuses evaluation output of CI to skip local evaluation, but
   also fallbacks if ofborg is not finished
 - automatically detects target branch of pull request
-- provides a `nix-shell` with all build packages in scope
+- provides a `nix-shell` with all packages, that did not fail to build
 - remote builder support
+- allows to build a subset of packages (great for mass-rebuilds)
+- colorful output
 
 ## Requirements
 
