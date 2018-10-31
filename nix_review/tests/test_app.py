@@ -192,9 +192,9 @@ class TestStringMethods(unittest.TestCase):
         main(
             "nix-review",
             [
+                "pr",
                 "--build-args",
                 '--builders "ssh://joerg@10.243.29.170 aarch64-linux"',
-                "pr",
                 "1",
             ],
         )
@@ -217,9 +217,9 @@ class TestStringMethods(unittest.TestCase):
         main(
             "nix-review",
             [
+                "pr",
                 "--build-args",
                 '--builders "ssh://joerg@10.243.29.170 aarch64-linux"',
-                "pr",
                 "37200",
             ],
         )

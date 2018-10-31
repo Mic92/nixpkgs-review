@@ -66,25 +66,15 @@ def pr_command(args: argparse.Namespace) -> None:
 
 def rev_command(args: argparse.Namespace) -> None:
     with Worktree(f"rev-{args.commit}") as worktree_dir:
-        r = Review(worktree_dir, args.build_args)
+        r = Review(
+            worktree_dir=worktree_dir,
+            build_args=args.build_args,
+            only_packages=set(args.package),
+        )
         r.review_commit(args.branch, args.commit)
 
 
-def parse_args(command: str, args: List[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        prog=command, formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument(
-        "--build-args", default="", help="arguments passed to nix when building"
-    )
-    subparsers = parser.add_subparsers(
-        dest="subcommand",
-        title="subcommands",
-        description="valid subcommands",
-        help="use --help on the additional subcommands",
-    )
-    subparsers.required = True  # type: ignore
-
+def pr_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
     pr_parser = subparsers.add_parser("pr", help="review a pull request on nixpkgs")
     pr_parser.add_argument(
         "--token",
@@ -98,14 +88,6 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
         choices=["ofborg", "local"],
         help="Whether to use ofborg's evaluation result",
     )
-    pr_parser.add_argument(
-        "-p",
-        "--package",
-        action="append",
-        default=[],
-        help="Package to build (can be passed multiple times)",
-    )
-
     checkout_help = (
         "What to source checkout when building: "
         + "`merge` will merge the pull request into the target branch, "
@@ -113,7 +95,11 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
     )
 
     pr_parser.add_argument(
-        "--checkout", default="merge", choices=["merge", "commit"], help=checkout_help
+        "-c",
+        "--checkout",
+        default="merge",
+        choices=["merge", "commit"],
+        help=checkout_help,
     )
     pr_parser.add_argument(
         "number",
@@ -121,17 +107,59 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
         help="one or more nixpkgs pull request numbers (ranges are also supported)",
     )
     pr_parser.set_defaults(func=pr_command)
+    return pr_parser
 
+
+def rev_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
     rev_parser = subparsers.add_parser(
         "rev", help="review a change in the local pull request repository"
     )
     rev_parser.add_argument(
-        "--branch", default="master", help="branch to compare against with"
+        "-b", "--branch", default="master", help="branch to compare against with"
     )
     rev_parser.add_argument(
         "commit", help="commit/tag/ref/branch in your local git repository"
     )
     rev_parser.set_defaults(func=rev_command)
+    return rev_parser
+
+
+class CommonFlag:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.args = args
+        self.kwargs = kwargs
+
+
+def parse_args(command: str, args: List[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog=command, formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    subparsers = parser.add_subparsers(
+        dest="subcommand",
+        title="subcommands",
+        description="valid subcommands",
+        help="use --help on the additional subcommands",
+    )
+    subparsers.required = True  # type: ignore
+    pr_parser = pr_flags(subparsers)
+    rev_parser = rev_flags(subparsers)
+
+    common_flags = [
+        CommonFlag(
+            "--build-args", default="", help="arguments passed to nix when building"
+        ),
+        CommonFlag(
+            "-p",
+            "--package",
+            action="append",
+            default=[],
+            help="Package to build (can be passed multiple times)",
+        ),
+    ]
+
+    for flag in common_flags:
+        pr_parser.add_argument(*flag.args, **flag.kwargs)
+        rev_parser.add_argument(*flag.args, **flag.kwargs)
 
     return parser.parse_args(args)
 
@@ -211,11 +239,12 @@ class Worktree:
 
 
 def main(command: str, raw_args: List[str]) -> None:
+    args = parse_args(command, raw_args)
+
     root = find_nixpkgs_root()
     if root is None:
         die("Has to be execute from nixpkgs repository")
     else:
         os.chdir(root)
 
-    args = parse_args(command, raw_args)
     args.func(args)
