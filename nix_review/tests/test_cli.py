@@ -4,7 +4,7 @@ import unittest
 from typing import Any, List
 from unittest.mock import mock_open, patch
 
-from nix_review.app import main
+from nix_review.cli import main
 
 TEST_ROOT = os.path.dirname(os.path.realpath(__file__))
 DEBUG = False

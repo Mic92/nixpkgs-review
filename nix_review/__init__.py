@@ -1,12 +1,12 @@
 import sys
 
-from . import app
+from . import cli
 
 
 def main() -> None:
     try:
         command = sys.argv[0]
         args = sys.argv[1:]
-        app.main(command, args)
+        cli.main(command, args)
     except KeyboardInterrupt:
         pass
