@@ -50,14 +50,14 @@ def pr_command(args: argparse.Namespace) -> None:
                     only_packages=set(args.package),
                     checkout=checkout_option,
                 )
-                attrsets.append(review.build_pr(pr))
+                attrsets.append((pr, review.build_pr(pr)))
             except subprocess.CalledProcessError:
                 print(
                     f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build",
                     file=sys.stderr,
                 )
 
-        for attrs in attrsets:
+        for pr, attrs in attrsets:
             print(f"https://github.com/NixOS/nixpkgs/pull/{pr}")
             nix_shell(attrs)
 
