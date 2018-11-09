@@ -33,10 +33,13 @@ class Worktree:
 
         self.worktree_dir = worktree_dir
 
-        os.environ["NIX_PATH"] = f"nixpkgs={os.path.realpath(self.worktree_dir)}"
+        os.environ["NIX_PATH"] = self.nixpkgs_path()
 
-    def __enter__(self) -> str:
-        return self.worktree_dir
+    def nixpkgs_path(self) -> str:
+        return f"nixpkgs={os.path.realpath(self.worktree_dir)}"
+
+    def __enter__(self) -> "Worktree":
+        return self
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
         os.environ.clear()

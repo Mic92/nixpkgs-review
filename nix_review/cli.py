@@ -37,39 +37,40 @@ def pr_command(args: argparse.Namespace) -> None:
         CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
     )
 
-    attrsets = []
+    contexts = []
 
     with ExitStack() as stack:
         for pr in prs:
-            worktree_dir = stack.enter_context(Worktree(f"pr-{pr}"))
+            worktree = stack.enter_context(Worktree(f"pr-{pr}"))
             try:
                 review = Review(
-                    worktree_dir=worktree_dir,
+                    worktree_dir=worktree.worktree_dir,
                     build_args=args.build_args,
                     api_token=args.token,
                     use_ofborg_eval=use_ofborg_eval,
                     only_packages=set(args.package),
                     checkout=checkout_option,
                 )
-                attrsets.append((pr, review.build_pr(pr)))
+                contexts.append((pr, worktree, review.build_pr(pr)))
             except subprocess.CalledProcessError:
                 print(
                     f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build",
                     file=sys.stderr,
                 )
 
-        for pr, attrs in attrsets:
+        for pr, worktree, attrs in contexts:
             print(f"https://github.com/NixOS/nixpkgs/pull/{pr}")
+            os.environ["NIX_PATH"] = worktree.nixpkgs_path()
             nix_shell(attrs)
 
-        if len(attrsets) != len(prs):
+        if len(contexts) != len(prs):
             sys.exit(1)
 
 
 def rev_command(args: argparse.Namespace) -> None:
-    with Worktree(f"rev-{args.commit}") as worktree_dir:
+    with Worktree(f"rev-{args.commit}") as worktree:
         r = Review(
-            worktree_dir=worktree_dir,
+            worktree_dir=worktree.worktree_dir,
             build_args=args.build_args,
             only_packages=set(args.package),
         )
