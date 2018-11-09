@@ -3,7 +3,7 @@ import shutil
 import signal
 from typing import Any, Optional
 
-from .utils import sh
+from .utils import sh, warn
 
 
 class DisableKeyboardInterrupt:
@@ -11,7 +11,7 @@ class DisableKeyboardInterrupt:
         self.signal_received = False
 
         def handler(_sig: Any, _frame: Any) -> None:
-            print("Ignore Ctlr-C: Cleanup in progress... Don't be so impatient human!")
+            warn("Ignore Ctlr-C: Cleanup in progress... Don't be so impatient human!")
 
         self.old_handler = signal.signal(signal.SIGINT, handler)
 
@@ -26,7 +26,7 @@ class Worktree:
         try:
             os.makedirs(worktree_dir)
         except FileExistsError:
-            print(
+            warn(
                 f"{worktree_dir} already exists. Is a different review already running?"
             )
             raise
