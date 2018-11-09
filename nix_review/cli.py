@@ -12,6 +12,7 @@ from typing import Any, List, Optional
 from .review import CheckoutOption, Review, nix_shell
 from .utils import sh
 from .worktree import Worktree
+from .buildenv import Buildenv
 
 
 def parse_pr_numbers(number_args: List[str]) -> List[int]:
@@ -192,4 +193,5 @@ def main(command: str, raw_args: List[str]) -> None:
     else:
         os.chdir(root)
 
-    args.func(args)
+    with Buildenv():
+        args.func(args)
