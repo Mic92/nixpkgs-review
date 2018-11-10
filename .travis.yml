@@ -1,13 +1,2 @@
-language: python
-python:
-  - "3.6"
-  - "3.7-dev"
-install:
-  - pip install -e .[dev]
-script:
-  - python3 -m unittest discover .
-  - mypy nix_review
-  - flake8
-  # broken on 3.7 atm (https://github.com/ambv/black/issues/425)
-  - |
-    [[ $TRAVIS_PYTHON_VERSION == 3.7-dev ]] || black --check .
+language: nix
+script: nix-build --quiet release.nix -A build.x86_64-linux 
