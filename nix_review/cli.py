@@ -27,6 +27,8 @@ def parse_pr_numbers(number_args: List[str]) -> List[int]:
 
 
 def pr_command(args: argparse.Namespace) -> None:
+    chdir_nixpkgs_root()
+
     prs = parse_pr_numbers(args.number)
     use_ofborg_eval = args.eval == "ofborg"
     checkout_option = (
@@ -64,6 +66,7 @@ def pr_command(args: argparse.Namespace) -> None:
 
 
 def rev_command(args: argparse.Namespace) -> None:
+    chdir_nixpkgs_root()
     with Worktree(f"rev-{args.commit}") as worktree:
         r = Review(
             worktree_dir=worktree.worktree_dir,
@@ -181,14 +184,16 @@ def find_nixpkgs_root() -> Optional[str]:
         prefix.append("..")
 
 
-def main(command: str, raw_args: List[str]) -> None:
-    args = parse_args(command, raw_args)
-
+def chdir_nixpkgs_root() -> None:
     root = find_nixpkgs_root()
     if root is None:
-        die("Has to be execute from nixpkgs repository")
+        die("Has to be executed from nixpkgs repository")
     else:
         os.chdir(root)
+
+
+def main(command: str, raw_args: List[str]) -> None:
+    args = parse_args(command, raw_args)
 
     with Buildenv():
         args.func(args)
