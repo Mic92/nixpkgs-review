@@ -1,16 +1,12 @@
 import argparse
 import os
 import re
-import shutil
-import signal
 import subprocess
 import sys
-import tempfile
 from contextlib import ExitStack
 from typing import Any, List, Optional
 
 from .review import CheckoutOption, Review, nix_shell
-from .utils import sh
 from .worktree import Worktree
 from .buildenv import Buildenv
 

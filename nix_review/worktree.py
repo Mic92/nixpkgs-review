@@ -1,7 +1,7 @@
 import os
 import shutil
 import signal
-from typing import Any, Optional
+from typing import Any
 
 from .utils import sh, warn
 
