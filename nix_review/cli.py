@@ -4,7 +4,7 @@ import re
 import subprocess
 import sys
 from contextlib import ExitStack
-from typing import Any, List, Optional
+from typing import Any, List
 
 from .review import CheckoutOption, Review, nix_shell
 from .worktree import Worktree
@@ -27,6 +27,7 @@ def parse_pr_numbers(number_args: List[str]) -> List[int]:
 
 
 def pr_command(args: argparse.Namespace) -> None:
+
     prs = parse_pr_numbers(args.number)
     use_ofborg_eval = args.eval == "ofborg"
     checkout_option = (
@@ -163,32 +164,8 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
     return parser.parse_args(args)
 
 
-def die(message: str) -> None:
-    print(message, file=sys.stderr)
-    sys.exit(1)
-
-
-def find_nixpkgs_root() -> Optional[str]:
-    prefix = ["."]
-    release_nix = ["nixos", "release.nix"]
-    while True:
-        root_path = os.path.join(*prefix)
-        release_nix_path = os.path.join(root_path, *release_nix)
-        if os.path.exists(release_nix_path):
-            return root_path
-        if os.path.abspath(root_path) == "/":
-            return None
-        prefix.append("..")
-
-
 def main(command: str, raw_args: List[str]) -> None:
     args = parse_args(command, raw_args)
-
-    root = find_nixpkgs_root()
-    if root is None:
-        die("Has to be execute from nixpkgs repository")
-    else:
-        os.chdir(root)
 
     with Buildenv():
         args.func(args)
