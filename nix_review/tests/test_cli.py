@@ -4,7 +4,7 @@ import unittest
 from typing import Any, List
 from unittest.mock import mock_open, patch
 
-from nix_review.app import main
+from nix_review.cli import main
 
 TEST_ROOT = os.path.dirname(os.path.realpath(__file__))
 DEBUG = False
@@ -192,9 +192,9 @@ class TestStringMethods(unittest.TestCase):
         main(
             "nix-review",
             [
+                "pr",
                 "--build-args",
                 '--builders "ssh://joerg@10.243.29.170 aarch64-linux"',
-                "pr",
                 "1",
             ],
         )
@@ -217,9 +217,9 @@ class TestStringMethods(unittest.TestCase):
         main(
             "nix-review",
             [
+                "pr",
                 "--build-args",
                 '--builders "ssh://joerg@10.243.29.170 aarch64-linux"',
-                "pr",
                 "37200",
             ],
         )

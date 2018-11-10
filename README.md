@@ -81,7 +81,7 @@ Instead of `HEAD` also a commit or branch can be given.
 Nix-review will pass all arguments given in `--build-arg` to `nix-build`:
 
 ```console
-$ nix-review --build-args="--builders 'ssh://joerg@10.243.29.170'" pr 37244
+$ nix-review pr --build-args="--builders 'ssh://joerg@10.243.29.170'" 37244
 ```
 
 This allows to parallelize builds across multiple machines.

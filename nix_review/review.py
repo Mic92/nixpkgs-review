@@ -14,7 +14,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple
 
-from .utils import warn, info, sh
+from .utils import info, sh, warn
 
 ROOT = Path(os.path.dirname(os.path.realpath(__file__)))
 
@@ -29,6 +29,28 @@ class GithubClient:
         if self.api_token:
             req.add_header("Authorization", f"token {self.api_token}")
         return json.loads(urllib.request.urlopen(req).read())
+
+    def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Optional[Dict[str, Set[str]]]:
+        packages_per_system: DefaultDict[str, Set[str]] = defaultdict(set)
+        statuses = self.get(pr["statuses_url"])
+        for status in statuses:
+            url = status.get("target_url", "")
+            if (
+                status["description"] == "^.^!"
+                and status["creator"]["login"] == "GrahamcOfBorg"
+                and url != ""
+            ):
+                url = urllib.parse.urlparse(url)
+                raw_gist_url = (
+                    f"https://gist.githubusercontent.com/GrahamcOfBorg{url.path}/raw/"
+                )
+                for line in urllib.request.urlopen(raw_gist_url):
+                    if line == b"":
+                        break
+                    system, attribute = line.decode("utf-8").split()
+                    packages_per_system[system].add(attribute)
+                return packages_per_system
+        return None
 
 
 class CheckoutOption(Enum):
@@ -115,7 +137,7 @@ class Review:
     def build_pr(self, pr_number: int) -> List[Attr]:
         pr = self.github_client.get(f"repos/NixOS/nixpkgs/pulls/{pr_number}")
         if self.use_ofborg_eval:
-            packages_per_system = self.get_borg_eval_gist(pr)
+            packages_per_system = self.github_client.get_borg_eval_gist(pr)
         else:
             packages_per_system = None
         merge_rev, pr_rev = fetch_refs(pr["base"]["ref"], f"pull/{pr['number']}/head")
@@ -146,28 +168,6 @@ class Review:
         Review a pull request from the nixpkgs github repository
         """
         nix_shell(self.build_pr(pr_number))
-
-    def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Optional[Dict[str, Set[str]]]:
-        packages_per_system: DefaultDict[str, Set[str]] = defaultdict(set)
-        statuses = self.github_client.get(pr["statuses_url"])
-        for status in statuses:
-            url = status.get("target_url", "")
-            if (
-                status["description"] == "^.^!"
-                and status["creator"]["login"] == "GrahamcOfBorg"
-                and url != ""
-            ):
-                url = urllib.parse.urlparse(url)
-                raw_gist_url = (
-                    f"https://gist.githubusercontent.com/GrahamcOfBorg{url.path}/raw/"
-                )
-                for line in urllib.request.urlopen(raw_gist_url):
-                    if line == b"":
-                        break
-                    system, attribute = line.decode("utf-8").split()
-                    packages_per_system[system].add(attribute)
-                return packages_per_system
-        return None
 
 
 def nix_shell(attrs: List[Attr]) -> None:
