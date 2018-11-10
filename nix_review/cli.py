@@ -4,7 +4,7 @@ import re
 import subprocess
 import sys
 from contextlib import ExitStack
-from typing import Any, List, Optional
+from typing import Any, List
 
 from .review import CheckoutOption, Review, nix_shell
 from .worktree import Worktree
