@@ -19,6 +19,6 @@ warn = color_text(31, file=sys.stderr)
 info = color_text(32)
 
 
-def sh(command: List[str], cwd: Optional[str] = None) -> None:
+def sh(command: List[str], cwd: Optional[str] = None) -> subprocess.CompletedProcess:
     info("$ " + " ".join(command))
-    subprocess.check_call(command, cwd=cwd)
+    return subprocess.run(command, cwd=cwd, check=True)

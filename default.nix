@@ -5,7 +5,6 @@ with pkgs;
 python3.pkgs.buildPythonApplication rec {
   name = "nix-review";
   src = ./.;
-  env = buildEnv { inherit name; paths = buildInputs ++ checkInputs; };
   buildInputs = [ makeWrapper ];
   checkInputs = [ mypy python3.pkgs.black python3.pkgs.flake8 glibcLocales ];
   checkPhase = ''
@@ -21,4 +20,6 @@ python3.pkgs.buildPythonApplication rec {
   makeWrapperArgs = [
     "--prefix PATH" ":" "${nix}/bin"
   ];
+
+  passthru.env = buildEnv { inherit name; paths = buildInputs ++ checkInputs; };
 }

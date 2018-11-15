@@ -6,51 +6,15 @@ import shlex
 import subprocess
 import sys
 import tempfile
-import urllib.parse
-import urllib.request
 import xml.etree.ElementTree as ET
-from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
+from .github import GithubClient
 from .utils import info, sh, warn
 
 ROOT = Path(os.path.dirname(os.path.realpath(__file__)))
-
-
-class GithubClient:
-    def __init__(self, api_token: Optional[str]) -> None:
-        self.api_token = api_token
-
-    def get(self, path: str) -> Any:
-        url = urllib.parse.urljoin("https://api.github.com/", path)
-        req = urllib.request.Request(url)
-        if self.api_token:
-            req.add_header("Authorization", f"token {self.api_token}")
-        return json.loads(urllib.request.urlopen(req).read())
-
-    def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Optional[Dict[str, Set[str]]]:
-        packages_per_system: DefaultDict[str, Set[str]] = defaultdict(set)
-        statuses = self.get(pr["statuses_url"])
-        for status in statuses:
-            url = status.get("target_url", "")
-            if (
-                status["description"] == "^.^!"
-                and status["creator"]["login"] == "GrahamcOfBorg"
-                and url != ""
-            ):
-                url = urllib.parse.urlparse(url)
-                raw_gist_url = (
-                    f"https://gist.githubusercontent.com/GrahamcOfBorg{url.path}/raw/"
-                )
-                for line in urllib.request.urlopen(raw_gist_url):
-                    if line == b"":
-                        break
-                    system, attribute = line.decode("utf-8").split()
-                    packages_per_system[system].add(attribute)
-                return packages_per_system
-        return None
 
 
 class CheckoutOption(Enum):
@@ -65,11 +29,17 @@ class CheckoutOption(Enum):
 
 class Attr:
     def __init__(
-        self, name: str, exists: bool, broken: bool, path: Optional[str]
+        self,
+        name: str,
+        exists: bool,
+        broken: bool,
+        blacklisted: bool,
+        path: Optional[str],
     ) -> None:
         self.name = name
         self.exists = exists
         self.broken = broken
+        self.blacklisted = blacklisted
         self.path = path
 
     def was_build(self) -> bool:
@@ -82,10 +52,10 @@ class Attr:
 
 
 def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
-    system = subprocess.check_output(["nix", "eval", "--raw", "nixpkgs.system"]).decode(
-        "utf-8"
+    nix_eval = subprocess.run(
+        ["nix", "eval", "--raw", "nixpkgs.system"], check=True, stdout=subprocess.PIPE
     )
-    return set(packages_per_system[system])
+    return set(packages_per_system[nix_eval.stdout.decode("utf-8")])
 
 
 class Review:
@@ -145,11 +115,12 @@ class Review:
         if self.checkout == CheckoutOption.MERGE:
             base_rev = merge_rev
         else:
-            base_rev = (
-                subprocess.check_output(["git", "merge-base", merge_rev, pr_rev])
-                .decode("utf-8")
-                .strip()
+            run = subprocess.run(
+                ["git", "merge-base", merge_rev, pr_rev],
+                check=True,
+                stdout=subprocess.PIPE,
             )
+            base_rev = run.stdout.decode("utf-8").strip()
 
         if packages_per_system is None:
             return self.build_commit(base_rev, pr_rev)
@@ -176,10 +147,13 @@ def nix_shell(attrs: List[Attr]) -> None:
     broken = []
     failed = []
     non_existant = []
+    blacklisted = []
 
     for a in attrs:
         if a.broken:
             broken.append(a.name)
+        elif a.blacklisted:
+            blacklisted.append(a.name)
         elif not a.exists:
             non_existant.append(a.name)
         elif not a.was_build():
@@ -192,18 +166,22 @@ def nix_shell(attrs: List[Attr]) -> None:
 
     if len(broken) > 0:
         error_msgs.append(
-            f"The {len(broken)} packages are marked as broken and were skipped:"
+            f"{len(broken)} package(s) are marked as broken and were skipped:"
         )
         error_msgs.append(" ".join(broken))
 
     if len(non_existant) > 0:
         error_msgs.append(
-            f"The {len(non_existant)} packages were present in ofBorgs evaluation, but not found in our checkout:"
+            f"{len(non_existant)} package(s) were present in ofBorgs evaluation, but not found in our checkout:"
         )
         error_msgs.append(" ".join(non_existant))
 
+    if len(blacklisted) > 0:
+        error_msgs.append(f"{len(blacklisted)} package(s) were blacklisted:")
+        error_msgs.append(" ".join(blacklisted))
+
     if len(failed) > 0:
-        error_msgs.append(f"The {len(failed)} packages failed to build:")
+        error_msgs.append(f"{len(failed)} package(s) failed to build:")
         error_msgs.append(" ".join(failed))
 
     if len(error_msgs) > 0:
@@ -233,10 +211,21 @@ def eval_attrs(resultdir: str, attrs: Set[str]) -> List[Attr]:
         "--json",
         f"((import {str(ROOT.joinpath('nix/evalAttrs.nix'))}) {{ attr-json = {attr_json}; }})",
     ]
+    # workaround https://github.com/NixOS/ofborg/issues/269
+    blacklist = set(
+        ["tests.nixos-functions.nixos-test", "tests.nixos-functions.nixosTest-test"]
+    )
 
     results = []
-    for name, props in json.loads(subprocess.check_output(cmd)).items():
-        attr = Attr(name, props["exists"], props["broken"], props["path"])
+    nix_eval = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
+    for name, props in json.loads(nix_eval.stdout).items():
+        attr = Attr(
+            name=name,
+            exists=props["exists"],
+            broken=props["broken"],
+            blacklisted=name in blacklist,
+            path=props["path"],
+        )
         results.append(attr)
     return results
 
@@ -249,12 +238,12 @@ def build(attr_names: Set[str], args: str) -> List[Attr]:
     result_dir = tempfile.TemporaryDirectory(prefix="nix-review-")
 
     attrs = eval_attrs(result_dir.name, attr_names)
-    non_broken = []
+    filtered = []
     for attr in attrs:
-        if not attr.broken:
-            non_broken.append(attr.name)
+        if not (attr.broken or attr.blacklisted):
+            filtered.append(attr.name)
 
-    if len(non_broken) == 0:
+    if len(filtered) == 0:
         return attrs
 
     info("Building in {}".format(result_dir.name))
@@ -273,7 +262,7 @@ def build(attr_names: Set[str], args: str) -> List[Attr]:
     ] + shlex.split(args)
 
     command.append("-p")
-    for a in non_broken:
+    for a in filtered:
         command.append(a)
     try:
         sh(command, cwd=result_dir.name)
@@ -289,8 +278,10 @@ def list_packages(path: str, check_meta: bool = False) -> PackageSet:
     cmd = ["nix-env", "-f", path, "-qaP", "--xml", "--out-path", "--show-trace"]
     if check_meta:
         cmd.append("--meta")
-    output = subprocess.check_output(cmd)
-    context = ET.iterparse(io.StringIO(output.decode("utf-8")), events=("start",))
+    nix_env = subprocess.run(cmd, stdout=subprocess.PIPE)
+    context = ET.iterparse(
+        io.StringIO(nix_env.stdout.decode("utf-8")), events=("start",)
+    )
     packages = set()
     for (event, elem) in context:
         if elem.tag == "item":
@@ -335,11 +326,10 @@ def filter_packages(
 
         nonexistant = specified_attrs.keys() - changed_attrs.keys()
         if len(nonexistant) != 0:
-            print(
-                "The following packages specified with `-p` are not rebuild by the pull request",
-                file=sys.stderr,
+            warn(
+                "The following packages specified with `-p` are not rebuild by the pull request"
             )
-            print(" ".join(specified_attrs[path].name for path in nonexistant))
+            warn(" ".join(specified_attrs[path].name for path in nonexistant))
             sys.exit(1)
         union_paths = changed_attrs.keys() & specified_attrs.keys()
         return set(specified_attrs[path].name for path in union_paths)
@@ -352,10 +342,10 @@ def fetch_refs(*refs: str) -> List[str]:
     sh(cmd)
     shas = []
     for i, ref in enumerate(refs):
-        o = subprocess.check_output(
+        out = subprocess.check_output(
             ["git", "rev-parse", "--verify", f"refs/nix-review/{i}"]
         )
-        shas.append(o.strip().decode("utf-8"))
+        shas.append(out.strip().decode("utf-8"))
     return shas
 
 
