@@ -7,7 +7,7 @@ cd $SCRIPT_DIR/..
 
 version=${1:-}
 if [[ -z "$version" ]]; then
-  echo "USUAGE: $0 version" 2>/dev/null
+  echo "USAGE: $0 version" 2>/dev/null
   exit 1
 fi
 
@@ -18,6 +18,7 @@ fi
 
 sed -i -e "s!version=\".*\"!version=\"${version}\"!" setup.py
 git add setup.py
+nix-build default.nix
 git commit -m "bump version ${version}"
 git tag "${version}"
 
