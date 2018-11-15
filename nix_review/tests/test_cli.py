@@ -1,8 +1,8 @@
 import multiprocessing
 import os
 import unittest
-from typing import Any, List
-from unittest.mock import mock_open, patch
+from typing import Any, List, Optional, Tuple
+from unittest.mock import MagicMock, mock_open, patch
 
 from nix_review.cli import main
 
@@ -25,21 +25,24 @@ class MockError(Exception):
 
 
 class MockCompletedProcess:
-    def __init__(self) -> None:
+    def __init__(self, stdout: Optional[bytes] = None) -> None:
         self.returncode = 0
+        self.stdout = stdout
 
 
 class Mock:
-    def __init__(self, test, arg_spec) -> None:
+    def __init__(
+        self, test: unittest.TestCase, arg_spec: List[Tuple[Any, Any]]
+    ) -> None:
         self.test = test
         self.arg_spec_iterator = iter(arg_spec)
         self.expected_args: List[Any] = []
         self.ret = None
 
-    def __iter__(self):
+    def __iter__(self) -> "Mock":
         return self
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
         (self.expected_args, self.ret) = next(self.arg_spec_iterator)
         if DEBUG:
             print(f"({self.expected_args}) -> {self.ret}")
@@ -54,10 +57,7 @@ class Mock:
         return self.ret
 
 
-PKG_LIST = read_asset("package_list_after.txt").encode("utf-8")
-
-
-def local_eval_cmds():
+def local_eval_cmds() -> List[Tuple[Any, Any]]:
     return [
         (IgnoreArgument, mock_open(read_data=read_asset("github-pull-1.json"))()),
         (
@@ -75,8 +75,14 @@ def local_eval_cmds():
             ],
             0,
         ),
-        (["git", "rev-parse", "--verify", "refs/nix-review/0"], b"hash1"),
-        (["git", "rev-parse", "--verify", "refs/nix-review/1"], b"hash2"),
+        (
+            ["git", "rev-parse", "--verify", "refs/nix-review/0"],
+            MockCompletedProcess(stdout=b"hash1"),
+        ),
+        (
+            ["git", "rev-parse", "--verify", "refs/nix-review/1"],
+            MockCompletedProcess(stdout=b"hash2"),
+        ),
         (["git", "worktree", "add", "./.review/pr-1", "hash1"], 0),
         (
             [
@@ -88,9 +94,9 @@ def local_eval_cmds():
                 "--out-path",
                 "--show-trace",
             ],
-            b"<items></items>",
+            MockCompletedProcess(stdout=b"<items></items>"),
         ),
-        (["git", "merge", "--no-commit", "hash2"], 0),
+        (["git", "merge", "--no-commit", "hash2"], MockCompletedProcess()),
         (
             [
                 "nix-env",
@@ -102,12 +108,14 @@ def local_eval_cmds():
                 "--show-trace",
                 "--meta",
             ],
-            PKG_LIST,
+            MockCompletedProcess(
+                stdout=read_asset("package_list_after.txt").encode("utf-8")
+            ),
         ),
     ]
 
 
-def borg_eval_cmds() -> List[Any]:
+def borg_eval_cmds() -> List[Tuple[Any, Any]]:
     return [
         (IgnoreArgument, mock_open(read_data=read_asset("github-pull-37200.json"))()),
         (
@@ -127,13 +135,25 @@ def borg_eval_cmds() -> List[Any]:
                 "master:refs/nix-review/0",
                 "pull/37200/head:refs/nix-review/1",
             ],
-            0,
+            MockCompletedProcess(),
         ),
-        (["git", "rev-parse", "--verify", "refs/nix-review/0"], b"hash1"),
-        (["git", "rev-parse", "--verify", "refs/nix-review/1"], b"hash2"),
-        (["git", "worktree", "add", "./.review/pr-37200", "hash1"], 0),
-        (["git", "merge", "--no-commit", "hash2"], 0),
-        (["nix", "eval", "--raw", "nixpkgs.system"], b"x86_64-linux"),
+        (
+            ["git", "rev-parse", "--verify", "refs/nix-review/0"],
+            MockCompletedProcess(stdout=b"hash1"),
+        ),
+        (
+            ["git", "rev-parse", "--verify", "refs/nix-review/1"],
+            MockCompletedProcess(stdout=b"hash2"),
+        ),
+        (
+            ["git", "worktree", "add", "./.review/pr-37200", "hash1"],
+            MockCompletedProcess(),
+        ),
+        (["git", "merge", "--no-commit", "hash2"], MockCompletedProcess()),
+        (
+            ["nix", "eval", "--raw", "nixpkgs.system"],
+            MockCompletedProcess(stdout=b"x86_64-linux"),
+        ),
     ]
 
 
@@ -141,9 +161,13 @@ build_cmds = [
     (
         ["nix", "eval", "--json", IgnoreArgument],
         # hack to make sure the path exists
-        b'{"pong3d": {"exists": true, "broken": false, "path": "'
-        + __file__.encode("utf8")
-        + b'"}}',
+        MockCompletedProcess(
+            stdout=(
+                b'{"pong3d": {"exists": true, "broken": false, "path": "'
+                + __file__.encode("utf8")
+                + b'"}}'
+            )
+        ),
     ),
     (
         [
@@ -162,30 +186,22 @@ build_cmds = [
             "-p",
             "pong3d",
         ],
-        0,
+        MockCompletedProcess(),
     ),
     (["nix-store", "--verify-path", IgnoreArgument], MockCompletedProcess()),
-    (["nix-shell", "-p", "pong3d"], 0),
-    (["git", "worktree", "prune"], 0),
+    (["nix-shell", "-p", "pong3d"], MockCompletedProcess()),
+    (["git", "worktree", "prune"], MockCompletedProcess),
 ]
 
 
 class TestStringMethods(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         os.chdir(os.path.join(TEST_ROOT, "assets/nixpkgs"))
 
     @patch("urllib.request.urlopen")
     @patch("subprocess.run")
-    @patch("subprocess.Popen")
-    @patch("subprocess.check_call")
-    @patch("subprocess.check_output")
-    def test_pr_local_eval(
-        self, mock_check_output, mock_check_call, mock_popen, mock_run, mock_urlopen
-    ):
+    def test_pr_local_eval(self, mock_run: MagicMock, mock_urlopen: MagicMock) -> None:
         effects = Mock(self, local_eval_cmds() + build_cmds)
-        mock_check_call.side_effect = effects
-        mock_popen.stdout.side_effect = effects
-        mock_check_output.side_effect = effects
         mock_urlopen.side_effect = effects
         mock_run.side_effect = effects
 
@@ -201,16 +217,8 @@ class TestStringMethods(unittest.TestCase):
 
     @patch("urllib.request.urlopen")
     @patch("subprocess.run")
-    @patch("subprocess.Popen")
-    @patch("subprocess.check_call")
-    @patch("subprocess.check_output")
-    def test_pr_borg_eval(
-        self, mock_check_output, mock_check_call, mock_popen, mock_run, mock_urlopen
-    ):
+    def test_pr_borg_eval(self, mock_run: MagicMock, mock_urlopen: MagicMock) -> None:
         effects = Mock(self, borg_eval_cmds() + build_cmds)
-        mock_check_call.side_effect = effects
-        mock_popen.stdout.side_effect = effects
-        mock_check_output.side_effect = effects
         mock_run.side_effect = effects
         mock_urlopen.side_effect = effects
 

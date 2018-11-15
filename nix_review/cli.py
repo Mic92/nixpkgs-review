@@ -6,9 +6,9 @@ import sys
 from contextlib import ExitStack
 from typing import Any, List
 
+from .buildenv import Buildenv
 from .review import CheckoutOption, Review, nix_shell
 from .worktree import Worktree
-from .buildenv import Buildenv
 
 
 def parse_pr_numbers(number_args: List[str]) -> List[int]:
@@ -27,7 +27,6 @@ def parse_pr_numbers(number_args: List[str]) -> List[int]:
 
 
 def pr_command(args: argparse.Namespace) -> None:
-
     prs = parse_pr_numbers(args.number)
     use_ofborg_eval = args.eval == "ofborg"
     checkout_option = (

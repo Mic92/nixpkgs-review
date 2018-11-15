@@ -82,10 +82,10 @@ class Attr:
 
 
 def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
-    system = subprocess.check_output(["nix", "eval", "--raw", "nixpkgs.system"]).decode(
-        "utf-8"
+    nix_eval = subprocess.run(
+        ["nix", "eval", "--raw", "nixpkgs.system"], check=True, stdout=subprocess.PIPE
     )
-    return set(packages_per_system[system])
+    return set(packages_per_system[nix_eval.stdout.decode("utf-8")])
 
 
 class Review:
@@ -145,11 +145,12 @@ class Review:
         if self.checkout == CheckoutOption.MERGE:
             base_rev = merge_rev
         else:
-            base_rev = (
-                subprocess.check_output(["git", "merge-base", merge_rev, pr_rev])
-                .decode("utf-8")
-                .strip()
+            run = subprocess.run(
+                ["git", "merge-base", merge_rev, pr_rev],
+                check=True,
+                stdout=subprocess.PIPE,
             )
+            base_rev = run.stdout.decode("utf-8").strip()
 
         if packages_per_system is None:
             return self.build_commit(base_rev, pr_rev)
@@ -235,7 +236,8 @@ def eval_attrs(resultdir: str, attrs: Set[str]) -> List[Attr]:
     ]
 
     results = []
-    for name, props in json.loads(subprocess.check_output(cmd)).items():
+    nix_eval = subprocess.run(cmd, check=True, stdout=subprocess.STDOUT)
+    for name, props in json.loads(nix_eval.stdout).items():
         attr = Attr(name, props["exists"], props["broken"], props["path"])
         results.append(attr)
     return results
@@ -289,8 +291,10 @@ def list_packages(path: str, check_meta: bool = False) -> PackageSet:
     cmd = ["nix-env", "-f", path, "-qaP", "--xml", "--out-path", "--show-trace"]
     if check_meta:
         cmd.append("--meta")
-    output = subprocess.check_output(cmd)
-    context = ET.iterparse(io.StringIO(output.decode("utf-8")), events=("start",))
+    nix_env = subprocess.run(cmd, stdout=subprocess.PIPE)
+    context = ET.iterparse(
+        io.StringIO(nix_env.stdout.decode("utf-8")), events=("start",)
+    )
     packages = set()
     for (event, elem) in context:
         if elem.tag == "item":
@@ -352,10 +356,10 @@ def fetch_refs(*refs: str) -> List[str]:
     sh(cmd)
     shas = []
     for i, ref in enumerate(refs):
-        o = subprocess.check_output(
+        out = subprocess.check_output(
             ["git", "rev-parse", "--verify", f"refs/nix-review/{i}"]
         )
-        shas.append(o.strip().decode("utf-8"))
+        shas.append(out.strip().decode("utf-8"))
     return shas
 
 

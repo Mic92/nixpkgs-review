@@ -21,4 +21,4 @@ info = color_text(32)
 
 def sh(command: List[str], cwd: Optional[str] = None) -> None:
     info("$ " + " ".join(command))
-    subprocess.check_call(command, cwd=cwd)
+    subprocess.run(command, cwd=cwd, check=True)
