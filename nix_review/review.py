@@ -1,56 +1,20 @@
 import io
+import os
 import json
 import multiprocessing
-import os
 import shlex
 import subprocess
 import sys
 import tempfile
-import urllib.parse
-import urllib.request
 import xml.etree.ElementTree as ET
-from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Any, DefaultDict, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
+from .github import GithubClient
 from .utils import info, sh, warn
 
 ROOT = Path(os.path.dirname(os.path.realpath(__file__)))
-
-
-class GithubClient:
-    def __init__(self, api_token: Optional[str]) -> None:
-        self.api_token = api_token
-
-    def get(self, path: str) -> Any:
-        url = urllib.parse.urljoin("https://api.github.com/", path)
-        req = urllib.request.Request(url)
-        if self.api_token:
-            req.add_header("Authorization", f"token {self.api_token}")
-        return json.loads(urllib.request.urlopen(req).read())
-
-    def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Optional[Dict[str, Set[str]]]:
-        packages_per_system: DefaultDict[str, Set[str]] = defaultdict(set)
-        statuses = self.get(pr["statuses_url"])
-        for status in statuses:
-            url = status.get("target_url", "")
-            if (
-                status["description"] == "^.^!"
-                and status["creator"]["login"] == "GrahamcOfBorg"
-                and url != ""
-            ):
-                url = urllib.parse.urlparse(url)
-                raw_gist_url = (
-                    f"https://gist.githubusercontent.com/GrahamcOfBorg{url.path}/raw/"
-                )
-                for line in urllib.request.urlopen(raw_gist_url):
-                    if line == b"":
-                        break
-                    system, attribute = line.decode("utf-8").split()
-                    packages_per_system[system].add(attribute)
-                return packages_per_system
-        return None
 
 
 class CheckoutOption(Enum):
