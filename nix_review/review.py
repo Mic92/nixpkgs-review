@@ -200,7 +200,7 @@ def eval_attrs(resultdir: str, attrs: Set[str]) -> List[Attr]:
     ]
 
     results = []
-    nix_eval = subprocess.run(cmd, check=True, stdout=subprocess.STDOUT)
+    nix_eval = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
     for name, props in json.loads(nix_eval.stdout).items():
         attr = Attr(name, props["exists"], props["broken"], props["path"])
         results.append(attr)
