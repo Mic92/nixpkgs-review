@@ -339,11 +339,10 @@ def filter_packages(
 
         nonexistant = specified_attrs.keys() - changed_attrs.keys()
         if len(nonexistant) != 0:
-            print(
-                "The following packages specified with `-p` are not rebuild by the pull request",
-                file=sys.stderr,
+            warn(
+                "The following packages specified with `-p` are not rebuild by the pull request"
             )
-            print(" ".join(specified_attrs[path].name for path in nonexistant))
+            warn(" ".join(specified_attrs[path].name for path in nonexistant))
             sys.exit(1)
         union_paths = changed_attrs.keys() & specified_attrs.keys()
         return set(specified_attrs[path].name for path in union_paths)
