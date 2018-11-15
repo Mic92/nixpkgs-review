@@ -34,13 +34,6 @@ class GithubClient:
                     if line == b"":
                         break
                     system, attribute = line.decode("utf-8").split()
-                    blacklist = [
-                        # workaround https://github.com/NixOS/ofborg/issues/269
-                        "tests.nixos-functions.nixos-test",
-                        "tests.nixos-functions.nixosTest-test",
-                    ]
-                    if attribute in blacklist:
-                        continue
                     packages_per_system[system].add(attribute)
                 return packages_per_system
         return None

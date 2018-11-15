@@ -1,7 +1,7 @@
 import io
-import os
 import json
 import multiprocessing
+import os
 import shlex
 import subprocess
 import sys
@@ -29,11 +29,17 @@ class CheckoutOption(Enum):
 
 class Attr:
     def __init__(
-        self, name: str, exists: bool, broken: bool, path: Optional[str]
+        self,
+        name: str,
+        exists: bool,
+        broken: bool,
+        blacklisted: bool,
+        path: Optional[str],
     ) -> None:
         self.name = name
         self.exists = exists
         self.broken = broken
+        self.blacklisted = blacklisted
         self.path = path
 
     def was_build(self) -> bool:
@@ -141,10 +147,13 @@ def nix_shell(attrs: List[Attr]) -> None:
     broken = []
     failed = []
     non_existant = []
+    blacklisted = []
 
     for a in attrs:
         if a.broken:
             broken.append(a.name)
+        elif a.blacklisted:
+            blacklisted.append(a.name)
         elif not a.exists:
             non_existant.append(a.name)
         elif not a.was_build():
@@ -157,15 +166,19 @@ def nix_shell(attrs: List[Attr]) -> None:
 
     if len(broken) > 0:
         error_msgs.append(
-            f"The {len(broken)} packages are marked as broken and were skipped:"
+            f"{len(broken)} packages are marked as broken and were skipped:"
         )
         error_msgs.append(" ".join(broken))
 
     if len(non_existant) > 0:
         error_msgs.append(
-            f"The {len(non_existant)} packages were present in ofBorgs evaluation, but not found in our checkout:"
+            f"{len(non_existant)} packages were present in ofBorgs evaluation, but not found in our checkout:"
         )
         error_msgs.append(" ".join(non_existant))
+
+    if len(blacklisted) > 0:
+        error_msgs.append(f"{len(blacklisted)} packages were blacklisted:")
+        error_msgs.append(" ".join(blacklisted))
 
     if len(failed) > 0:
         error_msgs.append(f"The {len(failed)} packages failed to build:")
@@ -198,11 +211,21 @@ def eval_attrs(resultdir: str, attrs: Set[str]) -> List[Attr]:
         "--json",
         f"((import {str(ROOT.joinpath('nix/evalAttrs.nix'))}) {{ attr-json = {attr_json}; }})",
     ]
+    # workaround https://github.com/NixOS/ofborg/issues/269
+    blacklist = set(
+        ["tests.nixos-functions.nixos-test", "tests.nixos-functions.nixosTest-test"]
+    )
 
     results = []
     nix_eval = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
     for name, props in json.loads(nix_eval.stdout).items():
-        attr = Attr(name, props["exists"], props["broken"], props["path"])
+        attr = Attr(
+            name=name,
+            exists=props["exists"],
+            broken=props["broken"],
+            blacklisted=name in blacklist,
+            path=props["path"],
+        )
         results.append(attr)
     return results
 
@@ -215,12 +238,12 @@ def build(attr_names: Set[str], args: str) -> List[Attr]:
     result_dir = tempfile.TemporaryDirectory(prefix="nix-review-")
 
     attrs = eval_attrs(result_dir.name, attr_names)
-    non_broken = []
+    filtered = []
     for attr in attrs:
-        if not attr.broken:
-            non_broken.append(attr.name)
+        if not (attr.broken or attr.blacklisted):
+            filtered.append(attr.name)
 
-    if len(non_broken) == 0:
+    if len(filtered) == 0:
         return attrs
 
     info("Building in {}".format(result_dir.name))
@@ -239,7 +262,7 @@ def build(attr_names: Set[str], args: str) -> List[Attr]:
     ] + shlex.split(args)
 
     command.append("-p")
-    for a in non_broken:
+    for a in filtered:
         command.append(a)
     try:
         sh(command, cwd=result_dir.name)
