@@ -166,22 +166,22 @@ def nix_shell(attrs: List[Attr]) -> None:
 
     if len(broken) > 0:
         error_msgs.append(
-            f"{len(broken)} packages are marked as broken and were skipped:"
+            f"{len(broken)} package(s) are marked as broken and were skipped:"
         )
         error_msgs.append(" ".join(broken))
 
     if len(non_existant) > 0:
         error_msgs.append(
-            f"{len(non_existant)} packages were present in ofBorgs evaluation, but not found in our checkout:"
+            f"{len(non_existant)} package(s) were present in ofBorgs evaluation, but not found in our checkout:"
         )
         error_msgs.append(" ".join(non_existant))
 
     if len(blacklisted) > 0:
-        error_msgs.append(f"{len(blacklisted)} packages were blacklisted:")
+        error_msgs.append(f"{len(blacklisted)} package(s) were blacklisted:")
         error_msgs.append(" ".join(blacklisted))
 
     if len(failed) > 0:
-        error_msgs.append(f"The {len(failed)} packages failed to build:")
+        error_msgs.append(f"{len(failed)} package(s) failed to build:")
         error_msgs.append(" ".join(failed))
 
     if len(error_msgs) > 0:
