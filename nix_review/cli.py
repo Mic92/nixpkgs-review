@@ -64,13 +64,18 @@ def pr_command(args: argparse.Namespace) -> None:
 
 
 def rev_command(args: argparse.Namespace) -> None:
-    with Worktree(f"rev-{args.commit}") as worktree:
-        r = Review(
+    commit = subprocess.run(
+        ["git", "rev-parse", "--verify", args.commit],
+        check=True,
+        stdout=subprocess.PIPE,
+    ).stdout.decode("utf-8")
+    with Worktree(f"rev-{commit}") as worktree:
+        review = Review(
             worktree_dir=worktree.worktree_dir,
             build_args=args.build_args,
             only_packages=set(args.package),
         )
-        r.review_commit(args.branch, args.commit)
+        review.review_commit(args.branch, commit)
 
 
 def pr_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
