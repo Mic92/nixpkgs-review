@@ -10,7 +10,7 @@ def rev_command(args: argparse.Namespace) -> None:
         ["git", "rev-parse", "--verify", args.commit],
         check=True,
         stdout=subprocess.PIPE,
-    ).stdout.decode("utf-8")
+    ).stdout.decode("utf-8").strip()
     with Worktree(f"rev-{commit}") as worktree:
         review = Review(
             worktree_dir=worktree.worktree_dir,

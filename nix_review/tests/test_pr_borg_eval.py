@@ -38,11 +38,11 @@ def borg_eval_cmds() -> List[Tuple[Any, Any]]:
         ),
         (
             ["git", "rev-parse", "--verify", "refs/nix-review/0"],
-            MockCompletedProcess(stdout=b"hash1"),
+            MockCompletedProcess(stdout=b"hash1\n"),
         ),
         (
             ["git", "rev-parse", "--verify", "refs/nix-review/1"],
-            MockCompletedProcess(stdout=b"hash2"),
+            MockCompletedProcess(stdout=b"hash2\n"),
         ),
         (
             ["git", "worktree", "add", "./.review/pr-37200", "hash1"],

@@ -10,7 +10,7 @@ def rev_command_cmds() -> List[Tuple[Any, Any]]:
     return [
         (
             ["git", "rev-parse", "--verify", "HEAD"],
-            MockCompletedProcess(stdout=b"hash1"),
+            MockCompletedProcess(stdout=b"hash1\n"),
         ),
         (
             [
@@ -24,7 +24,7 @@ def rev_command_cmds() -> List[Tuple[Any, Any]]:
         ),
         (
             ["git", "rev-parse", "--verify", "refs/nix-review/0"],
-            MockCompletedProcess(stdout=b"hash1"),
+            MockCompletedProcess(stdout=b"hash1\n"),
         ),
         (
             ["git", "worktree", "add", "./.review/rev-hash1", "hash1"],
