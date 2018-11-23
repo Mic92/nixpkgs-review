@@ -13,6 +13,7 @@ nix-review automatically builds packages changed in the pull requests
 - provides a `nix-shell` with all packages, that did not fail to build
 - remote builder support
 - allows to build a subset of packages (great for mass-rebuilds)
+- allow to build nixos tests
 - colorful output
 
 ## Requirements
