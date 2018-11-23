@@ -71,7 +71,8 @@ build_cmds = [
     ),
     (
         [
-            "nix-shell",
+            "nix-build",
+            "<nixpkgs>",
             "--no-out-link",
             "--keep-going",
             "--max-jobs",
@@ -79,11 +80,9 @@ build_cmds = [
             "--option",
             "build-use-sandbox",
             "true",
-            "--run",
-            "true",
             "--builders",
             "ssh://joerg@10.243.29.170 aarch64-linux",
-            "-p",
+            "-A",
             "pong3d",
         ],
         MockCompletedProcess(),
