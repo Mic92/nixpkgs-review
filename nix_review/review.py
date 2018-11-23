@@ -50,6 +50,9 @@ class Attr:
         )
         return res.returncode == 0
 
+    def is_test(self) -> bool:
+        return self.name.startswith("nixosTests")
+
 
 def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
     nix_eval = subprocess.run(
@@ -248,20 +251,19 @@ def build(attr_names: Set[str], args: str) -> List[Attr]:
 
     info("Building in {}".format(result_dir.name))
     command = [
-        "nix-shell",
+        "nix-build",
+        "<nixpkgs>",
         "--no-out-link",
         "--keep-going",
+        # only matters for single-user nix and trusted users
         "--max-jobs",
         str(multiprocessing.cpu_count()),
-        # only matters for single-user nix and trusted users
         "--option",
         "build-use-sandbox",
         "true",
-        "--run",
-        "true",
     ] + shlex.split(args)
 
-    command.append("-p")
+    command.append("-A")
     for a in filtered:
         command.append(a)
     try:
@@ -318,20 +320,26 @@ def filter_packages(
     changed_packages: Set[str], specified_packages: Set[str]
 ) -> Set[str]:
     with tempfile.TemporaryDirectory(prefix="nix-review-") as tempdir:
-
         changed_attrs = package_attrs(tempdir, changed_packages)
         specified_attrs = package_attrs(
             tempdir, specified_packages, ignore_nonexisting=False
         )
 
-        nonexistant = specified_attrs.keys() - changed_attrs.keys()
+        tests: Dict[str, Attr] = {}
+        for path, attr in specified_attrs.items():
+            # ofborg does not include tests and manual evaluation is too expensive
+            if attr.is_test():
+                tests[path] = attr
+
+        nonexistant = specified_attrs.keys() - changed_attrs.keys() - tests.keys()
+
         if len(nonexistant) != 0:
             warn(
                 "The following packages specified with `-p` are not rebuild by the pull request"
             )
             warn(" ".join(specified_attrs[path].name for path in nonexistant))
             sys.exit(1)
-        union_paths = changed_attrs.keys() & specified_attrs.keys()
+        union_paths = (changed_attrs.keys() & specified_attrs.keys()) | tests.keys()
         return set(specified_attrs[path].name for path in union_paths)
 
 

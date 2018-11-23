@@ -70,7 +70,7 @@ redis-cli 4.0.8
 
 To review a local commit without pull request, use the following command:
 
-```
+```console
 $ nix-review rev HEAD
 ```
 
@@ -107,7 +107,7 @@ local build time. For this case the `--checkout` option can specified to
 override the default behavior (`merge`). By setting its value to `commit`,
 `nix-review` will checkout the user's pull request branch without merging it:
 
-```
+```console
 $ nix-review pr --checkout commit 44534
 ```
 
@@ -115,8 +115,24 @@ $ nix-review pr --checkout commit 44534
 
 To build only certain packages use the `--package` (or `-p`) flag.
 
+```console
+$ nix-review pr -p openjpeg -p ImageMagick 49262
 ```
-nix-review pr -p openjpeg -p ImageMagick 49262
+
+## Running tests
+
+NixOS tests can be run by using the `--package` feature and our `nixosTests` attribute set:
+
+```console
+$ nix-review pr -p nixosTests.ferm 47077
+```
+
+Sometimes this requires to rebuild the kernel, when it was changed in master, also that would be not important for most tests.
+In those cases it can help to use the pull-request commit as a base
+for review by using `--checkout commit`.
+
+```console
+$ nix-review pr --checkout commit -p nixosTests.ferm 47077
 ```
 
 ## Ignoring ofborg evaluations
