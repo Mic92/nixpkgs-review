@@ -263,8 +263,8 @@ def build(attr_names: Set[str], args: str) -> List[Attr]:
         "true",
     ] + shlex.split(args)
 
-    command.append("-A")
     for a in filtered:
+        command.append("-A")
         command.append(a)
     try:
         sh(command, cwd=result_dir.name)
