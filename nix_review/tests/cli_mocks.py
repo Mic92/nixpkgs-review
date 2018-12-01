@@ -1,7 +1,7 @@
+import multiprocessing
 import os
 from typing import Any, List, Optional, Tuple
 from unittest import TestCase
-import multiprocessing
 
 TEST_ROOT = os.path.dirname(os.path.realpath(__file__))
 DEBUG = False
@@ -71,10 +71,10 @@ build_cmds = [
     ),
     (
         [
-            "nix-build",
+            "nix",
+            "build",
+            "-f",
             "<nixpkgs>",
-            "--quiet",
-            "--no-out-link",
             "--keep-going",
             "--max-jobs",
             str(multiprocessing.cpu_count()),
@@ -83,7 +83,6 @@ build_cmds = [
             "true",
             "--builders",
             "ssh://joerg@10.243.29.170 aarch64-linux",
-            "-A",
             "pong3d",
         ],
         MockCompletedProcess(),

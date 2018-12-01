@@ -251,10 +251,10 @@ def build(attr_names: Set[str], args: str) -> List[Attr]:
 
     info("Building in {}".format(result_dir.name))
     command = [
-        "nix-build",
+        "nix",
+        "build",
+        "-f",
         "<nixpkgs>",
-        "--quiet",
-        "--no-out-link",
         "--keep-going",
         # only matters for single-user nix and trusted users
         "--max-jobs",
@@ -265,7 +265,6 @@ def build(attr_names: Set[str], args: str) -> List[Attr]:
     ] + shlex.split(args)
 
     for a in filtered:
-        command.append("-A")
         command.append(a)
     try:
         sh(command, cwd=result_dir.name)
