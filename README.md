@@ -120,6 +120,17 @@ To build only certain packages use the `--package` (or `-p`) flag.
 $ nix-review pr -p openjpeg -p ImageMagick 49262
 ```
 
+There is also `--package-regex` option that takes a regular expression
+to match against the attribute name:
+
+```console
+# build only linux kernels but not the packages
+$ nix-review pr --packages-regex 'linux_' 51292
+```
+
+`-p` and `--package-regex` can be used together in which case
+the matching packages will merged.
+
 ## Running tests
 
 NixOS tests can be run by using the `--package` feature and our `nixosTests` attribute set:

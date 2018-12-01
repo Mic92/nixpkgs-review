@@ -1,10 +1,18 @@
 import argparse
 import os
-from typing import Any, List
+import re
+from typing import Any, List, Pattern
 
 from ..buildenv import Buildenv
 from .pr import pr_command
 from .rev import rev_command
+
+
+def regex_type(s: str) -> Pattern[str]:
+    try:
+        return re.compile(s)
+    except re.error as e:
+        raise argparse.ArgumentTypeError(f"'{s}' is not a valid regex: {e}")
 
 
 def pr_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
@@ -87,6 +95,13 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
             action="append",
             default=[],
             help="Package to build (can be passed multiple times)",
+        ),
+        CommonFlag(
+            "--package-regex",
+            action="append",
+            default=[],
+            type=regex_type,
+            help="Regular expression that package attributes have to match (can be passed multiple times)",
         ),
     ]
 

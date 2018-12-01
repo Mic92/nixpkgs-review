@@ -45,6 +45,7 @@ def pr_command(args: argparse.Namespace) -> None:
                     api_token=args.token,
                     use_ofborg_eval=use_ofborg_eval,
                     only_packages=set(args.package),
+                    package_regexes=args.package_regex,
                     checkout=checkout_option,
                 )
                 contexts.append((pr, worktree, review.build_pr(pr)))

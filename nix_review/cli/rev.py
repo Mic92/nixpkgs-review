@@ -20,5 +20,6 @@ def rev_command(args: argparse.Namespace) -> None:
             worktree_dir=worktree.worktree_dir,
             build_args=args.build_args,
             only_packages=set(args.package),
+            package_regexes=args.package_regex,
         )
         review.review_commit(args.branch, commit)

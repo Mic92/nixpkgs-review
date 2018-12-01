@@ -9,7 +9,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Pattern, Set, Tuple
 
 from .github import GithubClient
 from .utils import info, sh, warn
@@ -69,6 +69,7 @@ class Review:
         api_token: Optional[str] = None,
         use_ofborg_eval: Optional[bool] = True,
         only_packages: Set[str] = set(),
+        package_regexes: List[Pattern[str]] = [],
         checkout: CheckoutOption = CheckoutOption.MERGE,
     ) -> None:
         self.worktree_dir = worktree_dir
@@ -77,6 +78,7 @@ class Review:
         self.use_ofborg_eval = use_ofborg_eval
         self.checkout = checkout
         self.only_packages = only_packages
+        self.package_regex = package_regexes
 
     def git_merge(self, commit: str) -> None:
         sh(["git", "merge", "--no-commit", commit], cwd=self.worktree_dir)
@@ -103,8 +105,7 @@ class Review:
             git_worktree(self.worktree_dir, pr_rev)
 
     def build(self, packages: Set[str], args: str) -> List[Attr]:
-        if len(self.only_packages) > 0:
-            packages = filter_packages(packages, self.only_packages)
+        packages = filter_packages(packages, self.only_packages, self.package_regex)
         return build(packages, args)
 
     def build_pr(self, pr_number: int) -> List[Attr]:
@@ -151,6 +152,7 @@ def nix_shell(attrs: List[Attr]) -> None:
     failed = []
     non_existant = []
     blacklisted = []
+    tests = []
 
     for a in attrs:
         if a.broken:
@@ -159,6 +161,8 @@ def nix_shell(attrs: List[Attr]) -> None:
             blacklisted.append(a.name)
         elif not a.exists:
             non_existant.append(a.name)
+        elif a.name.startswith("nixosTests."):
+            tests.append(a.name)
         elif not a.was_build():
             failed.append(a.name)
         else:
@@ -189,6 +193,10 @@ def nix_shell(attrs: List[Attr]) -> None:
 
     if len(error_msgs) > 0:
         warn("\n".join(error_msgs))
+
+    if len(tests) > 0:
+        info("The following tests where build")
+        info(" ".join(tests))
 
     if len(cmd) == 1:
         info("No packages were successfully build, skip nix-shell")
@@ -316,31 +324,50 @@ def package_attrs(
     return attrs
 
 
-def filter_packages(
-    changed_packages: Set[str], specified_packages: Set[str]
-) -> Set[str]:
+def join_packages(changed_packages: Set[str], specified_packages: Set[str]) -> Set[str]:
     with tempfile.TemporaryDirectory(prefix="nix-review-") as tempdir:
         changed_attrs = package_attrs(tempdir, changed_packages)
         specified_attrs = package_attrs(
             tempdir, specified_packages, ignore_nonexisting=False
         )
 
-        tests: Dict[str, Attr] = {}
-        for path, attr in specified_attrs.items():
-            # ofborg does not include tests and manual evaluation is too expensive
-            if attr.is_test():
-                tests[path] = attr
+    tests: Dict[str, Attr] = {}
+    for path, attr in specified_attrs.items():
+        # ofborg does not include tests and manual evaluation is too expensive
+        if attr.is_test():
+            tests[path] = attr
 
-        nonexistant = specified_attrs.keys() - changed_attrs.keys() - tests.keys()
+    nonexistant = specified_attrs.keys() - changed_attrs.keys() - tests.keys()
 
-        if len(nonexistant) != 0:
-            warn(
-                "The following packages specified with `-p` are not rebuild by the pull request"
-            )
-            warn(" ".join(specified_attrs[path].name for path in nonexistant))
-            sys.exit(1)
-        union_paths = (changed_attrs.keys() & specified_attrs.keys()) | tests.keys()
-        return set(specified_attrs[path].name for path in union_paths)
+    if len(nonexistant) != 0:
+        warn(
+            "The following packages specified with `-p` are not rebuild by the pull request"
+        )
+        warn(" ".join(specified_attrs[path].name for path in nonexistant))
+        sys.exit(1)
+    union_paths = (changed_attrs.keys() & specified_attrs.keys()) | tests.keys()
+
+    return set(specified_attrs[path].name for path in union_paths)
+
+
+def filter_packages(
+    changed_packages: Set[str],
+    specified_packages: Set[str],
+    package_regexes: List[Pattern[str]],
+) -> Set[str]:
+    packages: Set[str] = set()
+
+    if len(specified_packages) == 0 and len(package_regexes) == 0:
+        return changed_packages
+
+    if len(specified_packages) > 0:
+        packages = join_packages(changed_packages, specified_packages)
+
+    for attr in changed_packages:
+        for regex in package_regexes:
+            if regex.match(attr):
+                packages.add(attr)
+    return packages
 
 
 def fetch_refs(*refs: str) -> List[str]:
