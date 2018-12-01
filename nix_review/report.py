@@ -99,7 +99,7 @@ class Report:
         with open(directory.joinpath("report.md"), "w+") as f:
             f.write(f"Result of [nix-review](https://github.com/Mic92/nix-review)")
             if pr is not None:
-                f.write(f"pr {pr}\n")
+                f.write(f" pr {pr}\n")
             else:
                 f.write(f"\n")
             write_number(f, self.broken, "are marked as broken and were skipped")
