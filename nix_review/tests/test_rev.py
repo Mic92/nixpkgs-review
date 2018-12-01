@@ -1,9 +1,17 @@
+import unittest
 from typing import Any, List, Tuple
 from unittest.mock import MagicMock, patch
 
 from nix_review.cli import main
 
-from .cli_mocks import CliTestCase, Mock, MockCompletedProcess, build_cmds, read_asset
+from .cli_mocks import (
+    CliTestCase,
+    Mock,
+    MockCompletedProcess,
+    build_cmds,
+    read_asset,
+    IgnoreArgument,
+)
 
 
 def rev_command_cmds() -> List[Tuple[Any, Any]]:
@@ -26,15 +34,12 @@ def rev_command_cmds() -> List[Tuple[Any, Any]]:
             ["git", "rev-parse", "--verify", "refs/nix-review/0"],
             MockCompletedProcess(stdout=b"hash1\n"),
         ),
-        (
-            ["git", "worktree", "add", "./.review/rev-hash1", "hash1"],
-            MockCompletedProcess(),
-        ),
+        (["git", "worktree", "add", IgnoreArgument, "hash1"], MockCompletedProcess()),
         (
             [
                 "nix-env",
                 "-f",
-                "./.review/rev-hash1",
+                IgnoreArgument,
                 "-qaP",
                 "--xml",
                 "--out-path",
@@ -47,7 +52,7 @@ def rev_command_cmds() -> List[Tuple[Any, Any]]:
             [
                 "nix-env",
                 "-f",
-                "./.review/rev-hash1",
+                IgnoreArgument,
                 "-qaP",
                 "--xml",
                 "--out-path",
@@ -75,3 +80,7 @@ class RevCommand(CliTestCase):
                 "HEAD",
             ],
         )
+
+
+if __name__ == "__main__":
+    unittest.main(failfast=True)
