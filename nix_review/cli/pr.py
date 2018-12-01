@@ -1,14 +1,13 @@
 import argparse
 import re
 import sys
-import os
 import subprocess
 from typing import List
 from contextlib import ExitStack
 
-from ..review import CheckoutOption, Review, nix_shell
+from ..review import CheckoutOption, Review
 from ..utils import info, warn
-from ..worktree import Worktree
+from ..builddir import Builddir
 
 
 def parse_pr_numbers(number_args: List[str]) -> List[int]:
@@ -37,10 +36,10 @@ def pr_command(args: argparse.Namespace) -> None:
 
     with ExitStack() as stack:
         for pr in prs:
-            worktree = stack.enter_context(Worktree(f"pr-{pr}"))
+            builddir = stack.enter_context(Builddir(f"pr-{pr}"))
             try:
                 review = Review(
-                    worktree_dir=worktree.worktree_dir,
+                    builddir=builddir,
                     build_args=args.build_args,
                     api_token=args.token,
                     use_ofborg_eval=use_ofborg_eval,
@@ -48,14 +47,13 @@ def pr_command(args: argparse.Namespace) -> None:
                     package_regexes=args.package_regex,
                     checkout=checkout_option,
                 )
-                contexts.append((pr, worktree, review.build_pr(pr)))
+                contexts.append((pr, review.build_pr(pr)))
             except subprocess.CalledProcessError:
                 warn(f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build")
 
-        for pr, worktree, attrs in contexts:
+        for pr, attrs in contexts:
             info(f"https://github.com/NixOS/nixpkgs/pull/{pr}")
-            os.environ["NIX_PATH"] = worktree.nixpkgs_path()
-            nix_shell(attrs)
+            review.start_review(attrs)
 
         if len(contexts) != len(prs):
             sys.exit(1)

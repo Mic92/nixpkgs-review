@@ -2,6 +2,7 @@ import multiprocessing
 import os
 from typing import Any, List, Optional, Tuple
 from unittest import TestCase
+from tempfile import TemporaryDirectory
 
 TEST_ROOT = os.path.dirname(os.path.realpath(__file__))
 DEBUG = False
@@ -55,6 +56,11 @@ class Mock:
 class CliTestCase(TestCase):
     def setUp(self) -> None:
         os.chdir(os.path.join(TEST_ROOT, "assets/nixpkgs"))
+        self.directory = TemporaryDirectory()
+        os.environ["HOME"] = self.directory.name
+
+    def tearDown(self) -> None:
+        self.directory.cleanup()
 
 
 build_cmds = [
@@ -73,8 +79,6 @@ build_cmds = [
         [
             "nix",
             "build",
-            "-f",
-            "<nixpkgs>",
             "--keep-going",
             "--max-jobs",
             str(multiprocessing.cpu_count()),
@@ -83,7 +87,7 @@ build_cmds = [
             "true",
             "--builders",
             "ssh://joerg@10.243.29.170 aarch64-linux",
-            "pong3d",
+            "(with import <nixpkgs>{}; [ pong3d ])",
         ],
         MockCompletedProcess(),
     ),

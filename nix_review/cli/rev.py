@@ -1,7 +1,7 @@
 import argparse
 import subprocess
 
-from ..worktree import Worktree
+from ..builddir import Builddir
 from ..review import Review
 
 
@@ -15,9 +15,9 @@ def rev_command(args: argparse.Namespace) -> None:
         .stdout.decode("utf-8")
         .strip()
     )
-    with Worktree(f"rev-{commit}") as worktree:
+    with Builddir(f"rev-{commit}") as builddir:
         review = Review(
-            worktree_dir=worktree.worktree_dir,
+            builddir=builddir,
             build_args=args.build_args,
             only_packages=set(args.package),
             package_regexes=args.package_regex,

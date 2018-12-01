@@ -1,4 +1,4 @@
-{ attr-json }:
+attr-json:
 
 with builtins;
 let

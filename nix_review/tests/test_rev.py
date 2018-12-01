@@ -1,9 +1,11 @@
+import unittest
 from typing import Any, List, Tuple
 from unittest.mock import MagicMock, patch
 
 from nix_review.cli import main
 
-from .cli_mocks import CliTestCase, Mock, MockCompletedProcess, build_cmds, read_asset
+from .cli_mocks import (CliTestCase, Mock, MockCompletedProcess, build_cmds,
+                        read_asset)
 
 
 def rev_command_cmds() -> List[Tuple[Any, Any]]:
@@ -75,3 +77,7 @@ class RevCommand(CliTestCase):
                 "HEAD",
             ],
         )
+
+
+if __name__ == "__main__":
+    unittest.main(failfast=True)
