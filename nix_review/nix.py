@@ -102,6 +102,7 @@ def nix_build(attr_names: Set[str], args: str, cache_directory: Path) -> List[At
     command = [
         "nix",
         "build",
+        "--no-link",
         "--keep-going",
         # only matters for single-user nix and trusted users
         "--max-jobs",
