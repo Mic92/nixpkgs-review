@@ -79,6 +79,7 @@ build_cmds = [
         [
             "nix",
             "build",
+            "--no-link",
             "--keep-going",
             "--max-jobs",
             str(multiprocessing.cpu_count()),
