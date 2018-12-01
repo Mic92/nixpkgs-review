@@ -4,7 +4,7 @@ import shlex
 import subprocess
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set
 
 from .utils import ROOT, info, sh
 
@@ -52,9 +52,6 @@ def nix_shell(attrs: List[str], cache_directory: Path) -> None:
 
 
 def nix_eval(attrs: Set[str]) -> List[Attr]:
-    """
-    Filter broken or non-existing attributes.
-    """
     with NamedTemporaryFile(mode="w+") as attr_json:
         json.dump(list(attrs), attr_json)
         eval_script = str(ROOT.joinpath("nix/evalAttrs.nix"))
@@ -65,8 +62,9 @@ def nix_eval(attrs: Set[str]) -> List[Attr]:
             ["tests.nixos-functions.nixos-test", "tests.nixos-functions.nixosTest-test"]
         )
 
-        results = []
         nix_eval = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
+        attr_by_path: Dict[str, Attr] = {}
+        broken = []
         for name, props in json.loads(nix_eval.stdout).items():
             attr = Attr(
                 name=name,
@@ -75,8 +73,13 @@ def nix_eval(attrs: Set[str]) -> List[Attr]:
                 blacklisted=name in blacklist,
                 path=props["path"],
             )
-            results.append(attr)
-        return results
+            if attr.path is not None:
+                other = attr_by_path.get(attr.path, None)
+                if other is None or len(other.name) > len(attr.name):
+                    attr_by_path[attr.path] = attr
+            else:
+                broken.append(attr)
+        return list(attr_by_path.values()) + broken
 
 
 def nix_build(attr_names: Set[str], args: str, cache_directory: Path) -> List[Attr]:
