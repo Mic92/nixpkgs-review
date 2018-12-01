@@ -35,6 +35,32 @@ def write_number(
     file.write(f"<details>\n")
 
 
+class LazyDirectory:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.created = False
+
+    def ensure(self) -> Path:
+        if not self.created:
+            self.path.mkdir(exist_ok=True)
+            self.created = True
+        return self.path
+
+
+def write_error_logs(attrs: List[Attr], directory: Path) -> None:
+    logs = LazyDirectory(directory.joinpath("logs"))
+    results = LazyDirectory(directory.joinpath("results"))
+    failed_results = LazyDirectory(directory.joinpath("failed_results"))
+    for attr in attrs:
+        if attr.path is not None and os.path.exists(attr.path):
+            if attr.was_build():
+                results.ensure().joinpath(attr.name).symlink_to(attr.path)
+            else:
+                failed_results.ensure().joinpath(attr.name).symlink_to(attr.path)
+            with open(logs.ensure().joinpath(attr.name + ".log"), "w+") as f:
+                subprocess.run(["nix", "log", attr.path], stdout=f)
+
+
 class Report:
     def __init__(self, attrs: List[Attr]):
         self.attrs = attrs
@@ -64,7 +90,7 @@ class Report:
 
     def write(self, directory: Path, pr: Optional[int]) -> None:
         self.write_markdown(directory, pr)
-        self.write_error_logs(directory)
+        write_error_logs(self.attrs, directory)
 
     def write_markdown(self, directory: Path, pr: Optional[int]) -> None:
         with open(directory.joinpath("report.md"), "w+") as f:
@@ -83,17 +109,6 @@ class Report:
             write_number(f, self.failed, "failed to build:")
             write_number(f, self.tests, "where build:", what="test")
             write_number(f, self.built, "where build:")
-
-    def write_error_logs(self, directory: Path) -> None:
-        logs = directory.joinpath("logs")
-        log_created = False
-        for attr in self.attrs:
-            if attr.path is not None and os.path.exists(attr.path):
-                if not log_created:
-                    logs.mkdir(exist_ok=True)
-                    log_created = True
-                with open(logs.joinpath(attr.name + ".log"), "w+") as f:
-                    subprocess.run(["nix", "log", attr.path], stdout=f)
 
     def print_console(self, pr: Optional[int]) -> None:
         if pr is not None:

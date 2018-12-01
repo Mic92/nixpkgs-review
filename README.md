@@ -17,6 +17,7 @@ nix-review automatically builds packages changed in the pull requests
 - colorful output
 - markdown reports
 - logs per built or failed package
+- symlinks build packages to result directory for inspection
 
 ## Usage
 

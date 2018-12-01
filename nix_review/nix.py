@@ -23,14 +23,20 @@ class Attr:
         self.broken = broken
         self.blacklisted = blacklisted
         self.path = path
+        self._path_verified: Optional[bool] = None
 
     def was_build(self) -> bool:
         if self.path is None:
             return False
+
+        if self._path_verified is not None:
+            return self._path_verified
+
         res = subprocess.run(
             ["nix-store", "--verify-path", self.path], stderr=subprocess.DEVNULL
         )
-        return res.returncode == 0
+        self._path_verified = res.returncode == 0
+        return self._path_verified
 
     def is_test(self) -> bool:
         return self.name.startswith("nixosTests")

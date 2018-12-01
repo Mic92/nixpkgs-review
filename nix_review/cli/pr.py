@@ -6,7 +6,7 @@ from typing import List
 from contextlib import ExitStack
 
 from ..review import CheckoutOption, Review
-from ..utils import info, warn
+from ..utils import warn
 from ..builddir import Builddir
 
 
@@ -52,8 +52,7 @@ def pr_command(args: argparse.Namespace) -> None:
                 warn(f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build")
 
         for pr, attrs in contexts:
-            info(f"https://github.com/NixOS/nixpkgs/pull/{pr}")
-            review.start_review(attrs)
+            review.start_review(attrs, pr)
 
         if len(contexts) != len(prs):
             sys.exit(1)
