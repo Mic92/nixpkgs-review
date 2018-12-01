@@ -253,6 +253,7 @@ def build(attr_names: Set[str], args: str) -> List[Attr]:
     command = [
         "nix-build",
         "<nixpkgs>",
+        "--quiet",
         "--no-out-link",
         "--keep-going",
         # only matters for single-user nix and trusted users

@@ -73,6 +73,7 @@ build_cmds = [
         [
             "nix-build",
             "<nixpkgs>",
+            "--quiet",
             "--no-out-link",
             "--keep-going",
             "--max-jobs",
