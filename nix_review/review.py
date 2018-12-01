@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Pattern, Set, Tuple
 
 from .builddir import Builddir
 from .github import GithubClient
-from .nix import Attr, nix_build, nix_shell, nix_eval
+from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
 from .utils import sh, warn
 
@@ -109,11 +109,11 @@ class Review:
         packages = native_packages(packages_per_system)
         return self.build(packages, self.build_args)
 
-    def start_review(self, attr: List[Attr]) -> None:
+    def start_review(self, attr: List[Attr], pr: Optional[int] = None) -> None:
         os.environ["NIX_PATH"] = self.builddir.nixpkgs_path()
         report = Report(attr)
-        report.print_console()
-        report.write_error_logs(self.builddir.path)
+        report.print_console(pr)
+        report.write(self.builddir.path, pr)
         nix_shell(report.built_packages(), self.builddir.path)
 
     def review_commit(self, branch: str, reviewed_commit: str) -> None:
