@@ -15,31 +15,8 @@ nix-review automatically builds packages changed in the pull requests
 - allows to build a subset of packages (great for mass-rebuilds)
 - allow to build nixos tests
 - colorful output
-
-## Requirements
-
-`nix-review` depends on python 3.6 or higher and nix 2.0 or higher:
-
-Install with:
-
-```console
-$ nix-build
-./result/bin/nix-review
-```
-
-### Development Environment
-
-For IDEs:
-
-```console
-$ nix-build -A env -o .venv
-```
-
-or just use:
-
-```console
-./bin/nix-review
-```
+- markdown reports
+- logs per built or failed package
 
 ## Usage
 
@@ -76,6 +53,31 @@ $ nix-review rev HEAD
 ```
 
 Instead of `HEAD` also a commit or branch can be given.
+
+## Requirements
+
+`nix-review` depends on python 3.6 or higher and nix 2.0 or higher:
+
+Install with:
+
+```console
+$ nix-build
+./result/bin/nix-review
+```
+
+### Development Environment
+
+For IDEs:
+
+```console
+$ nix-build -A env -o .venv
+```
+
+or just use:
+
+```console
+./bin/nix-review
+```
 
 ## Remote builder:
 
