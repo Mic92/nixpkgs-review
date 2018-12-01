@@ -113,7 +113,8 @@ class Review:
         os.environ["NIX_PATH"] = self.builddir.nixpkgs_path()
         report = Report(attr)
         report.print_console()
-        nix_shell(report.built_packages, self.builddir.path)
+        report.write_error_logs(self.builddir.path)
+        nix_shell(report.built_packages(), self.builddir.path)
 
     def review_commit(self, branch: str, reviewed_commit: str) -> None:
         branch_rev = fetch_refs(branch)[0]

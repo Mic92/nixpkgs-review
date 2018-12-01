@@ -44,10 +44,7 @@ def borg_eval_cmds() -> List[Tuple[Any, Any]]:
             ["git", "rev-parse", "--verify", "refs/nix-review/1"],
             MockCompletedProcess(stdout=b"hash2\n"),
         ),
-        (
-            ["git", "worktree", "add", "./.review/pr-37200", "hash1"],
-            MockCompletedProcess(),
-        ),
+        (["git", "worktree", "add", IgnoreArgument, "hash1"], MockCompletedProcess()),
         (["git", "merge", "--no-commit", "hash2"], MockCompletedProcess()),
         (
             ["nix", "eval", "--raw", "nixpkgs.system"],

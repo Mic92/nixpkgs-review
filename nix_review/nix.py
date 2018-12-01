@@ -42,7 +42,7 @@ def nix_shell(attrs: List[str], cache_directory: Path) -> None:
     else:
         shell = cache_directory.joinpath("shell.nix")
         write_shell_expression(shell, attrs)
-        sh(["nix-shell", str(shell)])
+        sh(["nix-shell", str(shell)], cwd=cache_directory)
 
 
 def nix_eval(attrs: Set[str]) -> List[Attr]:
@@ -120,8 +120,7 @@ stdenv.mkDerivation {
   buildInputs = [
 """
         )
-        for a in attrs:
-            f.write(f"  {a}\n")
+        f.write("\n".join(f"    {a}" for a in attrs))
         f.write(
             """
   ];

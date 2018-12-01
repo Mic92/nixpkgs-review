@@ -40,12 +40,12 @@ def local_eval_cmds() -> List[Tuple[Any, Any]]:
             ["git", "rev-parse", "--verify", "refs/nix-review/1"],
             MockCompletedProcess(stdout=b"hash2\n"),
         ),
-        (["git", "worktree", "add", "./.review/pr-1", "hash1"], 0),
+        (["git", "worktree", "add", IgnoreArgument, "hash1"], 0),
         (
             [
                 "nix-env",
                 "-f",
-                "./.review/pr-1",
+                IgnoreArgument,
                 "-qaP",
                 "--xml",
                 "--out-path",
@@ -58,7 +58,7 @@ def local_eval_cmds() -> List[Tuple[Any, Any]]:
             [
                 "nix-env",
                 "-f",
-                "./.review/pr-1",
+                IgnoreArgument,
                 "-qaP",
                 "--xml",
                 "--out-path",
