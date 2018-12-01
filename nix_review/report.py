@@ -54,9 +54,12 @@ def write_error_logs(attrs: List[Attr], directory: Path) -> None:
     for attr in attrs:
         if attr.path is not None and os.path.exists(attr.path):
             if attr.was_build():
-                results.ensure().joinpath(attr.name).symlink_to(attr.path)
+                symlink_source = results.ensure().joinpath(attr.name)
             else:
-                failed_results.ensure().joinpath(attr.name).symlink_to(attr.path)
+                symlink_source = failed_results.ensure().joinpath(attr.name)
+            if os.path.lexists(symlink_source):
+                symlink_source.unlink()
+            symlink_source.symlink_to(attr.path)
             with open(logs.ensure().joinpath(attr.name + ".log"), "w+") as f:
                 subprocess.run(["nix", "log", attr.path], stdout=f)
 
@@ -94,7 +97,7 @@ class Report:
 
     def write_markdown(self, directory: Path, pr: Optional[int]) -> None:
         with open(directory.joinpath("report.md"), "w+") as f:
-            f.write(f"Result of [nix-review](https://github.com/Mic92/nix-review)\n")
+            f.write(f"Result of [nix-review](https://github.com/Mic92/nix-review)")
             if pr is not None:
                 f.write(f"pr {pr}\n")
             else:
@@ -106,9 +109,9 @@ class Report:
                 "were present in ofBorgs evaluation, but not found in the checkout",
             )
             write_number(f, self.blacklisted, "were blacklisted")
-            write_number(f, self.failed, "failed to build:")
-            write_number(f, self.tests, "where build:", what="test")
-            write_number(f, self.built, "where build:")
+            write_number(f, self.failed, "failed to build")
+            write_number(f, self.tests, "where build", what="test")
+            write_number(f, self.built, "where build")
 
     def print_console(self, pr: Optional[int]) -> None:
         if pr is not None:
@@ -119,6 +122,6 @@ class Report:
             "were present in ofBorgs evaluation, but not found in the checkout",
         )
         print_number(self.blacklisted, "were blacklisted")
-        print_number(self.failed, "failed to build:")
-        print_number(self.tests, "where build:", what="tests", log=info)
-        print_number(self.built, "where build:", log=info)
+        print_number(self.failed, "failed to build")
+        print_number(self.tests, "where build", what="tests", log=info)
+        print_number(self.built, "where build", log=info)
