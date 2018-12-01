@@ -157,7 +157,6 @@ ofborg's result is not (yet) available.
 
 ## Roadmap
 
-- [ ] Build multiple pull requests in parallel and review in serial.
 - [ ] trigger ofBorg builds (write @GrahamcOfBorg build foo into pull request discussion)
 - [ ] build on multiple platforms
 - [ ] test backports
