@@ -29,10 +29,13 @@ def write_number(
         return
     plural = "s" if len(packages) == 0 else ""
     file.write(f"<details>\n")
-    file.write(f"  <summary>{len(packages)} {what}{plural} {msg}:<summary>\n")
+    file.write(f"  <summary>{len(packages)} {what}{plural} {msg}:</summary>\n")
     for pkg in packages:
-        file.write(f"  - {pkg.name}\n")
-    file.write(f"<details>\n")
+        file.write(f"  - {pkg.name}")
+        if len(pkg.aliases) > 0:
+            file.write(f" (' ,'.join(aliases))")
+        file.write("\n")
+    file.write(f"</details>\n")
 
 
 class LazyDirectory:
