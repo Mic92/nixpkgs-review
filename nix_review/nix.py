@@ -4,7 +4,7 @@ import shlex
 import subprocess
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Any
 
 from .utils import ROOT, info, sh
 
@@ -17,6 +17,7 @@ class Attr:
         broken: bool,
         blacklisted: bool,
         path: Optional[str],
+        aliases: List[str] = [],
     ) -> None:
         self.name = name
         self.exists = exists
@@ -24,6 +25,7 @@ class Attr:
         self.blacklisted = blacklisted
         self.path = path
         self._path_verified: Optional[bool] = None
+        self.aliases = aliases
 
     def was_build(self) -> bool:
         if self.path is None:
@@ -51,35 +53,45 @@ def nix_shell(attrs: List[str], cache_directory: Path) -> None:
         sh(["nix-shell", str(shell)], cwd=cache_directory)
 
 
+def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
+    # workaround https://github.com/NixOS/ofborg/issues/269
+    blacklist = set(
+        ["tests.nixos-functions.nixos-test", "tests.nixos-functions.nixosTest-test"]
+    )
+    attr_by_path: Dict[str, Attr] = {}
+    broken = []
+    for name, props in json.items():
+        attr = Attr(
+            name=name,
+            exists=props["exists"],
+            broken=props["broken"],
+            blacklisted=name in blacklist,
+            path=props["path"],
+        )
+        if attr.path is not None:
+            other = attr_by_path.get(attr.path, None)
+            if other is None:
+                attr_by_path[attr.path] = attr
+            else:
+                if len(other.name) > len(attr.name):
+                    attr_by_path[attr.path] = attr
+                    attr.aliases.append(other.name)
+                else:
+                    other.aliases.append(attr.name)
+        else:
+            broken.append(attr)
+    return list(attr_by_path.values()) + broken
+
+
 def nix_eval(attrs: Set[str]) -> List[Attr]:
     with NamedTemporaryFile(mode="w+") as attr_json:
         json.dump(list(attrs), attr_json)
         eval_script = str(ROOT.joinpath("nix/evalAttrs.nix"))
         attr_json.flush()
         cmd = ["nix", "eval", "--json", f"(import {eval_script} {attr_json.name})"]
-        # workaround https://github.com/NixOS/ofborg/issues/269
-        blacklist = set(
-            ["tests.nixos-functions.nixos-test", "tests.nixos-functions.nixosTest-test"]
-        )
 
         nix_eval = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
-        attr_by_path: Dict[str, Attr] = {}
-        broken = []
-        for name, props in json.loads(nix_eval.stdout).items():
-            attr = Attr(
-                name=name,
-                exists=props["exists"],
-                broken=props["broken"],
-                blacklisted=name in blacklist,
-                path=props["path"],
-            )
-            if attr.path is not None:
-                other = attr_by_path.get(attr.path, None)
-                if other is None or len(other.name) > len(attr.name):
-                    attr_by_path[attr.path] = attr
-            else:
-                broken.append(attr)
-        return list(attr_by_path.values()) + broken
+        return _nix_eval_filter(json.loads(nix_eval.stdout))
 
 
 def nix_build(attr_names: Set[str], args: str, cache_directory: Path) -> List[Attr]:
