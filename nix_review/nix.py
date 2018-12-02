@@ -124,7 +124,8 @@ def nix_build(attr_names: Set[str], args: str, cache_directory: Path) -> List[At
 def write_shell_expression(filename: Path, attrs: List[str]) -> None:
     with open(filename, "w+") as f:
         f.write(
-            """with import <nixpkgs> {};
+            """{ pkgs ? import ./nixpkgs {} }:
+with pkgs;
 stdenv.mkDerivation {
   name = "env";
   buildInputs = [
