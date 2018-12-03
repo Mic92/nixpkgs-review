@@ -18,6 +18,44 @@ nix-review automatically builds packages changed in the pull requests
 - markdown reports
 - logs per built or failed package
 - symlinks build packages to result directory for inspection
+-
+## Requirements
+
+`nix-review` depends on python 3.6 or higher and nix 2.0 or higher.
+`nix-review` is included in nixpkgs.
+
+To use it run without installing it, use:
+
+```console
+$ nix run nixpkgs.nix-review
+```
+
+To install it:
+
+```console
+$ nix-env -f '<nixpkgs>' -iA nix-review
+```
+
+To run it from the git repository:
+
+```console
+$ nix-build
+$ ./result/bin/nix-review
+```
+
+### Development Environment
+
+For IDEs:
+
+```console
+$ nix-build -A env -o .venv
+```
+
+or just use:
+
+```console
+./bin/nix-review
+```
 
 ## Usage
 
@@ -55,30 +93,6 @@ $ nix-review rev HEAD
 
 Instead of `HEAD` also a commit or branch can be given.
 
-## Requirements
-
-`nix-review` depends on python 3.6 or higher and nix 2.0 or higher:
-
-Install with:
-
-```console
-$ nix-build
-./result/bin/nix-review
-```
-
-### Development Environment
-
-For IDEs:
-
-```console
-$ nix-build -A env -o .venv
-```
-
-or just use:
-
-```console
-./bin/nix-review
-```
 
 ## Remote builder:
 
