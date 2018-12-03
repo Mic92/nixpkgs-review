@@ -18,10 +18,9 @@ nix-review automatically builds packages changed in the pull requests
 - markdown reports
 - logs per built or failed package
 - symlinks build packages to result directory for inspection
--
-## Requirements
 
-`nix-review` depends on python 3.6 or higher and nix 2.0 or higher.
+## Installation
+
 `nix-review` is included in nixpkgs.
 
 To use it run without installing it, use:
