@@ -33,7 +33,7 @@ def write_number(
     for pkg in packages:
         file.write(f"  - {pkg.name}")
         if len(pkg.aliases) > 0:
-            file.write(f" (' ,'.join(aliases))")
+            file.write(f" ({' ,'.join(pkg.aliases)})")
         file.write("\n")
     file.write(f"</details>\n")
 
