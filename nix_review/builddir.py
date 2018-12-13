@@ -1,9 +1,9 @@
 import os
 import shutil
 import signal
-from typing import Any, Union
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any, Union
 
 from .utils import sh, warn
 
@@ -46,6 +46,7 @@ class Builddir:
             self.path = self.directory
 
         self.worktree_dir = self.path.joinpath("nixpkgs")
+        self.fake_overlays = TemporaryDirectory()
 
         try:
             os.makedirs(self.worktree_dir)
@@ -60,7 +61,7 @@ class Builddir:
         os.environ["NIX_PATH"] = self.nixpkgs_path()
 
     def nixpkgs_path(self) -> str:
-        return f"nixpkgs={self.worktree_dir}"
+        return f"nixpkgs={self.worktree_dir}:nixpkgs-overlays={self.fake_overlays.name}"
 
     def __enter__(self) -> "Builddir":
         return self
