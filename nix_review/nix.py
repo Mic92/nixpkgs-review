@@ -4,7 +4,7 @@ import shlex
 import subprocess
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Dict, List, Optional, Set, Any
+from typing import Any, Dict, List, Optional, Set
 
 from .utils import ROOT, info, sh
 
@@ -136,7 +136,7 @@ def nix_build(attr_names: Set[str], args: str, cache_directory: Path) -> List[At
 def write_shell_expression(filename: Path, attrs: List[str]) -> None:
     with open(filename, "w+") as f:
         f.write(
-            """{ pkgs ? import ./nixpkgs {} }:
+            """{ pkgs ? import ./nixpkgs { overlays = []; } }:
 with pkgs;
 stdenv.mkDerivation {
   name = "env";
