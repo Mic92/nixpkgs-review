@@ -2,9 +2,7 @@ attr-json:
 
 with builtins;
 let
-  pkgs = import <nixpkgs> { 
-    overlays = [];
-  };
+  pkgs = import <nixpkgs> {};
   lib = pkgs.lib;
 
   attrs = fromJSON (readFile attr-json);
