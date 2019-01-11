@@ -17,7 +17,7 @@ def parse_pr_numbers(number_args: List[str]) -> List[int]:
         if m:
             prs.extend(range(int(m.group(1)), int(m.group(2))))
         else:
-            m = re.match(r"https://github.com/NixOS/nixpkgs/pull/(\d+)", arg)
+            m = re.match(r"https://github.com/NixOS/nixpkgs/pull/(\d+)/?.*", arg)
             if m:
                 prs.append(int(m.group(1)))
             else:
