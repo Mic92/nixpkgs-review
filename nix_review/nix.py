@@ -4,7 +4,7 @@ import shlex
 import subprocess
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Dict, List, Optional, Set, Any
+from typing import Any, Dict, List, Optional, Set
 
 from .utils import ROOT, info, sh
 
@@ -17,6 +17,7 @@ class Attr:
         broken: bool,
         blacklisted: bool,
         path: Optional[str],
+        drv_path: Optional[str],
         aliases: List[str] = [],
     ) -> None:
         self.name = name
@@ -25,6 +26,7 @@ class Attr:
         self.blacklisted = blacklisted
         self.path = path
         self._path_verified: Optional[bool] = None
+        self.drv_path = drv_path
         self.aliases = aliases
 
     def was_build(self) -> bool:
@@ -67,6 +69,7 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
             broken=props["broken"],
             blacklisted=name in blacklist,
             path=props["path"],
+            drv_path=props["drvPath"],
         )
         if attr.path is not None:
             other = attr_by_path.get(attr.path, None)

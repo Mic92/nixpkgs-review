@@ -6,7 +6,7 @@ let
   lib = pkgs.lib;
 
   attrs = fromJSON (readFile attr-json);
-  getProperties = name: let 
+  getProperties = name: let
     path = lib.splitString "." name;
     pkg = lib.attrByPath path null pkgs;
     maybePath = builtins.tryEval "${pkg}";
@@ -14,6 +14,7 @@ let
     exists = pkg != null;
     broken = !exists || !maybePath.success;
     path = if !broken then maybePath.value else null;
+    drvPath = if exists then pkg.drvPath else null;
   };
 in
   pkgs.lib.genAttrs attrs getProperties

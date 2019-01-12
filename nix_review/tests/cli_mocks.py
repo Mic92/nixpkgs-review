@@ -69,9 +69,8 @@ build_cmds = [
         # hack to make sure the path exists
         MockCompletedProcess(
             stdout=(
-                b'{"pong3d": {"exists": true, "broken": false, "path": "'
-                + __file__.encode("utf8")
-                + b'"}}'
+                b'{"pong3d": {"exists": true, "broken": false, "path": "%s", "drvPath": "%s"}}'
+                % (__file__.encode("utf-8"), __file__.encode("utf-8"))
             )
         ),
     ),
