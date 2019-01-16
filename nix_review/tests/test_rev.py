@@ -1,6 +1,7 @@
 import unittest
 from typing import Any, List, Tuple
 from unittest.mock import MagicMock, patch
+from io import StringIO
 
 from nix_review.cli import main
 
@@ -35,42 +36,25 @@ def rev_command_cmds() -> List[Tuple[Any, Any]]:
             MockCompletedProcess(stdout=b"hash1\n"),
         ),
         (["git", "worktree", "add", IgnoreArgument, "hash1"], MockCompletedProcess()),
-        (
-            [
-                "nix-env",
-                "-f",
-                IgnoreArgument,
-                "-qaP",
-                "--xml",
-                "--out-path",
-                "--show-trace",
-            ],
-            MockCompletedProcess(stdout=b"<items></items>"),
-        ),
+        (IgnoreArgument, MockCompletedProcess(stdout=StringIO("<items></items>"))),
         (["git", "merge", "--no-commit", "hash1"], MockCompletedProcess()),
         (
-            [
-                "nix-env",
-                "-f",
-                IgnoreArgument,
-                "-qaP",
-                "--xml",
-                "--out-path",
-                "--show-trace",
-                "--meta",
-            ],
-            MockCompletedProcess(
-                stdout=read_asset("package_list_after.txt").encode("utf-8")
-            ),
+            IgnoreArgument,
+            MockCompletedProcess(stdout=StringIO(read_asset("package_list_after.txt"))),
         ),
     ]
 
 
 class RevCommand(CliTestCase):
     @patch("subprocess.run")
-    def test_rev_command(self, mock_run: MagicMock) -> None:
+    @patch("subprocess.Popen")
+    def test_rev_command(self, mock_popen: MagicMock, mock_run: MagicMock) -> None:
         effects = Mock(self, rev_command_cmds() + build_cmds)
         mock_run.side_effect = effects
+
+        popen_instance = mock_popen.return_value
+        popen_instance.__enter__.side_effect = effects
+
         main(
             "nix-review",
             [

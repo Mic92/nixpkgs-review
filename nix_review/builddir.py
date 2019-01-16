@@ -5,6 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Union
 
+from .overlay import Overlay
 from .utils import sh, warn
 
 
@@ -46,7 +47,7 @@ class Builddir:
             self.path = self.directory
 
         self.worktree_dir = self.path.joinpath("nixpkgs")
-        self.fake_overlays = TemporaryDirectory()
+        self.overlay = Overlay()
 
         try:
             os.makedirs(self.worktree_dir)
@@ -61,7 +62,7 @@ class Builddir:
         os.environ["NIX_PATH"] = self.nixpkgs_path()
 
     def nixpkgs_path(self) -> str:
-        return f"nixpkgs={self.worktree_dir}:nixpkgs-overlays={self.fake_overlays.name}"
+        return f"nixpkgs={self.worktree_dir}:nixpkgs-overlays={self.overlay.path}"
 
     def __enter__(self) -> "Builddir":
         return self
@@ -73,3 +74,5 @@ class Builddir:
         with DisableKeyboardInterrupt():
             shutil.rmtree(self.worktree_dir)
             sh(["git", "worktree", "prune"])
+
+        self.overlay.cleanup()
