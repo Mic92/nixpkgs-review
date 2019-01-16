@@ -1,7 +1,8 @@
 import multiprocessing
 import os
 from tempfile import TemporaryDirectory
-from typing import Any, List, Optional, Tuple
+from io import StringIO
+from typing import Any, List, Optional, Tuple, Union
 from unittest import TestCase
 
 TEST_ROOT = os.path.dirname(os.path.realpath(__file__))
@@ -23,7 +24,7 @@ class MockError(Exception):
 
 
 class MockCompletedProcess:
-    def __init__(self, stdout: Optional[bytes] = None) -> None:
+    def __init__(self, stdout: Optional[Union[bytes, StringIO]] = None) -> None:
         self.returncode = 0
         self.stdout = stdout
 

@@ -1,4 +1,6 @@
 import unittest
+
+from io import StringIO
 from typing import Any, List, Tuple
 from unittest.mock import MagicMock, mock_open, patch
 
@@ -41,33 +43,11 @@ def local_eval_cmds() -> List[Tuple[Any, Any]]:
             MockCompletedProcess(stdout=b"hash2\n"),
         ),
         (["git", "worktree", "add", IgnoreArgument, "hash1"], 0),
-        (
-            [
-                "nix-env",
-                "-f",
-                IgnoreArgument,
-                "-qaP",
-                "--xml",
-                "--out-path",
-                "--show-trace",
-            ],
-            MockCompletedProcess(stdout=b"<items></items>"),
-        ),
+        (IgnoreArgument, MockCompletedProcess(stdout=StringIO("<items></items>"))),
         (["git", "merge", "--no-commit", "hash2"], MockCompletedProcess()),
         (
-            [
-                "nix-env",
-                "-f",
-                IgnoreArgument,
-                "-qaP",
-                "--xml",
-                "--out-path",
-                "--show-trace",
-                "--meta",
-            ],
-            MockCompletedProcess(
-                stdout=read_asset("package_list_after.txt").encode("utf-8")
-            ),
+            IgnoreArgument,
+            MockCompletedProcess(stdout=StringIO(read_asset("package_list_after.txt"))),
         ),
     ]
 
@@ -75,10 +55,16 @@ def local_eval_cmds() -> List[Tuple[Any, Any]]:
 class PrCommandTestcase(CliTestCase):
     @patch("urllib.request.urlopen")
     @patch("subprocess.run")
-    def test_local_eval(self, mock_run: MagicMock, mock_urlopen: MagicMock) -> None:
+    @patch("subprocess.Popen")
+    def test_local_eval(
+        self, mock_popen: MagicMock, mock_run: MagicMock, mock_urlopen: MagicMock
+    ) -> None:
         effects = Mock(self, local_eval_cmds() + build_cmds)
         mock_urlopen.side_effect = effects
         mock_run.side_effect = effects
+
+        popen_instance = mock_popen.return_value
+        popen_instance.__enter__.side_effect = effects
 
         main(
             "nix-review",

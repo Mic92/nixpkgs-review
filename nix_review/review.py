@@ -1,4 +1,3 @@
-import io
 import os
 import subprocess
 import sys
@@ -128,10 +127,9 @@ def list_packages(path: str, check_meta: bool = False) -> PackageSet:
     cmd = ["nix-env", "-f", path, "-qaP", "--xml", "--out-path", "--show-trace"]
     if check_meta:
         cmd.append("--meta")
-    nix_env = subprocess.run(cmd, stdout=subprocess.PIPE)
-    context = ET.iterparse(
-        io.StringIO(nix_env.stdout.decode("utf-8")), events=("start",)
-    )
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    with proc as nix_env:
+        context = ET.iterparse(nix_env.stdout, events=("start",))
     packages = set()
     for (event, elem) in context:
         if elem.tag == "item":
