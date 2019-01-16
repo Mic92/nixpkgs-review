@@ -29,7 +29,7 @@ def write_number(
         return
     plural = "s" if len(packages) == 0 else ""
     file.write(f"<details>\n")
-    file.write(f"  <summary>{len(packages)} {what}{plural} {msg}:</summary>\n")
+    file.write(f"  <summary>{len(packages)} {what}{plural} {msg}:</summary>\n\n")
     for pkg in packages:
         file.write(f"  - {pkg.name}")
         if len(pkg.aliases) > 0:
@@ -102,11 +102,11 @@ class Report:
 
     def write_markdown(self, directory: Path, pr: Optional[int]) -> None:
         with open(directory.joinpath("report.md"), "w+") as f:
-            f.write(f"Result of [nix-review](https://github.com/Mic92/nix-review)")
+            cmd = "nix-review"
             if pr is not None:
-                f.write(f" pr {pr}\n")
-            else:
-                f.write(f"\n")
+                cmd += f" pr {pr}"
+            f.write(f"Result of `{cmd}` [1](https://github.com/Mic92/nix-review)\n")
+
             write_number(f, self.broken, "are marked as broken and were skipped")
             write_number(
                 f,
