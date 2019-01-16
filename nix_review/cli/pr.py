@@ -1,13 +1,13 @@
 import argparse
 import re
-import sys
 import subprocess
-from typing import List
+import sys
 from contextlib import ExitStack
+from typing import List
 
+from ..builddir import Builddir
 from ..review import CheckoutOption, Review
 from ..utils import warn
-from ..builddir import Builddir
 
 
 def parse_pr_numbers(number_args: List[str]) -> List[int]:
