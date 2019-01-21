@@ -128,16 +128,16 @@ def list_packages(path: str, check_meta: bool = False) -> PackageSet:
     if check_meta:
         cmd.append("--meta")
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    packages = set()
     with proc as nix_env:
         context = ET.iterparse(nix_env.stdout, events=("start",))
-    packages = set()
-    for (event, elem) in context:
-        if elem.tag == "item":
-            attrib = elem.attrib["attrPath"]
-        elif elem.tag == "output":
-            assert attrib is not None
-            path = elem.attrib["path"]
-            packages.add((attrib, path))
+        for (event, elem) in context:
+            if elem.tag == "item":
+                attrib = elem.attrib["attrPath"]
+            elif elem.tag == "output":
+                assert attrib is not None
+                path = elem.attrib["path"]
+                packages.add((attrib, path))
     return packages
 
 
