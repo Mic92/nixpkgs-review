@@ -70,7 +70,7 @@ def write_error_logs(attrs: List[Attr], directory: Path) -> None:
 
 
 class Report:
-    def __init__(self, attrs: List[Attr]):
+    def __init__(self, attrs: List[Attr]) -> None:
         self.attrs = attrs
         self.broken: List[Attr] = []
         self.failed: List[Attr] = []
