@@ -67,10 +67,21 @@ cd ~/git/nixpkgs
 Note that your local checkout git will be not affected by `nix-review`, since it 
 will use [git-worktree](https://git-scm.com/docs/git-worktree) to perform fast checkouts.
 
-Then run `nix-review` by providing the pull request number
+Then run `nix-review` by providing the pull request number...
 
 ```console
 $ nix-review pr 37242
+```
+
+... or the full pull request url:
+
+```console
+$ nix-review pr https://github.com/NixOS/nixpkgs/pull/37242
+```
+
+The output then looks as follow:
+
+```console
 $ git fetch --force https://github.com/NixOS/nixpkgs pull/37242/head:refs/nix-review/0
 $ git worktree add /home/joerg/git/nixpkgs/.review/pr-37242 1cb9f643480612696de93fb2f2a2f3340d0e3156
 Preparing /home/joerg/git/nixpkgs/.review/pr-37242 (identifier pr-37242)
