@@ -155,14 +155,6 @@ NixOS tests can be run by using the `--package` feature and our `nixosTests` att
 $ nix-review pr -p nixosTests.ferm 47077
 ```
 
-Sometimes this requires to rebuild the kernel, when it was changed in master, also that would be not important for most tests.
-In those cases it can help to use the pull-request commit as a base
-for review by using `--checkout commit`.
-
-```console
-$ nix-review pr --checkout commit -p nixosTests.ferm 47077
-```
-
 ## Ignoring ofborg evaluations
 
 By default, nix-review will use ofborg's evaluation result if available to
