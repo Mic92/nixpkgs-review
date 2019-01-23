@@ -112,6 +112,8 @@ Nix-review will pass all arguments given in `--build-arg` to `nix-build`:
 $ nix-review pr --build-args="--builders 'ssh://joerg@10.243.29.170'" 37244
 ```
 
+As an alternative one can also specify remote builder as usual in `/etc/nix/machines`
+or via the `nix.buildMachines` nixos options in `configuration.nix`.
 This allows to parallelize builds across multiple machines.
 
 ## Github api token
