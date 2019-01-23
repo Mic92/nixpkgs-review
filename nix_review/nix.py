@@ -1,12 +1,13 @@
 import json
 import multiprocessing
 import shlex
+import os
 import subprocess
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict, List, Optional, Set
 
-from .utils import ROOT, info, sh
+from .utils import ROOT, info, sh, warn
 
 
 class Attr:
@@ -87,14 +88,28 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
 
 
 def nix_eval(attrs: Set[str]) -> List[Attr]:
-    with NamedTemporaryFile(mode="w+") as attr_json:
+    attr_json = NamedTemporaryFile(mode="w+", delete=False)
+    delete = True
+    try:
         json.dump(list(attrs), attr_json)
         eval_script = str(ROOT.joinpath("nix/evalAttrs.nix"))
         attr_json.flush()
         cmd = ["nix", "eval", "--json", f"(import {eval_script} {attr_json.name})"]
 
-        nix_eval = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
+        try:
+            nix_eval = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
+        except subprocess.CalledProcessError:
+            warn(
+                f"{' '.join(cmd)} failed to run, {attr_json.name} was stored inspection"
+            )
+            delete = False
+            raise
+
         return _nix_eval_filter(json.loads(nix_eval.stdout))
+    finally:
+        attr_json.close()
+        if delete:
+            os.unlink(attr_json.name)
 
 
 def nix_build(attr_names: Set[str], args: str, cache_directory: Path) -> List[Attr]:
