@@ -14,7 +14,7 @@ let
     exists = pkg != null;
     broken = !exists || !maybePath.success;
     path = if !broken then maybePath.value else null;
-    drvPath = if exists then pkg.drvPath else null;
+    drvPath = if !broken then pkg.drvPath else null;
   };
 in
   pkgs.lib.genAttrs attrs getProperties
