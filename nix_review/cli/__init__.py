@@ -6,6 +6,7 @@ from typing import Any, List, Pattern
 from ..buildenv import Buildenv
 from .pr import pr_command
 from .rev import rev_command
+from .wip import wip_command
 
 
 def regex_type(s: str) -> Pattern[str]:
@@ -65,6 +66,27 @@ def rev_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser
     return rev_parser
 
 
+def wip_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
+    wip_parser = subparsers.add_parser(
+        "wip", help="review the uncommited changes in the working tree"
+    )
+
+    wip_parser.add_argument(
+        "-b", "--branch", default="master", help="branch to compare against with"
+    )
+    wip_parser.add_argument(
+        "-s",
+        "--staged",
+        action="store_true",
+        default=False,
+        help="Whether to build staged changes",
+    )
+
+    wip_parser.set_defaults(func=wip_command)
+
+    return wip_parser
+
+
 class CommonFlag:
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.args = args
@@ -84,6 +106,7 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
     subparsers.required = True  # type: ignore
     pr_parser = pr_flags(subparsers)
     rev_parser = rev_flags(subparsers)
+    wip_parser = wip_flags(subparsers)
 
     common_flags = [
         CommonFlag(
@@ -108,6 +131,7 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
     for flag in common_flags:
         pr_parser.add_argument(*flag.args, **flag.kwargs)
         rev_parser.add_argument(*flag.args, **flag.kwargs)
+        wip_parser.add_argument(*flag.args, **flag.kwargs)
 
     return parser.parse_args(args)
 
