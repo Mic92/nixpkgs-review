@@ -32,9 +32,15 @@ def create_cache_directory(name: str) -> Union[Path, TemporaryDirectory]:
         return TemporaryDirectory()
     else:
         xdg_cache = Path(home).joinpath(".cache")
-    cache_home = xdg_cache.joinpath("nix-review", name)
-    cache_home.mkdir(parents=True, exist_ok=True)
-    return cache_home
+    counter = 0
+    while True:
+        try:
+            final_name = name if counter == 0 else f"{name}-{counter}"
+            cache_home = xdg_cache.joinpath("nix-review", final_name)
+            cache_home.mkdir(parents=True)
+            return cache_home
+        except FileExistsError:
+            counter += 1
 
 
 class Builddir:
@@ -49,13 +55,7 @@ class Builddir:
         self.worktree_dir = self.path.joinpath("nixpkgs")
         self.overlay = Overlay()
 
-        try:
-            os.makedirs(self.worktree_dir)
-        except FileExistsError:
-            warn(
-                f"{self.worktree_dir} already exists. Is a different review already running?"
-            )
-            raise
+        self.worktree_dir.mkdir()
 
         self.worktree_dir = self.worktree_dir
 
