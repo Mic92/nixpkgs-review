@@ -27,3 +27,13 @@ def sh(
 ) -> subprocess.CompletedProcess:
     info("$ " + " ".join(command))
     return subprocess.run(command, cwd=cwd, check=True)
+
+
+def verify_commit_hash(commit: str) -> str:
+    return (
+        subprocess.run(
+            ["git", "rev-parse", "--verify", commit], check=True, stdout=subprocess.PIPE
+        )
+        .stdout.decode("utf-8")
+        .strip()
+    )

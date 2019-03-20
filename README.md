@@ -103,6 +103,17 @@ $ nix-review rev HEAD
 
 Instead of `HEAD` also a commit or branch can be given.
 
+To review uncommited changes, use the following command:
+
+```console
+$ nix-review wip
+```
+
+Staged changes can be reviewed like this:
+
+```console
+$ nix-review wip --staged
+```
 
 ## Remote builder:
 

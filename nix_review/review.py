@@ -1,3 +1,4 @@
+import argparse
 import os
 import subprocess
 import sys
@@ -9,7 +10,7 @@ from .builddir import Builddir
 from .github import GithubClient
 from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
-from .utils import sh, warn
+from .utils import sh, warn, info
 
 
 class CheckoutOption(Enum):
@@ -54,14 +55,36 @@ class Review:
     def git_merge(self, commit: str) -> None:
         sh(["git", "merge", "--no-commit", commit], cwd=self.worktree_dir())
 
-    def build_commit(self, base_commit: str, reviewed_commit: str) -> List[Attr]:
+    def apply_unstaged(self, staged: bool = False) -> None:
+        args = ["git", "--no-pager", "diff"]
+        args.extend(["--staged"] if staged else [])
+        diff_proc = subprocess.Popen(args, stdout=subprocess.PIPE)
+        diff = diff_proc.stdout.read()
+
+        if not diff:
+            info("No diff detected, stopping review...")
+            sys.exit(0)
+
+        info("Applying `nixpkgs` diff...")
+        result = subprocess.run(["git", "apply"], cwd=self.worktree_dir(), input=diff)
+
+        if result.returncode != 0:
+            warn("Failed to apply diff in %s" % self.worktree_dir())
+            sys.exit(1)
+
+    def build_commit(
+        self, base_commit: str, reviewed_commit: Optional[str], staged: bool = False
+    ) -> List[Attr]:
         """
         Review a local git commit
         """
         self.git_worktree(base_commit)
         base_packages = list_packages(str(self.worktree_dir()))
 
-        self.git_merge(reviewed_commit)
+        if reviewed_commit is None:
+            self.apply_unstaged(staged)
+        else:
+            self.git_merge(reviewed_commit)
 
         merged_packages = list_packages(str(self.worktree_dir()), check_meta=True)
 
@@ -115,9 +138,11 @@ class Review:
         report.write(self.builddir.path, pr)
         nix_shell(report.built_packages(), self.builddir.path)
 
-    def review_commit(self, branch: str, reviewed_commit: str) -> None:
+    def review_commit(
+        self, branch: str, reviewed_commit: Optional[str], staged: bool = False
+    ) -> None:
         branch_rev = fetch_refs(branch)[0]
-        self.start_review(self.build_commit(branch_rev, reviewed_commit))
+        self.start_review(self.build_commit(branch_rev, reviewed_commit, staged))
 
 
 PackageSet = Set[Tuple[str, str]]
@@ -127,6 +152,7 @@ def list_packages(path: str, check_meta: bool = False) -> PackageSet:
     cmd = ["nix-env", "-f", path, "-qaP", "--xml", "--out-path", "--show-trace"]
     if check_meta:
         cmd.append("--meta")
+    info("$ " + " ".join(cmd))
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     packages = set()
     with proc as nix_env:
@@ -222,3 +248,19 @@ def fetch_refs(*refs: str) -> List[str]:
 def differences(old: PackageSet, new: PackageSet) -> Set[str]:
     raw = new - old
     return {l[0] for l in raw}
+
+
+def review_local_revision(
+    builddir_path: str,
+    args: argparse.Namespace,
+    commit: Optional[str],
+    staged: bool = False,
+) -> None:
+    with Builddir(builddir_path) as builddir:
+        review = Review(
+            builddir=builddir,
+            build_args=args.build_args,
+            only_packages=set(args.package),
+            package_regexes=args.package_regex,
+        )
+        review.review_commit(args.branch, commit, staged)
