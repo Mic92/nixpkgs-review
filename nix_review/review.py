@@ -152,6 +152,7 @@ def list_packages(path: str, check_meta: bool = False) -> PackageSet:
     cmd = ["nix-env", "-f", path, "-qaP", "--xml", "--out-path", "--show-trace"]
     if check_meta:
         cmd.append("--meta")
+    info("$ " + " ".join(cmd))
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     packages = set()
     with proc as nix_env:
