@@ -23,7 +23,7 @@ class GithubClient:
             url = status.get("target_url", "")
             if (
                 status["description"] == "^.^!"
-                and status["creator"]["login"] == "GrahamcOfBorg"
+                and status["creator"]["login"] == "ofborg[bot]"
                 and url != ""
             ):
                 url = urllib.parse.urlparse(url)
