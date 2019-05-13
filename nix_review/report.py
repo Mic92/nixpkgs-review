@@ -115,8 +115,8 @@ class Report:
             )
             write_number(f, self.blacklisted, "were blacklisted")
             write_number(f, self.failed, "failed to build")
-            write_number(f, self.tests, "were build", what="test")
-            write_number(f, self.built, "were build")
+            write_number(f, self.tests, "were built", what="test")
+            write_number(f, self.built, "were built")
 
     def print_console(self, pr: Optional[int]) -> None:
         if pr is not None:
@@ -128,5 +128,5 @@ class Report:
         )
         print_number(self.blacklisted, "were blacklisted")
         print_number(self.failed, "failed to build")
-        print_number(self.tests, "were build", what="tests", log=print)
-        print_number(self.built, "were build", log=print)
+        print_number(self.tests, "were built", what="tests", log=print)
+        print_number(self.built, "were built", log=print)
