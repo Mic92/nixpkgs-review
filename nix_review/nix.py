@@ -7,7 +7,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict, List, Optional, Set
 
-from .utils import ROOT, info, sh, warn
+from .utils import ROOT, info, sh, warn, escape_attr
 
 
 class Attr:
@@ -161,7 +161,7 @@ stdenv.mkDerivation {
   buildInputs = [
 """
         )
-        f.write("\n".join(f"    {a}" for a in attrs))
+        f.write("\n".join(f"    {escape_attr(a)}" for a in attrs))
         f.write(
             """
   ];
