@@ -37,3 +37,10 @@ def verify_commit_hash(commit: str) -> str:
         .stdout.decode("utf-8")
         .strip()
     )
+
+
+def escape_attr(attr: str) -> str:
+    index = attr.rfind(".")
+    if index == -1:
+        return attr
+    return f'{attr[:index]}."{attr[index+1:]}"'
