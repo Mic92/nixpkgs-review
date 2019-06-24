@@ -26,12 +26,14 @@ def create_cache_directory(name: str) -> Union[Path, TemporaryDirectory]:
     xdg_cache_raw = os.environ.get("XDG_CACHE_HOME")
     if xdg_cache_raw is not None:
         xdg_cache = Path(xdg_cache_raw)
-    home = os.environ.get("HOME", None)
-    if home is None:
-        # we are in a temporary directory
-        return TemporaryDirectory()
     else:
-        xdg_cache = Path(home).joinpath(".cache")
+        home = os.environ.get("HOME", None)
+        if home is None:
+            # we are in a temporary directory
+            return TemporaryDirectory()
+        else:
+            xdg_cache = Path(home).joinpath(".cache")
+
     counter = 0
     while True:
         try:
