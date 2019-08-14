@@ -26,7 +26,7 @@ class Buildenv:
 
         root = find_nixpkgs_root()
         if root is None:
-            warn("Has to be execute from nixpkgs repository")
+            warn("Has to be executed from nixpkgs repository")
             sys.exit(1)
         else:
             os.chdir(root)
