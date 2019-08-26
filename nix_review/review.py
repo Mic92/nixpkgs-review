@@ -234,9 +234,9 @@ def filter_packages(
 def fetch_refs(*refs: str) -> List[str]:
     cmd = [
         "git",
-        "fetch",
         "-c",
         "fetch.prune=false",
+        "fetch",
         "--force",
         "https://github.com/NixOS/nixpkgs",
     ]
