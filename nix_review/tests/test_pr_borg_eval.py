@@ -28,9 +28,9 @@ def borg_eval_cmds() -> List[Tuple[Any, Any]]:
         (
             [
                 "git",
-                "fetch",
                 "-c",
                 "fetch.prune=false",
+                "fetch",
                 "--force",
                 "https://github.com/NixOS/nixpkgs",
                 "master:refs/nix-review/0",
