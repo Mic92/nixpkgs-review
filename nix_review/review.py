@@ -10,7 +10,7 @@ from .builddir import Builddir
 from .github import GithubClient
 from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
-from .utils import sh, warn, info
+from .utils import info, sh, warn
 
 
 class CheckoutOption(Enum):
@@ -232,7 +232,14 @@ def filter_packages(
 
 
 def fetch_refs(*refs: str) -> List[str]:
-    cmd = ["git", "fetch", "--force", "https://github.com/NixOS/nixpkgs"]
+    cmd = [
+        "git",
+        "fetch",
+        "-c",
+        "fetch.prune=false",
+        "--force",
+        "https://github.com/NixOS/nixpkgs",
+    ]
     for i, ref in enumerate(refs):
         cmd.append(f"{ref}:refs/nix-review/{i}")
     sh(cmd)
