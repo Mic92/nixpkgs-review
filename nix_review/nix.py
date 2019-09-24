@@ -48,12 +48,9 @@ class Attr:
 
 
 def nix_shell(attrs: List[str], cache_directory: Path) -> None:
-    if len(attrs) == 0:
-        info("No packages were successfully build, skip nix-shell")
-    else:
-        shell = cache_directory.joinpath("shell.nix")
-        write_shell_expression(shell, attrs)
-        sh(["nix-shell", str(shell)], cwd=cache_directory)
+    shell = cache_directory.joinpath("shell.nix")
+    write_shell_expression(shell, attrs)
+    sh(["nix-shell", str(shell)], cwd=cache_directory)
 
 
 def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
