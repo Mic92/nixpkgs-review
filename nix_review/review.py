@@ -111,7 +111,11 @@ class Review:
             packages_per_system = self.github_client.get_borg_eval_gist(pr)
         else:
             packages_per_system = None
-        merge_rev, pr_rev = fetch_refs(pr["base"]["ref"], f"pull/{pr['number']}/head")
+        merge_rev, pr_rev = fetch_refs(
+            "https://github.com/NixOS/nixpkgs",
+            pr["base"]["ref"],
+            f"pull/{pr['number']}/head",
+        )
 
         if self.checkout == CheckoutOption.MERGE:
             base_rev = merge_rev
@@ -139,9 +143,13 @@ class Review:
         nix_shell(report.built_packages(), self.builddir.path)
 
     def review_commit(
-        self, branch: str, reviewed_commit: Optional[str], staged: bool = False
+        self,
+        branch: str,
+        remote: str,
+        reviewed_commit: Optional[str],
+        staged: bool = False,
     ) -> None:
-        branch_rev = fetch_refs(branch)[0]
+        branch_rev = fetch_refs(remote, branch)[0]
         self.start_review(self.build_commit(branch_rev, reviewed_commit, staged))
 
 
@@ -231,15 +239,8 @@ def filter_packages(
     return packages
 
 
-def fetch_refs(*refs: str) -> List[str]:
-    cmd = [
-        "git",
-        "-c",
-        "fetch.prune=false",
-        "fetch",
-        "--force",
-        "https://github.com/NixOS/nixpkgs",
-    ]
+def fetch_refs(repo: str, *refs: str) -> List[str]:
+    cmd = ["git", "-c", "fetch.prune=false", "fetch", "--force", repo]
     for i, ref in enumerate(refs):
         cmd.append(f"{ref}:refs/nix-review/{i}")
     sh(cmd)
@@ -270,4 +271,4 @@ def review_local_revision(
             only_packages=set(args.package),
             package_regexes=args.package_regex,
         )
-        review.review_commit(args.branch, commit, staged)
+        review.review_commit(args.branch, args.remote, commit, staged)
