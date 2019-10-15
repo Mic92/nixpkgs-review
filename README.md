@@ -187,6 +187,19 @@ figure out what packages need to be rebuild. This can be turned off using
 if using `--eval ofborg`, nix-review will fallback to local evaluation if
 ofborg's result is not (yet) available.
 
+## Review changes in personal forks
+
+Both the `rev` and the `wip` subcommand support a `--remote` argument to
+overwrite the upstream repository URL (defaults to
+`https://github.com/NixOS/nixpkgs`). The following example will use the
+`mayflower` nixpkg's fork to fetch the branch where the changes will be merged into:
+
+```
+nix-review --remote https://github.com/mayflower/nixpkgs wip
+```
+
+Note that this has been not yet implemented for pull requests i.e. `pr` subcommand.
+
 ## Roadmap
 
 - [ ] trigger ofBorg builds (write @GrahamcOfBorg build foo into pull request discussion)
