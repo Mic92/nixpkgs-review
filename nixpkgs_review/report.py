@@ -102,10 +102,10 @@ class Report:
 
     def write_markdown(self, directory: Path, pr: Optional[int]) -> None:
         with open(directory.joinpath("report.md"), "w+") as f:
-            cmd = "nix-review"
+            cmd = "nixpkgs-review"
             if pr is not None:
                 cmd += f" pr {pr}"
-            f.write(f"Result of `{cmd}` [1](https://github.com/Mic92/nix-review)\n")
+            f.write(f"Result of `{cmd}` [1](https://github.com/Mic92/nixpkgs-review)\n")
 
             write_number(f, self.broken, "are marked as broken and were skipped")
             write_number(

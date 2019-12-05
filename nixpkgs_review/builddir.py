@@ -38,7 +38,7 @@ def create_cache_directory(name: str) -> Union[Path, TemporaryDirectory]:
     while True:
         try:
             final_name = name if counter == 0 else f"{name}-{counter}"
-            cache_home = xdg_cache.joinpath("nix-review", final_name)
+            cache_home = xdg_cache.joinpath("nixpkgs-review", final_name)
             cache_home.mkdir(parents=True)
             return cache_home
         except FileExistsError:

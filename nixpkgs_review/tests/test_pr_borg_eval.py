@@ -2,7 +2,7 @@ import unittest
 from typing import Any, List, Tuple
 from unittest.mock import MagicMock, mock_open, patch
 
-from nix_review.cli import main
+from nixpkgs_review.cli import main
 
 from .cli_mocks import (
     CliTestCase,
@@ -33,17 +33,17 @@ def borg_eval_cmds() -> List[Tuple[Any, Any]]:
                 "fetch",
                 "--force",
                 "https://github.com/NixOS/nixpkgs",
-                "master:refs/nix-review/0",
-                "pull/37200/head:refs/nix-review/1",
+                "master:refs/nixpkgs-review/0",
+                "pull/37200/head:refs/nixpkgs-review/1",
             ],
             MockCompletedProcess(),
         ),
         (
-            ["git", "rev-parse", "--verify", "refs/nix-review/0"],
+            ["git", "rev-parse", "--verify", "refs/nixpkgs-review/0"],
             MockCompletedProcess(stdout=b"hash1\n"),
         ),
         (
-            ["git", "rev-parse", "--verify", "refs/nix-review/1"],
+            ["git", "rev-parse", "--verify", "refs/nixpkgs-review/1"],
             MockCompletedProcess(stdout=b"hash2\n"),
         ),
         (["git", "worktree", "add", IgnoreArgument, "hash1"], MockCompletedProcess()),
@@ -66,7 +66,7 @@ class PrCommandTestCase(CliTestCase):
         mock_urlopen.side_effect = effects
 
         main(
-            "nix-review",
+            "nixpkgs-review",
             [
                 "pr",
                 "--build-args",

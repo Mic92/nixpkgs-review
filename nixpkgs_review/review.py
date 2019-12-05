@@ -242,12 +242,12 @@ def filter_packages(
 def fetch_refs(repo: str, *refs: str) -> List[str]:
     cmd = ["git", "-c", "fetch.prune=false", "fetch", "--force", repo]
     for i, ref in enumerate(refs):
-        cmd.append(f"{ref}:refs/nix-review/{i}")
+        cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
     sh(cmd)
     shas = []
     for i, ref in enumerate(refs):
         out = subprocess.check_output(
-            ["git", "rev-parse", "--verify", f"refs/nix-review/{i}"]
+            ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"]
         )
         shas.append(out.strip().decode("utf-8"))
     return shas
