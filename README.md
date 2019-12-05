@@ -1,9 +1,11 @@
-# nix-review
+# nixpkgs-review
 
-[![Build Status](https://travis-ci.org/Mic92/nix-review.svg?branch=master)](https://travis-ci.org/Mic92/nix-review)
+[![Build Status](https://travis-ci.org/Mic92/nixpkgs-review.svg?branch=master)](https://travis-ci.org/Mic92/nixpkgs-review)
 
 Review pull-requests on https://github.com/NixOS/nixpkgs. 
-nix-review automatically builds packages changed in the pull requests
+nixpkgs-review automatically builds packages changed in the pull requests
+
+NOTE: this project used to be called `nix-review`
 
 ## Features
 
@@ -21,25 +23,26 @@ nix-review automatically builds packages changed in the pull requests
 
 ## Installation
 
-`nix-review` is included in nixpkgs.
+`nixpkgs-review` is included in nixpkgs. Older versions of nixpkgs might still
+call it `nix-review`.
 
 To use it run without installing it, use:
 
 ```console
-$ nix run nixpkgs.nix-review
+$ nix run nixpkgs.nixpkgs-review
 ```
 
 To install it:
 
 ```console
-$ nix-env -f '<nixpkgs>' -iA nix-review
+$ nix-env -f '<nixpkgs>' -iA nixpkgs-review
 ```
 
 To run it from the git repository:
 
 ```console
 $ nix-build
-$ ./result/bin/nix-review
+$ ./result/bin/nixpkgs-review
 ```
 
 ### Development Environment
@@ -53,7 +56,7 @@ $ nix-build -A env -o .venv
 or just use:
 
 ```console
-./bin/nix-review
+./bin/nixpkgs-review
 ```
 
 ## Usage
@@ -64,25 +67,25 @@ Change to your local nixpkgs repository checkout, i.e.:
 cd ~/git/nixpkgs
 ```
 
-Note that your local checkout git will be not affected by `nix-review`, since it 
+Note that your local checkout git will be not affected by `nixpkgs-review`, since it 
 will use [git-worktree](https://git-scm.com/docs/git-worktree) to perform fast checkouts.
 
-Then run `nix-review` by providing the pull request number...
+Then run `nixpkgs-review` by providing the pull request number...
 
 ```console
-$ nix-review pr 37242
+$ nixpkgs-review pr 37242
 ```
 
 ... or the full pull request url:
 
 ```console
-$ nix-review pr https://github.com/NixOS/nixpkgs/pull/37242
+$ nixpkgs-review pr https://github.com/NixOS/nixpkgs/pull/37242
 ```
 
 The output then looks as follow:
 
 ```console
-$ git fetch --force https://github.com/NixOS/nixpkgs pull/37242/head:refs/nix-review/0
+$ git fetch --force https://github.com/NixOS/nixpkgs pull/37242/head:refs/nixpkgs-review/0
 $ git worktree add /home/joerg/git/nixpkgs/.review/pr-37242 1cb9f643480612696de93fb2f2a2f3340d0e3156
 Preparing /home/joerg/git/nixpkgs/.review/pr-37242 (identifier pr-37242)
 Checking out files: 100% (14825/14825), done.
@@ -98,7 +101,7 @@ redis-cli 4.0.8
 To review a local commit without pull request, use the following command:
 
 ```console
-$ nix-review rev HEAD
+$ nixpkgs-review rev HEAD
 ```
 
 Instead of `HEAD` also a commit or branch can be given.
@@ -106,13 +109,13 @@ Instead of `HEAD` also a commit or branch can be given.
 To review uncommited changes, use the following command:
 
 ```console
-$ nix-review wip
+$ nixpkgs-review wip
 ```
 
 Staged changes can be reviewed like this:
 
 ```console
-$ nix-review wip --staged
+$ nixpkgs-review wip --staged
 ```
 
 ## Remote builder:
@@ -120,7 +123,7 @@ $ nix-review wip --staged
 Nix-review will pass all arguments given in `--build-arg` to `nix-build`:
 
 ```console
-$ nix-review pr --build-args="--builders 'ssh://joerg@10.243.29.170'" 37244
+$ nixpkgs-review pr --build-args="--builders 'ssh://joerg@10.243.29.170'" 37244
 ```
 
 As an alternative one can also specify remote builder as usual in `/etc/nix/machines`
@@ -135,21 +138,21 @@ Then use either the `--token` parameter of the `pr` subcommand or
 set the `GITHUB_OAUTH_TOKEN` environment variable.
 
 ```console
-$ nix-review pr --token "5ae04810f1e9f17c3297ee4c9e25f3ac1f437c26" 37244
+$ nixpkgs-review pr --token "5ae04810f1e9f17c3297ee4c9e25f3ac1f437c26" 37244
 ```
 
 ## Checkout strategy (recommend for r-ryantm + cachix)
 
-By default `nix-review pr` will merge the pull request into the pull request's
+By default `nixpkgs-review pr` will merge the pull request into the pull request's
 target branch (most commonly master). However at times mass-rebuilding commits
 have been applied in the target branch, but not yet build by hydra. Often those
 are not relevant for the current review, but will significantly increase the
 local build time. For this case the `--checkout` option can specified to
 override the default behavior (`merge`). By setting its value to `commit`,
-`nix-review` will checkout the user's pull request branch without merging it:
+`nixpkgs-review` will checkout the user's pull request branch without merging it:
 
 ```console
-$ nix-review pr --checkout commit 44534
+$ nixpkgs-review pr --checkout commit 44534
 ```
 
 ## Only building a subset of packages
@@ -157,7 +160,7 @@ $ nix-review pr --checkout commit 44534
 To build only certain packages use the `--package` (or `-p`) flag.
 
 ```console
-$ nix-review pr -p openjpeg -p ImageMagick 49262
+$ nixpkgs-review pr -p openjpeg -p ImageMagick 49262
 ```
 
 There is also `--package-regex` option that takes a regular expression
@@ -165,7 +168,7 @@ to match against the attribute name:
 
 ```console
 # build only linux kernels but not the packages
-$ nix-review pr --packages-regex 'linux_' 51292
+$ nixpkgs-review pr --packages-regex 'linux_' 51292
 ```
 
 `-p` and `--package-regex` can be used together in which case
@@ -176,15 +179,15 @@ the matching packages will merged.
 NixOS tests can be run by using the `--package` feature and our `nixosTests` attribute set:
 
 ```console
-$ nix-review pr -p nixosTests.ferm 47077
+$ nixpkgs-review pr -p nixosTests.ferm 47077
 ```
 
 ## Ignoring ofborg evaluations
 
-By default, nix-review will use ofborg's evaluation result if available to
+By default, nixpkgs-review will use ofborg's evaluation result if available to
 figure out what packages need to be rebuild. This can be turned off using
 `--eval local`, which is useful if ofborg's evaluation result is outdated. Even
-if using `--eval ofborg`, nix-review will fallback to local evaluation if
+if using `--eval ofborg`, nixpkgs-review will fallback to local evaluation if
 ofborg's result is not (yet) available.
 
 ## Review changes in personal forks
@@ -195,7 +198,7 @@ overwrite the upstream repository URL (defaults to
 `mayflower` nixpkg's fork to fetch the branch where the changes will be merged into:
 
 ```
-nix-review --remote https://github.com/mayflower/nixpkgs wip
+nixpkgs-review --remote https://github.com/mayflower/nixpkgs wip
 ```
 
 Note that this has been not yet implemented for pull requests i.e. `pr` subcommand.
@@ -209,7 +212,7 @@ Note that this has been not yet implemented for pull requests i.e. `pr` subcomma
 
 ## Run tests
 
-Just like `nix-review` also the tests are lightning fast:
+Just like `nixpkgs-review` also the tests are lightning fast:
 
 ```console
 $ python3 -m unittest discover .
@@ -218,7 +221,7 @@ $ python3 -m unittest discover .
 We also use python3's type hints. To check them use `mypy`:
 
 ```console
-$ mypy nix_review
+$ mypy nixpkgs_review
 ```
 
 ## Related projects:
