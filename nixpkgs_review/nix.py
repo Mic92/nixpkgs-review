@@ -136,7 +136,7 @@ def nix_build(attr_names: Set[str], args: str, cache_directory: Path) -> List[At
         str(multiprocessing.cpu_count()),
         "--option",
         "build-use-sandbox",
-        "true",
+        "relaxed",
         "-f",
         str(build),
     ] + shlex.split(args)
