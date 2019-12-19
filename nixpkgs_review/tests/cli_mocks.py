@@ -85,7 +85,7 @@ build_cmds = [
             str(multiprocessing.cpu_count()),
             "--option",
             "build-use-sandbox",
-            "true",
+            "relaxed",
             "-f",
             IgnoreArgument,
             "--builders",
