@@ -1,4 +1,3 @@
-import multiprocessing
 import os
 from tempfile import TemporaryDirectory
 from io import StringIO
@@ -81,8 +80,6 @@ build_cmds = [
             "build",
             "--no-link",
             "--keep-going",
-            "--max-jobs",
-            str(multiprocessing.cpu_count()),
             "--option",
             "build-use-sandbox",
             "relaxed",
