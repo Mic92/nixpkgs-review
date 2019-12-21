@@ -107,26 +107,26 @@ class Report:
                 cmd += f" pr {pr}"
             f.write(f"Result of `{cmd}` [1](https://github.com/Mic92/nixpkgs-review)\n")
 
-            write_number(f, self.broken, "are marked as broken and were skipped")
+            write_number(f, self.broken, "marked as broken and skipped")
             write_number(
                 f,
                 self.non_existant,
-                "were present in ofBorgs evaluation, but not found in the checkout",
+                "present in ofBorgs evaluation, but not found in the checkout",
             )
-            write_number(f, self.blacklisted, "were blacklisted")
+            write_number(f, self.blacklisted, "blacklisted")
             write_number(f, self.failed, "failed to build")
-            write_number(f, self.tests, "were built", what="test")
-            write_number(f, self.built, "were built")
+            write_number(f, self.tests, "built", what="test")
+            write_number(f, self.built, "built")
 
     def print_console(self, pr: Optional[int]) -> None:
         if pr is not None:
             info(f"https://github.com/NixOS/nixpkgs/pull/{pr}")
-        print_number(self.broken, "are marked as broken and were skipped")
+        print_number(self.broken, "marked as broken and skipped")
         print_number(
             self.non_existant,
-            "were present in ofBorgs evaluation, but not found in the checkout",
+            "present in ofBorgs evaluation, but not found in the checkout",
         )
-        print_number(self.blacklisted, "were blacklisted")
+        print_number(self.blacklisted, "blacklisted")
         print_number(self.failed, "failed to build")
-        print_number(self.tests, "were built", what="tests", log=print)
-        print_number(self.built, "were built", log=print)
+        print_number(self.tests, "built", what="tests", log=print)
+        print_number(self.built, "built", log=print)
