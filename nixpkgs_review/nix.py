@@ -5,29 +5,20 @@ import subprocess
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict, List, Optional, Set
+from dataclasses import dataclass, field
 
 from .utils import ROOT, info, sh, warn, escape_attr
 
-
+@dataclass
 class Attr:
-    def __init__(
-        self,
-        name: str,
-        exists: bool,
-        broken: bool,
-        blacklisted: bool,
-        path: Optional[str],
-        drv_path: Optional[str],
-        aliases: List[str] = [],
-    ) -> None:
-        self.name = name
-        self.exists = exists
-        self.broken = broken
-        self.blacklisted = blacklisted
-        self.path = path
-        self._path_verified: Optional[bool] = None
-        self.drv_path = drv_path
-        self.aliases = aliases
+    name: str
+    exists: bool
+    broken: bool
+    blacklisted: bool
+    path: Optional[str]
+    drv_path: Optional[str]
+    aliases: List[str] = field(default_factory=lambda: [])
+    _path_verified: Optional[bool] = field(init=False, default=None)
 
     def was_build(self) -> bool:
         if self.path is None:
