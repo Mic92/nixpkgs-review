@@ -3,8 +3,9 @@ import os
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Pattern, Set, Tuple
+from typing import IO, Dict, List, Optional, Pattern, Set, Tuple
 
 from .builddir import Builddir
 from .github import GithubClient
@@ -28,6 +29,49 @@ def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
         ["nix", "eval", "--raw", "nixpkgs.system"], check=True, stdout=subprocess.PIPE
     )
     return set(packages_per_system[system.stdout.decode("utf-8")])
+
+
+def print_packages(names: List[str], msg: str,) -> None:
+    if len(names) == 0:
+        return
+    plural = "s" if len(names) == 0 else ""
+
+    print(f"{len(names)} package{plural} {msg}:")
+    print(" ".join(names))
+    print("")
+
+
+@dataclass
+class Package:
+    pname: str
+    version: str
+    attr_path: str
+    store_path: str
+    homepage: Optional[str]
+    description: Optional[str]
+    position: Optional[str]
+    old_pkg: "Optional[Package]" = field(init=False)
+
+
+def print_updates(changed_pkgs: List[Package], removed_pkgs: List[Package]) -> None:
+    new = []
+    updated = []
+    for pkg in changed_pkgs:
+        if pkg.old_pkg is None:
+            if pkg.version != "":
+                new.append(f"{pkg.pname} (init at {pkg.version})")
+            else:
+                new.append(pkg.pname)
+        elif pkg.old_pkg.version != pkg.version:
+            updated.append(f"{pkg.pname} ({pkg.old_pkg.version} → {pkg.version})")
+        else:
+            updated.append(pkg.pname)
+
+    removed = list(f"{p.pname} (†{pkg.version})" for p in removed_pkgs)
+
+    print_packages(new, "added")
+    print_packages(updated, "updated")
+    print_packages(removed, "removed")
 
 
 class Review:
@@ -88,8 +132,10 @@ class Review:
 
         merged_packages = list_packages(str(self.worktree_dir()), check_meta=True)
 
-        attrs = differences(base_packages, merged_packages)
-        return self.build(attrs, self.build_args)
+        changed_pkgs, removed_pkgs = differences(base_packages, merged_packages)
+        changed_attrs = set(p.attr_path for p in changed_pkgs)
+        print_updates(changed_pkgs, removed_pkgs)
+        return self.build(changed_attrs, self.build_args)
 
     def git_worktree(self, commit: str) -> None:
         sh(["git", "worktree", "add", self.worktree_dir(), commit])
@@ -153,26 +199,58 @@ class Review:
         self.start_review(self.build_commit(branch_rev, reviewed_commit, staged))
 
 
-PackageSet = Set[Tuple[str, str]]
+def parse_packages_xml(stdout: IO[bytes]) -> List[Package]:
+    packages: List[Package] = []
+    path = None
+    context = ET.iterparse(stdout, events=("start", "end"))
+    for (event, elem) in context:
+        if elem.tag == "item":
+            if event == "start":
+                attrs = elem.attrib
+                homepage = None
+                description = None
+                position = None
+            else:
+                assert attrs is not None
+                assert path is not None
+                pkg = Package(
+                    pname=attrs["pname"],
+                    version=attrs["version"],
+                    attr_path=attrs["attrPath"],
+                    store_path=path,
+                    homepage=homepage,
+                    description=description,
+                    position=position,
+                )
+                packages.append(pkg)
+        elif event == "start" and elem.tag == "output" and elem.attrib["name"] == "out":
+            path = elem.attrib["path"]
+        elif event == "start" and elem.tag == "meta":
+            name = elem.attrib["name"]
+            if name not in ["homepage", "description", "position"]:
+                continue
+            if elem.attrib["type"] == "strings":
+                values = (e.attrib["value"] for e in elem.getchildren())
+                value = ", ".join(values)
+            else:
+                value = elem.attrib["value"]
+            if name == "homepage":
+                homepage = value
+            elif name == "description":
+                description = value
+            elif name == "position":
+                position = value
+    return packages
 
 
-def list_packages(path: str, check_meta: bool = False) -> PackageSet:
+def list_packages(path: str, check_meta: bool = False) -> List[Package]:
     cmd = ["nix-env", "-f", path, "-qaP", "--xml", "--out-path", "--show-trace"]
     if check_meta:
         cmd.append("--meta")
     info("$ " + " ".join(cmd))
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    packages = set()
     with proc as nix_env:
-        context = ET.iterparse(nix_env.stdout, events=("start",))
-        for (event, elem) in context:
-            if elem.tag == "item":
-                attrib = elem.attrib["attrPath"]
-            elif elem.tag == "output":
-                assert attrib is not None
-                path = elem.attrib["path"]
-                packages.add((attrib, path))
-    return packages
+        return parse_packages_xml(nix_env.stdout)
 
 
 def package_attrs(
@@ -253,9 +331,20 @@ def fetch_refs(repo: str, *refs: str) -> List[str]:
     return shas
 
 
-def differences(old: PackageSet, new: PackageSet) -> Set[str]:
-    raw = new - old
-    return {l[0] for l in raw}
+def differences(
+    old: List[Package], new: List[Package]
+) -> Tuple[List[Package], List[Package]]:
+    old_attrs = dict((pkg.attr_path, pkg) for pkg in old)
+    changed_packages = []
+    for new_pkg in new:
+        old_pkg = old_attrs.get(new_pkg.attr_path, None)
+        if old_pkg is None or old_pkg.store_path != new_pkg.store_path:
+            new_pkg.old_pkg = old_pkg
+            changed_packages.append(new_pkg)
+        if old_pkg:
+            del old_attrs[old_pkg.attr_path]
+
+    return (changed_packages, list(old_attrs.values()))
 
 
 def review_local_revision(
