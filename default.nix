@@ -20,6 +20,9 @@ python3.pkgs.buildPythonApplication rec {
   makeWrapperArgs = [
     "--prefix PATH" ":" "${nix}/bin"
   ];
+  shellHook = ''
+    # workaround because `python setup.py develop` breaks for me
+  '';
 
   passthru.env = buildEnv { inherit name; paths = buildInputs ++ checkInputs; };
 }
