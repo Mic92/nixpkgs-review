@@ -138,6 +138,11 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
             type=regex_type,
             help="Regular expression that package attributes have to match (can be passed multiple times)",
         ),
+        CommonFlag(
+            "--no-shell",
+            action="store_true",
+            help="Only evaluate and build without executing nix-shell",
+        ),
     ]
 
     for flag in common_flags:
