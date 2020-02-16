@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/Mic92/nixpkgs-review.svg?branch=master)](https://travis-ci.org/Mic92/nixpkgs-review)
 
-Review pull-requests on https://github.com/NixOS/nixpkgs. 
+Review pull-requests on https://github.com/NixOS/nixpkgs.
 nixpkgs-review automatically builds packages changed in the pull requests
 
 NOTE: this project used to be called `nix-review`
@@ -45,6 +45,15 @@ $ nix-build
 $ ./result/bin/nixpkgs-review
 ```
 
+Note that this asserts formatting with the latest version of
+[black](https://github.com/psf/black), so you may need to specify a more up to
+date version of NixPkgs:
+
+```console
+$ nix-build -I nixpkgs=https://github.com/NixOS/nixpkgs-channels/archive/nixpkgs-unstable.tar.gz
+$ ./result/bin/nixpkgs-review
+```
+
 ### Development Environment
 
 For IDEs:
@@ -67,7 +76,7 @@ Change to your local nixpkgs repository checkout, i.e.:
 cd ~/git/nixpkgs
 ```
 
-Note that your local checkout git will be not affected by `nixpkgs-review`, since it 
+Note that your local checkout git will be not affected by `nixpkgs-review`, since it
 will use [git-worktree](https://git-scm.com/docs/git-worktree) to perform fast checkouts.
 
 Then run `nixpkgs-review` by providing the pull request number...
