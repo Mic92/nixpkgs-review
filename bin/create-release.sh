@@ -20,6 +20,6 @@ sed -i -e "s!version=\".*\"!version=\"${version}\"!" setup.py
 git add setup.py
 nix-build default.nix
 git commit -m "bump version ${version}"
-git tag "${version}"
+git tag -e "${version}"
 
 echo 'now run `git push --tags origin master`'
