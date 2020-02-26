@@ -151,7 +151,7 @@ review_pr_with_comment() {
     escaped_msg=$(sed -e 's/"/\\"/g' ${XDG_CACHE_HOME:-${HOME}/.cache}/nixpkgs-review/pr-$1/report.md)
     TOKEN=$(awk '/oauth_token/ {print $NF}' ~/.config/hub)
     curl -sH "Authorization: token $TOKEN" -XPOST \
-        -d "{\"body\": \"$msg\"}" https://api.github.com/repos/NixOS/nixpkgs/issues/$1/comments
+        -d "{\"body\": \"$escaped_msg\"}" https://api.github.com/repos/NixOS/nixpkgs/issues/$1/comments
 }
 
 review_pr_with_comment 80767
