@@ -100,6 +100,10 @@ class Report:
         self.write_markdown(directory, pr)
         write_error_logs(self.attrs, directory)
 
+    def succeeded(self) -> bool:
+        """Whether the report is considered a success or a failure"""
+        return len(self.failed) == 0
+
     def write_markdown(self, directory: Path, pr: Optional[int]) -> None:
         with open(directory.joinpath("report.md"), "w+") as f:
             cmd = "nixpkgs-review"

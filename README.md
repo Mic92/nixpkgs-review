@@ -12,7 +12,7 @@ NOTE: this project used to be called `nix-review`
 - [ofborg](https://github.com/NixOS/ofborg) support: reuses evaluation output of CI to skip local evaluation, but
   also fallbacks if ofborg is not finished
 - automatically detects target branch of pull request
-- provides a `nix-shell` with all packages, that did not fail to build
+- provides a `nix-shell` with all packages that did not fail to build
 - remote builder support
 - allows to build a subset of packages (great for mass-rebuilds)
 - allow to build nixos tests
@@ -127,6 +127,39 @@ Staged changes can be reviewed like this:
 $ nixpkgs-review wip --staged
 ```
 
+## Using nix-review in scripts
+
+After building, `nixpkgs-review` will normally start a `nix-shell` with the
+packages built, to allow for interactive testing. To use `nixpkgs-review`
+non-interactively in scripts, use the `--no-shell` command, which can allow for
+batch processing of multiple reviews or use in scripts/bots.
+
+Example testing multiple unrelated PRs:
+
+```bash
+for pr in 807{60..70}; do
+    nixpkgs-review pr --no-shell $pr && echo "PR $pr succeeded" || echo "PR $pr failed"
+done
+```
+
+Example composing `nixpkgs-review` inside a script and using a token from
+[hub](https://github.com/github/hub) to post a comment on the PR with results:
+
+```
+review_pr_with_comment() {
+    nixpkgs-review pr --no-shell $1
+    escaped_msg=$(sed -e 's/"/\\"/g' ${XDG_CACHE_HOME:-${HOME}/.cache}/nixpkgs-review/pr-$1/report.md)
+    TOKEN=$(awk '/oauth_token/ {print $NF}' ~/.config/hub)
+    curl -sH "Authorization: token $TOKEN" -XPOST \
+        -d "{\"body\": \"$escaped_msg\"}" https://api.github.com/repos/NixOS/nixpkgs/issues/$1/comments
+}
+
+review_pr_with_comment 80767
+```
+
+The above is just a basic example for ideas.
+
+
 ## Remote builder:
 
 Nix-review will pass all arguments given in `--build-arg` to `nix-build`:
@@ -214,7 +247,6 @@ Note that this has been not yet implemented for pull requests i.e. `pr` subcomma
 
 ## Roadmap
 
-- [ ] trigger ofBorg builds (write @GrahamcOfBorg build foo into pull request discussion)
 - [ ] build on multiple platforms
 - [ ] test backports
 - [ ] show pull request description + diff during review
