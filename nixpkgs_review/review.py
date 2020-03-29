@@ -34,7 +34,7 @@ def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
 def print_packages(names: List[str], msg: str,) -> None:
     if len(names) == 0:
         return
-    plural = "s" if len(names) == 0 else ""
+    plural = "s" if len(names) > 1 else ""
 
     print(f"{len(names)} package{plural} {msg}:")
     print(" ".join(names))
