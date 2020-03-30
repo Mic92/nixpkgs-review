@@ -1,6 +1,6 @@
 # nixpkgs-review
 
-[![Build Status](https://travis-ci.org/Mic92/nixpkgs-review.svg?branch=master)](https://travis-ci.org/Mic92/nixpkgs-review)
+![Build Status](https://github.com/Mic92/nixpkgs-review/workflows/Test/badge.svg)
 
 Review pull-requests on https://github.com/NixOS/nixpkgs.
 nixpkgs-review automatically builds packages changed in the pull requests
