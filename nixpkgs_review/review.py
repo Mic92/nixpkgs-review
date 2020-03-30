@@ -105,6 +105,7 @@ class Review:
         args = ["git", "--no-pager", "diff"]
         args.extend(["--staged"] if staged else [])
         diff_proc = subprocess.Popen(args, stdout=subprocess.PIPE)
+        assert diff_proc.stdout
         diff = diff_proc.stdout.read()
 
         if not diff:
@@ -255,6 +256,7 @@ def list_packages(path: str, check_meta: bool = False) -> List[Package]:
     info("$ " + " ".join(cmd))
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     with proc as nix_env:
+        assert nix_env.stdout
         return parse_packages_xml(nix_env.stdout)
 
 
