@@ -15,7 +15,7 @@ def print_number(
 ) -> None:
     if len(packages) == 0:
         return
-    plural = "s" if len(packages) == 0 else ""
+    plural = "s" if len(packages) > 1 else ""
     names = (a.name for a in packages)
     log(f"{len(packages)} {what}{plural} {msg}:")
     log(" ".join(names))
@@ -27,7 +27,7 @@ def write_number(
 ) -> None:
     if len(packages) == 0:
         return
-    plural = "s" if len(packages) == 0 else ""
+    plural = "s" if len(packages) > 1 else ""
     file.write(f"<details>\n")
     file.write(f"  <summary>{len(packages)} {what}{plural} {msg}:</summary>\n\n")
     for pkg in packages:
