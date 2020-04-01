@@ -22,6 +22,7 @@ setup(
             "nixpkgs-review = nixpkgs_review:main",
         ]
     },
+    install_requires=["PyGithub"],
     extras_require={"dev": ["mypy", "flake8>=3.5,<3.6", "black"]},
     classifiers=[
         "Development Status :: 5 - Production/Stable",

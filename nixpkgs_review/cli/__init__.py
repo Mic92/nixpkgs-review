@@ -48,6 +48,11 @@ def pr_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
         nargs="+",
         help="one or more nixpkgs pull request numbers (ranges are also supported)",
     )
+    pr_parser.add_argument(
+        "--comment",
+        action="store_true",
+        help="Post the nixpkgs-review results as a PR comment",
+    )
     pr_parser.set_defaults(func=pr_command)
     return pr_parser
 

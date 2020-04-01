@@ -1,11 +1,11 @@
 { pkgs ?  import <nixpkgs> {} }:
 
-
 with pkgs;
 python3.pkgs.buildPythonApplication rec {
   name = "nixpkgs-review";
   src = ./.;
   buildInputs = [ makeWrapper ];
+  propagatedBuildInputs = [ python3.pkgs.PyGithub ];
   checkInputs = [ mypy python3.pkgs.black python3.pkgs.flake8 glibcLocales ];
   checkPhase = ''
     echo -e "\x1b[32m## run unittest\x1b[0m"

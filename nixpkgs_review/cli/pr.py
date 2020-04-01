@@ -2,6 +2,7 @@ import argparse
 import re
 import subprocess
 import sys
+
 from contextlib import ExitStack
 from typing import List
 
@@ -57,7 +58,7 @@ def pr_command(args: argparse.Namespace) -> None:
                 warn(f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build")
 
         for pr, attrs in contexts:
-            review.start_review(attrs, pr)
+            review.start_review(attrs, pr, args.comment)
 
         if len(contexts) != len(prs):
             sys.exit(1)

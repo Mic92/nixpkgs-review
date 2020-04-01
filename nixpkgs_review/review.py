@@ -184,11 +184,20 @@ class Review:
         packages = native_packages(packages_per_system)
         return self.build(packages, self.build_args)
 
-    def start_review(self, attr: List[Attr], pr: Optional[int] = None) -> None:
+    def start_review(
+        self,
+        attr: List[Attr],
+        pr: Optional[int] = None,
+        comment: Optional[bool] = False,
+    ) -> None:
         os.environ["NIX_PATH"] = self.builddir.nixpkgs_path()
         report = Report(attr)
         report.print_console(pr)
         report.write(self.builddir.path, pr)
+
+        if pr and comment:
+            self.github_client.pr_comment(pr, report.markdown(pr))
+
         if self.no_shell:
             sys.exit(0 if report.succeeded() else 1)
         else:

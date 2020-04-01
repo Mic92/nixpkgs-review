@@ -27,9 +27,11 @@ def html_pkgs_section(packages: List[Attr], msg: str, what: str = "package") -> 
         return ""
     plural = "s" if len(packages) > 1 else ""
     res = "<details>\n"
-    res += f"  <summary>{len(packages)} {what}{plural} {msg}:</summary>\n\n"
+    res += f"  <summary>{len(packages)} {what}{plural} {msg}:</summary>\n"
     for pkg in packages:
-        res += f"  - {pkg.name}"
+        # N.B. When posting comments via the GitHub REST API, newlines do not
+        # survive inside the HTML sections, but <br> does.
+        res += f"<br>- {pkg.name}"
         if len(pkg.aliases) > 0:
             res += f" ({' ,'.join(pkg.aliases)})"
         res += "\n"
