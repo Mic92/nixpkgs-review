@@ -1,7 +1,7 @@
 import os
 import subprocess
 from pathlib import Path
-from typing import IO, Callable, List, Optional
+from typing import Callable, List, Optional
 
 from .nix import Attr
 from .utils import info, warn
@@ -22,20 +22,19 @@ def print_number(
     log("")
 
 
-def write_number(
-    file: IO[str], packages: List[Attr], msg: str, what: str = "package"
-) -> None:
+def html_pkgs_section(packages: List[Attr], msg: str, what: str = "package") -> str:
     if len(packages) == 0:
-        return
+        return ""
     plural = "s" if len(packages) > 1 else ""
-    file.write(f"<details>\n")
-    file.write(f"  <summary>{len(packages)} {what}{plural} {msg}:</summary>\n\n")
+    res = "<details>\n"
+    res += f"  <summary>{len(packages)} {what}{plural} {msg}:</summary>\n\n"
     for pkg in packages:
-        file.write(f"  - {pkg.name}")
+        res += f"  - {pkg.name}"
         if len(pkg.aliases) > 0:
-            file.write(f" ({' ,'.join(pkg.aliases)})")
-        file.write("\n")
-    file.write(f"</details>\n")
+            res += f" ({' ,'.join(pkg.aliases)})"
+        res += "\n"
+    res += "</details>\n"
+    return res
 
 
 class LazyDirectory:
@@ -97,30 +96,32 @@ class Report:
         return [a.name for a in self.built]
 
     def write(self, directory: Path, pr: Optional[int]) -> None:
-        self.write_markdown(directory, pr)
+        with open(directory.joinpath("report.md"), "w+") as f:
+            f.write(self.markdown(pr))
+
         write_error_logs(self.attrs, directory)
 
     def succeeded(self) -> bool:
         """Whether the report is considered a success or a failure"""
         return len(self.failed) == 0
 
-    def write_markdown(self, directory: Path, pr: Optional[int]) -> None:
-        with open(directory.joinpath("report.md"), "w+") as f:
-            cmd = "nixpkgs-review"
-            if pr is not None:
-                cmd += f" pr {pr}"
-            f.write(f"Result of `{cmd}` [1](https://github.com/Mic92/nixpkgs-review)\n")
+    def markdown(self, pr: Optional[int]) -> str:
+        cmd = "nixpkgs-review"
+        if pr is not None:
+            cmd += f" pr {pr}"
+        msg = f"Result of `{cmd}` [1](https://github.com/Mic92/nixpkgs-review)\n"
 
-            write_number(f, self.broken, "marked as broken and skipped")
-            write_number(
-                f,
-                self.non_existant,
-                "present in ofBorgs evaluation, but not found in the checkout",
-            )
-            write_number(f, self.blacklisted, "blacklisted")
-            write_number(f, self.failed, "failed to build")
-            write_number(f, self.tests, "built", what="test")
-            write_number(f, self.built, "built")
+        msg += html_pkgs_section(self.broken, "marked as broken and skipped")
+        msg += html_pkgs_section(
+            self.non_existant,
+            "present in ofBorgs evaluation, but not found in the checkout",
+        )
+        msg += html_pkgs_section(self.blacklisted, "blacklisted")
+        msg += html_pkgs_section(self.failed, "failed to build")
+        msg += html_pkgs_section(self.tests, "built", what="test")
+        msg += html_pkgs_section(self.built, "built")
+
+        return msg
 
     def print_console(self, pr: Optional[int]) -> None:
         if pr is not None:
