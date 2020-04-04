@@ -165,16 +165,17 @@ This allows to parallelize builds across multiple machines.
 
 ## Github api token
 
-In case your IP exceeds the rate limit, github will return an 403 error message.
-To increase your limit first create a [personal access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/).
-Then use either the `--token` parameter of the `pr` subcommand or
-set the `GITHUB_OAUTH_TOKEN` environment variable.
+The `pr --comment` option requires a Github API token, and even for read-only
+calls github returns 403 error messages if your IP hits the rate limit for
+unauthenticated calls.
+
+To use a token, first create a [personal access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/).
+Then use either the `--token` parameter of the `pr` subcommand or set the
+`GITHUB_OAUTH_TOKEN` environment variable.
 
 ```console
 $ nixpkgs-review pr --token "5ae04810f1e9f17c3297ee4c9e25f3ac1f437c26" 37244
 ```
-
-This is required for the `pr --comment` option.
 
 ## Checkout strategy (recommend for r-ryantm + cachix)
 
