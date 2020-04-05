@@ -58,7 +58,7 @@ def pr_command(args: argparse.Namespace) -> None:
                 warn(f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build")
 
         for pr, attrs in contexts:
-            review.start_review(attrs, pr, args.comment)
+            review.start_review(attrs, pr, args.post_result)
 
         if len(contexts) != len(prs):
             sys.exit(1)

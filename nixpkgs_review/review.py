@@ -188,14 +188,14 @@ class Review:
         self,
         attr: List[Attr],
         pr: Optional[int] = None,
-        comment: Optional[bool] = False,
+        post_result: Optional[bool] = False,
     ) -> None:
         os.environ["NIX_PATH"] = self.builddir.nixpkgs_path()
         report = Report(attr)
         report.print_console(pr)
         report.write(self.builddir.path, pr)
 
-        if pr and comment:
+        if pr and post_result:
             self.github_client.pr_comment(pr, report.markdown(pr))
 
         if self.no_shell:

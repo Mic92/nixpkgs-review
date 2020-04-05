@@ -109,10 +109,10 @@ redis-cli 4.0.8
 ```
 
 If you'd like to post the `nixpkgs-review` results as a formatted PR comment,
-pass the `--comment` flag:
+pass the `--post-result` flag:
 
 ```console
-$ nixpkgs-review pr --comment 37242
+$ nixpkgs-review pr --post-result 37242
 ```
 
 To review a local commit without pull request, use the following command:
@@ -147,7 +147,7 @@ comments for later review:
 
 ```bash
 for pr in 807{60..70}; do
-    nixpkgs-review pr --no-shell --comment $pr && echo "PR $pr succeeded" || echo "PR $pr failed"
+    nixpkgs-review pr --no-shell --post-result $pr && echo "PR $pr succeeded" || echo "PR $pr failed"
 done
 ```
 
@@ -165,7 +165,7 @@ This allows to parallelize builds across multiple machines.
 
 ## Github api token
 
-The `pr --comment` option requires a Github API token, and even for read-only
+The `pr --post-result` option requires a Github API token, and even for read-only
 calls github returns 403 error messages if your IP hits the rate limit for
 unauthenticated calls.
 
