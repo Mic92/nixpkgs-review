@@ -37,6 +37,10 @@ def pr_command(args: argparse.Namespace) -> None:
         CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
     )
 
+    if args.post_result and not args.token:
+        warn("Posting PR comments requires a Github API token; see https://github.com/Mic92/nixpkgs-review#github-api-token")
+        sys.exit(1)
+
     contexts = []
 
     with ExitStack() as stack:

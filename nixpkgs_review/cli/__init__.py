@@ -161,10 +161,5 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
 def main(command: str, raw_args: List[str]) -> None:
     args = parse_args(command, raw_args)
 
-    if command == "pr" and args.post_result and not args.token:
-        raise argparse.ArgumentTypeError(
-            "Posting PR comments requires a Github API token; see https://github.com/Mic92/nixpkgs-review#github-api-token"
-        )
-
     with Buildenv():
         args.func(args)
