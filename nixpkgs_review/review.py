@@ -155,7 +155,8 @@ class Review:
         return nix_build(packages, args, self.builddir.path)
 
     def build_pr(self, pr_number: int) -> List[Attr]:
-        pr = self.github_client.get(f"repos/NixOS/nixpkgs/pulls/{pr_number}")
+        pr = self.github_client.pull_request(pr_number)
+
         if self.use_ofborg_eval:
             packages_per_system = self.github_client.get_borg_eval_gist(pr)
         else:
@@ -196,7 +197,7 @@ class Review:
         report.write(self.builddir.path, pr)
 
         if pr and post_result:
-            self.github_client.pr_comment(pr, report.markdown(pr))
+            res = self.github_client.issue_comment(pr, report.markdown(pr))
 
         if self.no_shell:
             sys.exit(0 if report.succeeded() else 1)

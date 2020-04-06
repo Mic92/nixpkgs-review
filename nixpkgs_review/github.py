@@ -1,33 +1,44 @@
 import json
 import urllib.parse
 import urllib.request
+import http.client
 
 from collections import defaultdict
 from typing import Any, DefaultDict, Dict, Optional, Set
-
-# The PyGithub module does have stub files, but they're not installed via its
-# setup.py, so mypy complains about missing types.
-from github import Github  # type: ignore
 
 
 class GithubClient:
     def __init__(self, api_token: Optional[str]) -> None:
         self.api_token = api_token
-        if api_token:
-            self.github = Github(api_token)
-            self.nixpkgs = self.github.get_repo("NixOS/nixpkgs")
+
+    def _request(
+        self, path: str, method: str, data: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        url = urllib.parse.urljoin("https://api.github.com/", path)
+        headers = {"Content-Type": "application/json"}
+        if self.api_token:
+            headers["Authorization"] = f"token {self.api_token}"
+
+        body = None
+        if data:
+            body = json.dumps(data).encode("ascii")
+
+        req = urllib.request.Request(url, headers=headers, method=method, data=body)
+        resp = urllib.request.urlopen(req)
+        return json.loads(resp.read())
 
     def get(self, path: str) -> Any:
-        url = urllib.parse.urljoin("https://api.github.com/", path)
-        req = urllib.request.Request(url)
-        if self.api_token:
-            req.add_header("Authorization", f"token {self.api_token}")
-        return json.loads(urllib.request.urlopen(req).read())
+        return self._request(path, "GET")
 
-    def pr_comment(self, pr: int, msg: str) -> None:
+    def post(self, path: str, data: Dict[str, str]) -> Any:
+        return self._request(path, "POST", data)
+
+    def issue_comment(self, pr: int, msg: str) -> Any:
         "Post a comment on a PR with nixpkgs-review report"
-        gh_pr = self.nixpkgs.get_pull(pr)
-        gh_pr.create_issue_comment(msg)
+        return self.post(f"/repos/NixOS/nixpkgs/issues/{pr}/comments", data=dict(body=msg))
+
+    def pull_request(self, number: int) -> Any:
+        return self.get(f"repos/NixOS/nixpkgs/pulls/{number}")
 
     def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Optional[Dict[str, Set[str]]]:
         packages_per_system: DefaultDict[str, Set[str]] = defaultdict(set)
