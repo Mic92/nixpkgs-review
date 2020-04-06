@@ -1,6 +1,5 @@
 { pkgs ?  import <nixpkgs> {} }:
 
-
 with pkgs;
 python3.pkgs.buildPythonApplication rec {
   name = "nixpkgs-review";

@@ -18,6 +18,7 @@ NOTE: this project used to be called `nix-review`
 - allow to build nixos tests
 - colorful output
 - markdown reports
+- GitHub integration to post PR comments with results
 - logs per built or failed package
 - symlinks build packages to result directory for inspection
 
@@ -107,6 +108,13 @@ $ nix-shell -p redis
 redis-cli 4.0.8
 ```
 
+If you'd like to post the `nixpkgs-review` results as a formatted PR comment,
+pass the `--post-result` flag:
+
+```console
+$ nixpkgs-review pr --post-result 37242
+```
+
 To review a local commit without pull request, use the following command:
 
 ```console
@@ -134,31 +142,14 @@ packages built, to allow for interactive testing. To use `nixpkgs-review`
 non-interactively in scripts, use the `--no-shell` command, which can allow for
 batch processing of multiple reviews or use in scripts/bots.
 
-Example testing multiple unrelated PRs:
+Example testing multiple unrelated PRs and posting the build results as PR
+comments for later review:
 
 ```bash
 for pr in 807{60..70}; do
-    nixpkgs-review pr --no-shell $pr && echo "PR $pr succeeded" || echo "PR $pr failed"
+    nixpkgs-review pr --no-shell --post-result $pr && echo "PR $pr succeeded" || echo "PR $pr failed"
 done
 ```
-
-Example composing `nixpkgs-review` inside a script and using a token from
-[hub](https://github.com/github/hub) to post a comment on the PR with results:
-
-```
-review_pr_with_comment() {
-    nixpkgs-review pr --no-shell $1
-    escaped_msg=$(sed -e 's/"/\\"/g' ${XDG_CACHE_HOME:-${HOME}/.cache}/nixpkgs-review/pr-$1/report.md)
-    TOKEN=$(awk '/oauth_token/ {print $NF}' ~/.config/hub)
-    curl -sH "Authorization: token $TOKEN" -XPOST \
-        -d "{\"body\": \"$escaped_msg\"}" https://api.github.com/repos/NixOS/nixpkgs/issues/$1/comments
-}
-
-review_pr_with_comment 80767
-```
-
-The above is just a basic example for ideas.
-
 
 ## Remote builder:
 
@@ -174,10 +165,13 @@ This allows to parallelize builds across multiple machines.
 
 ## Github api token
 
-In case your IP exceeds the rate limit, github will return an 403 error message.
-To increase your limit first create a [personal access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/).
-Then use either the `--token` parameter of the `pr` subcommand or
-set the `GITHUB_OAUTH_TOKEN` environment variable.
+The `pr --post-result` option requires a Github API token, and even for read-only
+calls github returns 403 error messages if your IP hits the rate limit for
+unauthenticated calls.
+
+To use a token, first create a [personal access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/).
+Then use either the `--token` parameter of the `pr` subcommand or set the
+`GITHUB_OAUTH_TOKEN` environment variable.
 
 ```console
 $ nixpkgs-review pr --token "5ae04810f1e9f17c3297ee4c9e25f3ac1f437c26" 37244
