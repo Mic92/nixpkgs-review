@@ -197,7 +197,7 @@ class Review:
         report.write(self.builddir.path, pr)
 
         if pr and post_result:
-            res = self.github_client.issue_comment(pr, report.markdown(pr))
+            self.github_client.issue_comment(pr, report.markdown(pr))
 
         if self.no_shell:
             sys.exit(0 if report.succeeded() else 1)

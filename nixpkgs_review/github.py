@@ -1,7 +1,6 @@
 import json
 import urllib.parse
 import urllib.request
-import http.client
 
 from collections import defaultdict
 from typing import Any, DefaultDict, Dict, Optional, Set
@@ -35,7 +34,9 @@ class GithubClient:
 
     def issue_comment(self, pr: int, msg: str) -> Any:
         "Post a comment on a PR with nixpkgs-review report"
-        return self.post(f"/repos/NixOS/nixpkgs/issues/{pr}/comments", data=dict(body=msg))
+        return self.post(
+            f"/repos/NixOS/nixpkgs/issues/{pr}/comments", data=dict(body=msg)
+        )
 
     def pull_request(self, number: int) -> Any:
         return self.get(f"repos/NixOS/nixpkgs/pulls/{number}")
