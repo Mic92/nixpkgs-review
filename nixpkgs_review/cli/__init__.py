@@ -53,6 +53,14 @@ def pr_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
         action="store_true",
         help="Post the nixpkgs-review results as a PR comment",
     )
+    pr_parser.add_argument(
+        "--approve",
+        action="store_true",
+        help="If there are no failures, approve the PR",
+    )
+    pr_parser.add_argument(
+        "--merge", action="store_true", help="If there are no failures, merge the PR",
+    )
     pr_parser.set_defaults(func=pr_command)
     return pr_parser
 

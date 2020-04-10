@@ -37,9 +37,9 @@ def pr_command(args: argparse.Namespace) -> None:
         CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
     )
 
-    if args.post_result and not args.token:
+    if not args.token and any([args.post_result, args.approve, args.merge]):
         warn(
-            "Posting PR comments requires a Github API token; see https://github.com/Mic92/nixpkgs-review#github-api-token"
+            "Requires a Github API token; see https://github.com/Mic92/nixpkgs-review#github-api-token"
         )
         sys.exit(1)
 
@@ -64,7 +64,7 @@ def pr_command(args: argparse.Namespace) -> None:
                 warn(f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build")
 
         for pr, attrs in contexts:
-            review.start_review(attrs, pr, args.post_result)
+            review.start_review(attrs, pr, args.post_result, args.approve, args.merge)
 
         if len(contexts) != len(prs):
             sys.exit(1)

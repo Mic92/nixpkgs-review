@@ -190,19 +190,31 @@ class Review:
         attr: List[Attr],
         pr: Optional[int] = None,
         post_result: Optional[bool] = False,
+        approve: Optional[bool] = False,
+        merge: Optional[bool] = False,
     ) -> None:
         os.environ["NIX_PATH"] = self.builddir.nixpkgs_path()
         report = Report(attr)
         report.print_console(pr)
         report.write(self.builddir.path, pr)
 
-        if pr and post_result:
-            self.github_client.issue_comment(pr, report.markdown(pr))
+        if pr:
+            if post_result:
+                self.github_client.issue_comment(pr, report.markdown(pr))
+            # TODO: Add a check here that the author didn't force push or change
+            # the PR commit since we started building with nixpkgs-review?
+            # TODO: Consider asserting that the OfBorg CI status is all green.
+            # This catches things like build regressions on other architectures.
+            if report.succeeded():
+                if approve:
+                    self.github_client.pr_approve(pr)
+                if merge:
+                    self.github_client.pr_merge(pr)
 
         if self.no_shell:
             sys.exit(0 if report.succeeded() else 1)
-        else:
-            nix_shell(report.built_packages(), self.builddir.path)
+
+        nix_shell(report.built_packages(), self.builddir.path)
 
     def review_commit(
         self,

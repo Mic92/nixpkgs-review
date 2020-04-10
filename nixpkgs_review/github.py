@@ -32,11 +32,27 @@ class GithubClient:
     def post(self, path: str, data: Dict[str, str]) -> Any:
         return self._request(path, "POST", data)
 
+    def put(self, path: str) -> Any:
+        return self._request(path, "PUT")
+
     def issue_comment(self, pr: int, msg: str) -> Any:
         "Post a comment on a PR with nixpkgs-review report"
+        print(f"Posting result comment on PR {pr}")
         return self.post(
             f"/repos/NixOS/nixpkgs/issues/{pr}/comments", data=dict(body=msg)
         )
+
+    def pr_approve(self, pr: int) -> Any:
+        "Approve a PR"
+        print(f"Approving PR {pr}")
+        return self.post(
+            f"/repos/NixOS/nixpkgs/pulls/{pr}/reviews", data=dict(event="APPROVE"),
+        )
+
+    def pr_merge(self, pr: int) -> Any:
+        "Merge a PR. Requires maintainer access to NixPkgs"
+        print(f"Merging PR {pr}")
+        return self.put(f"/repos/NixOS/nixpkgs/pulls/{pr}/merge")
 
     def pull_request(self, number: int) -> Any:
         return self.get(f"repos/NixOS/nixpkgs/pulls/{number}")
