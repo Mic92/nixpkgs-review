@@ -46,7 +46,7 @@ class Package:
     pname: str
     version: str
     attr_path: str
-    store_path: str
+    store_path: Optional[str]
     homepage: Optional[str]
     description: Optional[str]
     position: Optional[str]
@@ -226,9 +226,12 @@ def parse_packages_xml(stdout: IO[bytes]) -> List[Package]:
                 homepage = None
                 description = None
                 position = None
+                path = None
             else:
                 assert attrs is not None
-                assert path is not None
+                if path is None:
+                    # architecture not supported
+                    continue
                 pkg = Package(
                     pname=attrs["pname"],
                     version=attrs["version"],
