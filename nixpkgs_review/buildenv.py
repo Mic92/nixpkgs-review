@@ -37,7 +37,14 @@ class Buildenv:
         os.environ["GIT_COMMITTER_EMAIL"] = "nixpkgs-review@example.com"
 
         self.nixpkgs_config = NamedTemporaryFile()
-        self.nixpkgs_config.write(b"{ allowUnfree = true; }")
+        self.nixpkgs_config.write(
+            b"""{
+          allowUnfree = true;
+          allowBroken = true;
+          ## TODO also build packages marked as insecure
+          #allowInsecurePredicate = x: true;
+        } """
+        )
         self.nixpkgs_config.flush()
         os.environ["NIXPKGS_CONFIG"] = self.nixpkgs_config.name
 
