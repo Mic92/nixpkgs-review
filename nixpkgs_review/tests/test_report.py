@@ -1,7 +1,7 @@
 import unittest
 
-from nixpkgs_review.report import Report
 from nixpkgs_review.nix import Attr
+from nixpkgs_review.report import Report
 
 from .cli_mocks import read_asset
 

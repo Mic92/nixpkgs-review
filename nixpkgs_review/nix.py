@@ -1,13 +1,13 @@
 import json
-import shlex
 import os
+import shlex
 import subprocess
+from dataclasses import dataclass, field
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict, List, Optional, Set
-from dataclasses import dataclass, field
 
-from .utils import ROOT, info, sh, warn, escape_attr
+from .utils import ROOT, escape_attr, info, sh, warn
 
 
 @dataclass

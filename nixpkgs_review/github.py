@@ -1,7 +1,6 @@
 import json
 import urllib.parse
 import urllib.request
-
 from collections import defaultdict
 from typing import Any, DefaultDict, Dict, Optional, Set
 
@@ -32,13 +31,30 @@ class GithubClient:
     def post(self, path: str, data: Dict[str, str]) -> Any:
         return self._request(path, "POST", data)
 
-    def issue_comment(self, pr: int, msg: str) -> Any:
+    def put(self, path: str) -> Any:
+        return self._request(path, "PUT")
+
+    def comment_issue(self, pr: int, msg: str) -> Any:
         "Post a comment on a PR with nixpkgs-review report"
+        print(f"Posting result comment on PR {pr}")
         return self.post(
             f"/repos/NixOS/nixpkgs/issues/{pr}/comments", data=dict(body=msg)
         )
 
+    def approve_pr(self, pr: int) -> Any:
+        "Approve a PR"
+        print(f"Approving PR {pr}")
+        return self.post(
+            f"/repos/NixOS/nixpkgs/pulls/{pr}/reviews", data=dict(event="APPROVE"),
+        )
+
+    def merge_pr(self, pr: int) -> Any:
+        "Merge a PR. Requires maintainer access to NixPkgs"
+        print(f"Merging PR {pr}")
+        return self.put(f"/repos/NixOS/nixpkgs/pulls/{pr}/merge")
+
     def pull_request(self, number: int) -> Any:
+        "Get a pull request"
         return self.get(f"repos/NixOS/nixpkgs/pulls/{number}")
 
     def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Optional[Dict[str, Set[str]]]:

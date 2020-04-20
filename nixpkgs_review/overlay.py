@@ -1,5 +1,5 @@
-from tempfile import TemporaryDirectory
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 
 class Overlay:

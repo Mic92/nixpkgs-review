@@ -3,7 +3,9 @@ import os
 import re
 from typing import Any, List, Pattern
 
-from ..buildenv import Buildenv
+from .approve import approve_command
+from .merge import merge_command
+from .post_result import post_result_command
 from .pr import pr_command
 from .rev import rev_command
 from .wip import wip_command
@@ -18,12 +20,6 @@ def regex_type(s: str) -> Pattern[str]:
 
 def pr_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
     pr_parser = subparsers.add_parser("pr", help="review a pull request on nixpkgs")
-    pr_parser.add_argument(
-        "--token",
-        type=str,
-        default=os.environ.get("GITHUB_OAUTH_TOKEN", None),
-        help="Github access token (optional if request limit exceeds)",
-    )
     pr_parser.add_argument(
         "--eval",
         default="ofborg",
@@ -110,56 +106,77 @@ class CommonFlag:
         self.kwargs = kwargs
 
 
+common_flags = [
+    CommonFlag(
+        "--build-args", default="", help="arguments passed to nix when building"
+    ),
+    CommonFlag(
+        "-p",
+        "--package",
+        action="append",
+        default=[],
+        help="Package to build (can be passed multiple times)",
+    ),
+    CommonFlag(
+        "--package-regex",
+        action="append",
+        default=[],
+        type=regex_type,
+        help="Regular expression that package attributes have to match (can be passed multiple times)",
+    ),
+    CommonFlag(
+        "--no-shell",
+        action="store_true",
+        help="Only evaluate and build without executing nix-shell",
+    ),
+    CommonFlag(
+        "--token",
+        type=str,
+        default=os.environ.get("GITHUB_OAUTH_TOKEN", None),
+        help="Github access token (optional if request limit exceeds)",
+    ),
+]
+
+
 def parse_args(command: str, args: List[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
+    main_parser = argparse.ArgumentParser(
         prog=command, formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    subparsers = parser.add_subparsers(
+    subparsers = main_parser.add_subparsers(
         dest="subcommand",
         title="subcommands",
         description="valid subcommands",
         help="use --help on the additional subcommands",
     )
     subparsers.required = True  # type: ignore
-    pr_parser = pr_flags(subparsers)
-    rev_parser = rev_flags(subparsers)
-    wip_parser = wip_flags(subparsers)
 
-    common_flags = [
-        CommonFlag(
-            "--build-args", default="", help="arguments passed to nix when building"
-        ),
-        CommonFlag(
-            "-p",
-            "--package",
-            action="append",
-            default=[],
-            help="Package to build (can be passed multiple times)",
-        ),
-        CommonFlag(
-            "--package-regex",
-            action="append",
-            default=[],
-            type=regex_type,
-            help="Regular expression that package attributes have to match (can be passed multiple times)",
-        ),
-        CommonFlag(
-            "--no-shell",
-            action="store_true",
-            help="Only evaluate and build without executing nix-shell",
-        ),
+    post_result_parser = subparsers.add_parser(
+        "post-result", help="post PR comments with results"
+    )
+    post_result_parser.set_defaults(func=post_result_command)
+
+    approve_parser = subparsers.add_parser("approve", help="approve PR")
+    approve_parser.set_defaults(func=approve_command)
+
+    merge_parser = subparsers.add_parser("merge", help="merge PR")
+    merge_parser.set_defaults(func=merge_command)
+
+    parsers = [
+        approve_parser,
+        merge_parser,
+        post_result_parser,
+        pr_flags(subparsers),
+        rev_flags(subparsers),
+        wip_flags(subparsers),
     ]
 
-    for flag in common_flags:
-        pr_parser.add_argument(*flag.args, **flag.kwargs)
-        rev_parser.add_argument(*flag.args, **flag.kwargs)
-        wip_parser.add_argument(*flag.args, **flag.kwargs)
+    for parser in parsers:
+        for flag in common_flags:
+            parser.add_argument(*flag.args, **flag.kwargs)
 
-    return parser.parse_args(args)
+    return main_parser.parse_args(args)
 
 
 def main(command: str, raw_args: List[str]) -> None:
     args = parse_args(command, raw_args)
-
-    with Buildenv():
-        args.func(args)
+    args.func(args)

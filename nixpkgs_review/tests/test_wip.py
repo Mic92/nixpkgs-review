@@ -1,18 +1,16 @@
 import unittest
-
+from io import StringIO
 from typing import Any, List, Tuple
 from unittest.mock import MagicMock, patch
-
-from io import StringIO
 
 from nixpkgs_review.cli import main
 
 from .cli_mocks import (
     CliTestCase,
-    build_cmds,
-    Mock,
     IgnoreArgument,
+    Mock,
     MockCompletedProcess,
+    build_cmds,
     read_asset,
 )
 

@@ -2,13 +2,14 @@ import argparse
 import re
 import subprocess
 import sys
-
 from contextlib import ExitStack
 from typing import List
 
 from ..builddir import Builddir
+from ..buildenv import Buildenv
 from ..review import CheckoutOption, Review
 from ..utils import warn
+from .utils import ensure_github_token
 
 
 def parse_pr_numbers(number_args: List[str]) -> List[int]:
@@ -37,15 +38,12 @@ def pr_command(args: argparse.Namespace) -> None:
         CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
     )
 
-    if args.post_result and not args.token:
-        warn(
-            "Posting PR comments requires a Github API token; see https://github.com/Mic92/nixpkgs-review#github-api-token"
-        )
-        sys.exit(1)
+    if args.post_result:
+        ensure_github_token(args.token)
 
     contexts = []
 
-    with ExitStack() as stack:
+    with Buildenv(), ExitStack() as stack:
         for pr in prs:
             builddir = stack.enter_context(Builddir(f"pr-{pr}"))
             try:

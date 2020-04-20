@@ -192,12 +192,14 @@ class Review:
         post_result: Optional[bool] = False,
     ) -> None:
         os.environ["NIX_PATH"] = self.builddir.nixpkgs_path()
+        if pr:
+            os.environ["PR"] = str(pr)
         report = Report(attr)
         report.print_console(pr)
         report.write(self.builddir.path, pr)
 
         if pr and post_result:
-            self.github_client.issue_comment(pr, report.markdown(pr))
+            self.github_client.comment_issue(pr, report.markdown(pr))
 
         if self.no_shell:
             sys.exit(0 if report.succeeded() else 1)
