@@ -1,5 +1,4 @@
 import unittest
-
 from io import StringIO
 from typing import Any, List, Tuple
 from unittest.mock import MagicMock, mock_open, patch

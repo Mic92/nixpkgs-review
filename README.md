@@ -11,14 +11,14 @@ NOTE: this project used to be called `nix-review`
 
 - [ofborg](https://github.com/NixOS/ofborg) support: reuses evaluation output of CI to skip local evaluation, but
   also fallbacks if ofborg is not finished
-- automatically detects target branch of pull request
 - provides a `nix-shell` with all packages that did not fail to build
 - remote builder support
 - allows to build a subset of packages (great for mass-rebuilds)
 - allow to build nixos tests
-- colorful output
 - markdown reports
-- GitHub integration to post PR comments with results
+- GitHub integration:
+  - post PR comments with results
+  - approve or merge PRs (the last one requires maintainer permission)
 - logs per built or failed package
 - symlinks build packages to result directory for inspection
 
@@ -108,13 +108,6 @@ $ nix-shell -p redis
 redis-cli 4.0.8
 ```
 
-If you'd like to post the `nixpkgs-review` results as a formatted PR comment,
-pass the `--post-result` flag:
-
-```console
-$ nixpkgs-review pr --post-result 37242
-```
-
 To review a local commit without pull request, use the following command:
 
 ```console
@@ -123,7 +116,7 @@ $ nixpkgs-review rev HEAD
 
 Instead of `HEAD` also a commit or branch can be given.
 
-To review uncommited changes, use the following command:
+To review uncommitted changes, use the following command:
 
 ```console
 $ nixpkgs-review wip
@@ -133,6 +126,27 @@ Staged changes can be reviewed like this:
 
 ```console
 $ nixpkgs-review wip --staged
+```
+
+If you'd like to post the `nixpkgs-review` results as a formatted PR comment,
+pass the `--post-result` flag:
+
+```console
+$ nixpkgs-review pr --post-result 37242
+```
+
+Often, after reviewing a diff on a pull request, you may want to say "This diff
+looks good to me, approve/merge it provided that there are no package build
+failures". To do so run the following subcommands from within the nix-shell provided 
+by nixpkgs-review
+
+```console
+$ nixpkgs-review pr 37242
+nix-shell> nixpkgs-review approve
+# Or, if you have maintainer access and would like to merge (provided no build failures):
+nix-shell> nixpkgs-review merge
+# It is also possible to upload the result report from here
+nix-shell> nixpkgs-review post-result
 ```
 
 ## Using nix-review in scripts
@@ -165,17 +179,20 @@ This allows to parallelize builds across multiple machines.
 
 ## Github api token
 
-The `pr --post-result` option requires a Github API token, and even for read-only
-calls github returns 403 error messages if your IP hits the rate limit for
-unauthenticated calls.
+Some commands (i.e. `post-result` or `merge`) require a Github API token, and
+even for read-only calls github returns 403 error messages if your IP hits the
+rate limit for unauthenticated calls.
 
 To use a token, first create a [personal access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/).
-Then use either the `--token` parameter of the `pr` subcommand or set the
-`GITHUB_OAUTH_TOKEN` environment variable.
+
+Then use either the `GITHUB_TOKEN` environment variable or the `--token` parameter of the `pr` subcommand.
 
 ```console
-$ nixpkgs-review pr --token "5ae04810f1e9f17c3297ee4c9e25f3ac1f437c26" 37244
+$ GITHUB_TOKEN=5ae04810f1e9f17c3297ee4c9e25f3ac1f437c26 nixpkgs-review pr  37244
 ```
+
+Additionally nixpkgs-review will also read the oauth_token stored by [hub](https://hub.github.com/).
+
 
 ## Checkout strategy (recommend for r-ryantm + cachix)
 
