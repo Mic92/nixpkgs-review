@@ -1,7 +1,8 @@
 import argparse
 import os
 import re
-from typing import Any, List, Pattern
+from typing import Any, List, Pattern, Optional
+from pathlib import Path
 
 from .approve import approve_command
 from .merge import merge_command
@@ -106,6 +107,35 @@ class CommonFlag:
         self.kwargs = kwargs
 
 
+def read_github_token() -> Optional[str]:
+    # for backwards compatibility we also accept GITHUB_OAUTH_TOKEN.
+    token = os.environ.get("GITHUB_OAUTH_TOKEN", os.environ.get("GITHUB_TOKEN"))
+    if token:
+        return token
+    raw_hub_path = os.environ.get("HUB_CONFIG", None)
+    if raw_hub_path:
+        hub_path = Path(raw_hub_path)
+    else:
+        raw_config_home = os.environ.get("XDG_CONFIG_HOME", None)
+        if raw_config_home is None:
+            home = os.environ.get("HOME", None)
+            if home is None:
+                return None
+            config_home = Path(home).joinpath(".config")
+        else:
+            config_home = Path(raw_config_home)
+        hub_path = config_home.joinpath("hub")
+    try:
+        with open(hub_path) as f:
+            for line in f:
+                token_match = re.match(r"\s*oauth_token:\s+([a-f0-9]+)", line)
+                if token_match:
+                    return token_match.group(1)
+    except OSError:
+        pass
+    return None
+
+
 common_flags = [
     CommonFlag(
         "--build-args", default="", help="arguments passed to nix when building"
@@ -132,7 +162,7 @@ common_flags = [
     CommonFlag(
         "--token",
         type=str,
-        default=os.environ.get("GITHUB_OAUTH_TOKEN", None),
+        default=read_github_token(),
         help="Github access token (optional if request limit exceeds)",
     ),
 ]

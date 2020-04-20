@@ -179,17 +179,20 @@ This allows to parallelize builds across multiple machines.
 
 ## Github api token
 
-The `pr --post-result` option requires a Github API token, and even for read-only
-calls github returns 403 error messages if your IP hits the rate limit for
-unauthenticated calls.
+Some commands (i.e. `post-result` or `merge`) require a Github API token, and
+even for read-only calls github returns 403 error messages if your IP hits the
+rate limit for unauthenticated calls.
 
 To use a token, first create a [personal access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/).
-Then use either the `--token` parameter of the `pr` subcommand or set the
-`GITHUB_OAUTH_TOKEN` environment variable.
+
+Then use either the `GITHUB_TOKEN` environment variable or the `--token` parameter of the `pr` subcommand.
 
 ```console
-$ nixpkgs-review pr --token "5ae04810f1e9f17c3297ee4c9e25f3ac1f437c26" 37244
+$ GITHUB_TOKEN=5ae04810f1e9f17c3297ee4c9e25f3ac1f437c26 nixpkgs-review pr  37244
 ```
+
+Additionally nixpkgs-review will also read the oauth_token stored by [hub](https://hub.github.com/).
+
 
 ## Checkout strategy (recommend for r-ryantm + cachix)
 
