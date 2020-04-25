@@ -59,11 +59,11 @@ def print_updates(changed_pkgs: List[Package], removed_pkgs: List[Package]) -> N
     for pkg in changed_pkgs:
         if pkg.old_pkg is None:
             if pkg.version != "":
-                new.append(f"{pkg.pname} (init at {pkg.version})")
+                new.append(f"{pkg.attr_path} (init at {pkg.version})")
             else:
                 new.append(pkg.pname)
         elif pkg.old_pkg.version != pkg.version:
-            updated.append(f"{pkg.pname} ({pkg.old_pkg.version} → {pkg.version})")
+            updated.append(f"{pkg.attr_path} ({pkg.old_pkg.version} → {pkg.version})")
         else:
             updated.append(pkg.pname)
 
@@ -265,7 +265,15 @@ def parse_packages_xml(stdout: IO[bytes]) -> List[Package]:
 
 
 def list_packages(path: str, check_meta: bool = False) -> List[Package]:
-    cmd = ["nix-env", "-f", path, "-qaP", "--xml", "--out-path", "--show-trace"]
+    cmd = [
+        "nix-env",
+        "-f",
+        path,
+        "-qaP",
+        "--xml",
+        "--out-path",
+        "--show-trace",
+    ]
     if check_meta:
         cmd.append("--meta")
     info("$ " + " ".join(cmd))
