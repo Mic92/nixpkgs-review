@@ -67,7 +67,7 @@ def print_updates(changed_pkgs: List[Package], removed_pkgs: List[Package]) -> N
         else:
             updated.append(pkg.pname)
 
-    removed = list(f"{p.pname} (†{pkg.version})" for p in removed_pkgs)
+    removed = list(f"{p.pname} (†{p.version})" for p in removed_pkgs)
 
     print_packages(new, "added")
     print_packages(updated, "updated")
