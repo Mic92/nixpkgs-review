@@ -1,0 +1,35 @@
+name: Create release
+on:
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+      # matches releases
+      - '[0-9].[0-9].[0-9]'
+
+jobs:
+  build:
+    name: Create release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Get release notes
+        id: release-notes
+        run: |
+          escape() { perl -p -e 's/%/%25/;s/\r/%0D/;s/\n/%0A/'; }
+          ref=${{ github.ref }}
+          tag_name=${ref#refs/tags/}
+          release_name=$(git tag -l --format='%(subject)' "$tag_name"  | escape)
+          body=$(git tag -l --format='%(contents:body)' "$tag_name" | escape)
+
+          echo "::set-output name=release_name::$release_name"
+          echo "::set-output name=body::$body"
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: "${{ steps.release-notes.outputs.release_name }}"
+          body: "${{ steps.release-notes.outputs.body }}"
+          prerelease: false
