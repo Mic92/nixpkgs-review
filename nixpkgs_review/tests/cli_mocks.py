@@ -58,6 +58,7 @@ class CliTestCase(TestCase):
         os.chdir(os.path.join(TEST_ROOT, "assets/nixpkgs"))
         self.directory = TemporaryDirectory()
         os.environ["HOME"] = self.directory.name
+        os.environ["GITHUB_TOKEN"] = "0000000000000000000000000000000000000000"
 
     def tearDown(self) -> None:
         self.directory.cleanup()
