@@ -26,9 +26,12 @@ class CheckoutOption(Enum):
 
 def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
     system = subprocess.run(
-        ["nix", "eval", "--raw", "nixpkgs.system"], check=True, stdout=subprocess.PIPE
+        ["nix", "eval", "--raw", "nixpkgs.system"],
+        check=True,
+        stdout=subprocess.PIPE,
+        text=True,
     )
-    return set(packages_per_system[system.stdout.decode("utf-8")])
+    return set(packages_per_system[system.stdout])
 
 
 def print_packages(names: List[str], msg: str,) -> None:
@@ -174,8 +177,9 @@ class Review:
                 ["git", "merge-base", merge_rev, pr_rev],
                 check=True,
                 stdout=subprocess.PIPE,
+                text=True,
             )
-            base_rev = run.stdout.decode("utf-8").strip()
+            base_rev = run.stdout.strip()
 
         if packages_per_system is None:
             return self.build_commit(base_rev, pr_rev)
@@ -355,9 +359,9 @@ def fetch_refs(repo: str, *refs: str) -> List[str]:
     shas = []
     for i, ref in enumerate(refs):
         out = subprocess.check_output(
-            ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"]
+            ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"], text=True
         )
-        shas.append(out.strip().decode("utf-8"))
+        shas.append(out.strip())
     return shas
 
 

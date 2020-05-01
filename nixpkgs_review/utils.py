@@ -26,17 +26,13 @@ def sh(
     command: List[str], cwd: Optional[Union[Path, str]] = None
 ) -> subprocess.CompletedProcess:
     info("$ " + " ".join(command))
-    return subprocess.run(command, cwd=cwd, check=True)
+    return subprocess.run(command, cwd=cwd, check=True, text=True)
 
 
 def verify_commit_hash(commit: str) -> str:
-    return (
-        subprocess.run(
-            ["git", "rev-parse", "--verify", commit], check=True, stdout=subprocess.PIPE
-        )
-        .stdout.decode("utf-8")
-        .strip()
-    )
+    cmd = ["git", "rev-parse", "--verify", commit]
+    proc = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, text=True)
+    return proc.stdout.strip()
 
 
 def escape_attr(attr: str) -> str:

@@ -37,11 +37,11 @@ def local_eval_cmds() -> List[Tuple[Any, Any]]:
         ),
         (
             ["git", "rev-parse", "--verify", "refs/nixpkgs-review/0"],
-            MockCompletedProcess(stdout=b"hash1\n"),
+            MockCompletedProcess(stdout="hash1\n"),
         ),
         (
             ["git", "rev-parse", "--verify", "refs/nixpkgs-review/1"],
-            MockCompletedProcess(stdout=b"hash2\n"),
+            MockCompletedProcess(stdout="hash2\n"),
         ),
         (["git", "worktree", "add", IgnoreArgument, "hash1"], 0),
         (IgnoreArgument, MockCompletedProcess(stdout=StringIO("<items></items>"))),

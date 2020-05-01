@@ -23,7 +23,7 @@ class MockError(Exception):
 
 
 class MockCompletedProcess:
-    def __init__(self, stdout: Optional[Union[bytes, StringIO]] = None) -> None:
+    def __init__(self, stdout: Optional[Union[str, StringIO]] = None) -> None:
         self.returncode = 0
         self.stdout = stdout
 
@@ -58,6 +58,7 @@ class CliTestCase(TestCase):
         os.chdir(os.path.join(TEST_ROOT, "assets/nixpkgs"))
         self.directory = TemporaryDirectory()
         os.environ["HOME"] = self.directory.name
+        os.environ["GITHUB_TOKEN"] = "0000000000000000000000000000000000000000"
 
     def tearDown(self) -> None:
         self.directory.cleanup()
@@ -69,8 +70,8 @@ build_cmds = [
         # hack to make sure the path exists
         MockCompletedProcess(
             stdout=(
-                b'{"pong3d": {"exists": true, "broken": false, "path": "%s", "drvPath": "%s"}}'
-                % (__file__.encode("utf-8"), __file__.encode("utf-8"))
+                '{"pong3d": {"exists": true, "broken": false, "path": "%s", "drvPath": "%s"}}'
+                % (__file__, __file__)
             )
         ),
     ),

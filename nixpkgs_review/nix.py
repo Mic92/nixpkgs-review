@@ -85,7 +85,9 @@ def nix_eval(attrs: Set[str]) -> List[Attr]:
         cmd = ["nix", "eval", "--json", f"(import {eval_script} {attr_json.name})"]
 
         try:
-            nix_eval = subprocess.run(cmd, check=True, stdout=subprocess.PIPE)
+            nix_eval = subprocess.run(
+                cmd, check=True, stdout=subprocess.PIPE, text=True
+            )
         except subprocess.CalledProcessError:
             warn(
                 f"{' '.join(cmd)} failed to run, {attr_json.name} was stored inspection"

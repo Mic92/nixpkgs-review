@@ -26,7 +26,7 @@ def post_result_command(args: argparse.Namespace) -> None:
     nixpkgs_path = Path(output)
     report = nixpkgs_path.parent.joinpath("report.md")
     if not report.exists():
-        warn("Report not found in {report}. Are you in a nixpkgs-review nix-shell?")
+        warn(f"Report not found in {report}. Are you in a nixpkgs-review nix-shell?")
         sys.exit(1)
 
     with open(report) as f:
