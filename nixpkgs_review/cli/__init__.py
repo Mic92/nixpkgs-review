@@ -136,36 +136,37 @@ def read_github_token() -> Optional[str]:
     return None
 
 
-common_flags = [
-    CommonFlag(
-        "--build-args", default="", help="arguments passed to nix when building"
-    ),
-    CommonFlag(
-        "-p",
-        "--package",
-        action="append",
-        default=[],
-        help="Package to build (can be passed multiple times)",
-    ),
-    CommonFlag(
-        "--package-regex",
-        action="append",
-        default=[],
-        type=regex_type,
-        help="Regular expression that package attributes have to match (can be passed multiple times)",
-    ),
-    CommonFlag(
-        "--no-shell",
-        action="store_true",
-        help="Only evaluate and build without executing nix-shell",
-    ),
-    CommonFlag(
-        "--token",
-        type=str,
-        default=read_github_token(),
-        help="Github access token (optional if request limit exceeds)",
-    ),
-]
+def common_flags() -> List[CommonFlag]:
+    return [
+        CommonFlag(
+            "--build-args", default="", help="arguments passed to nix when building"
+        ),
+        CommonFlag(
+            "-p",
+            "--package",
+            action="append",
+            default=[],
+            help="Package to build (can be passed multiple times)",
+        ),
+        CommonFlag(
+            "--package-regex",
+            action="append",
+            default=[],
+            type=regex_type,
+            help="Regular expression that package attributes have to match (can be passed multiple times)",
+        ),
+        CommonFlag(
+            "--no-shell",
+            action="store_true",
+            help="Only evaluate and build without executing nix-shell",
+        ),
+        CommonFlag(
+            "--token",
+            type=str,
+            default=read_github_token(),
+            help="Github access token (optional if request limit exceeds)",
+        ),
+    ]
 
 
 def parse_args(command: str, args: List[str]) -> argparse.Namespace:
@@ -200,8 +201,9 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
         wip_flags(subparsers),
     ]
 
+    common = common_flags()
     for parser in parsers:
-        for flag in common_flags:
+        for flag in common:
             parser.add_argument(*flag.args, **flag.kwargs)
 
     return main_parser.parse_args(args)
