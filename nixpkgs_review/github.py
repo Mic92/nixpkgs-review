@@ -5,6 +5,10 @@ from collections import defaultdict
 from typing import Any, DefaultDict, Dict, Optional, Set
 
 
+def pr_url(pr: int) -> str:
+    return f"https://github.com/NixOS/nixpkgs/pull/{pr}"
+
+
 class GithubClient:
     def __init__(self, api_token: Optional[str]) -> None:
         self.api_token = api_token
@@ -36,21 +40,21 @@ class GithubClient:
 
     def comment_issue(self, pr: int, msg: str) -> Any:
         "Post a comment on a PR with nixpkgs-review report"
-        print(f"Posting result comment on PR {pr}")
+        print(f"Posting result comment on {pr_url(pr)}")
         return self.post(
             f"/repos/NixOS/nixpkgs/issues/{pr}/comments", data=dict(body=msg)
         )
 
     def approve_pr(self, pr: int) -> Any:
         "Approve a PR"
-        print(f"Approving PR {pr}")
+        print(f"Approving {pr_url(pr)}")
         return self.post(
             f"/repos/NixOS/nixpkgs/pulls/{pr}/reviews", data=dict(event="APPROVE"),
         )
 
     def merge_pr(self, pr: int) -> Any:
         "Merge a PR. Requires maintainer access to NixPkgs"
-        print(f"Merging PR {pr}")
+        print(f"Merging  {pr_url(pr)}")
         return self.put(f"/repos/NixOS/nixpkgs/pulls/{pr}/merge")
 
     def pull_request(self, number: int) -> Any:
