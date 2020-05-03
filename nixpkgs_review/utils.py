@@ -24,7 +24,7 @@ info = color_text(32)
 
 def sh(
     command: List[str], cwd: Optional[Union[Path, str]] = None
-) -> subprocess.CompletedProcess:
+) -> "subprocess.CompletedProcess[str]":
     info("$ " + " ".join(command))
     return subprocess.run(command, cwd=cwd, check=True, text=True)
 

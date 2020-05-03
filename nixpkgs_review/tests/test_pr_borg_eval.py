@@ -61,7 +61,7 @@ class PrCommandTestCase(CliTestCase):
     def test_pr_command_borg_eval(
         self, mock_run: MagicMock, mock_urlopen: MagicMock
     ) -> None:
-        effects = Mock(self, borg_eval_cmds() + build_cmds)
+        effects = Mock(borg_eval_cmds() + build_cmds)
         mock_run.side_effect = effects
         mock_urlopen.side_effect = effects
 

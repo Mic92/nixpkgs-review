@@ -29,28 +29,25 @@ class MockCompletedProcess:
 
 
 class Mock:
-    def __init__(self, test: TestCase, arg_spec: List[Tuple[Any, Any]]) -> None:
-        self.test = test
+    def __init__(self, arg_spec: List[Tuple[Any, Any]]) -> None:
         self.arg_spec_iterator = iter(arg_spec)
-        self.expected_args: List[Any] = []
-        self.ret = None
 
     def __iter__(self) -> "Mock":
         return self
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        (self.expected_args, self.ret) = next(self.arg_spec_iterator)
+        expected_args, ret = next(self.arg_spec_iterator)
         if DEBUG:
-            print(f"({self.expected_args}) -> {self.ret}")
-        if self.expected_args is IgnoreArgument:
-            return self.ret
-        if len(args[0]) == len(self.expected_args):
-            for (i, arg) in enumerate(self.expected_args):
+            print(f"({expected_args}) -> {ret}")
+        if expected_args is IgnoreArgument:
+            return ret
+        if len(args[0]) == len(expected_args):
+            for (i, arg) in enumerate(expected_args):
                 if arg is IgnoreArgument:
                     args[0][i] = IgnoreArgument
-        if self.expected_args != args[0]:
-            raise MockError(f"expected {self.expected_args}\n got {args[0]}")
-        return self.ret
+        if expected_args != args[0]:
+            raise MockError(f"expected {expected_args}\n got {args[0]}")
+        return ret
 
 
 class CliTestCase(TestCase):

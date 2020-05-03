@@ -51,7 +51,7 @@ class WipCommand(CliTestCase):
     @patch("subprocess.run")
     @patch("subprocess.Popen")
     def test_wip_command(self, mock_popen: MagicMock, mock_run: MagicMock) -> None:
-        effects = Mock(self, wip_command_cmds() + build_cmds)
+        effects = Mock(wip_command_cmds() + build_cmds)
         mock_run.side_effect = effects
 
         popen_instance = mock_popen.return_value

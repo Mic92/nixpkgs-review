@@ -22,7 +22,7 @@ class DisableKeyboardInterrupt:
         signal.signal(signal.SIGINT, self.old_handler)
 
 
-def create_cache_directory(name: str) -> Union[Path, TemporaryDirectory]:
+def create_cache_directory(name: str) -> Union[Path, "TemporaryDirectory[str]"]:
     xdg_cache_raw = os.environ.get("XDG_CACHE_HOME")
     if xdg_cache_raw is not None:
         xdg_cache = Path(xdg_cache_raw)

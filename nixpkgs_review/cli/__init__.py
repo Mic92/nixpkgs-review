@@ -179,7 +179,7 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
         description="valid subcommands",
         help="use --help on the additional subcommands",
     )
-    subparsers.required = True  # type: ignore
+    subparsers.required = True
 
     post_result_parser = subparsers.add_parser(
         "post-result", help="post PR comments with results"
