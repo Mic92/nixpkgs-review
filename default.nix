@@ -14,7 +14,7 @@ python3.pkgs.buildPythonApplication rec {
     echo -e "\x1b[32m## run flake8\x1b[0m"
     flake8 nixpkgs_review
     echo -e "\x1b[32m## run mypy\x1b[0m"
-    mypy nixpkgs_review
+    mypy --strict nixpkgs_review
   '';
   makeWrapperArgs = [
     "--prefix PATH" ":" "${nix}/bin"

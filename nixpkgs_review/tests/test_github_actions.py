@@ -25,7 +25,7 @@ class GithubActions(CliTestCase):
                 MockCompletedProcess(stdout=str(directory.joinpath("nixpkgs"))),
             )
         ]
-        effects = Mock(self, nix_instantiate + dummy_api_response())
+        effects = Mock(nix_instantiate + dummy_api_response())
         mock_urlopen.side_effect = effects
         mock_run.side_effect = effects
 
@@ -41,10 +41,10 @@ class GithubActions(CliTestCase):
 
     @patch("urllib.request.urlopen")
     def test_merge(self, mock_urlopen: MagicMock) -> None:
-        mock_urlopen.side_effect = Mock(self, dummy_api_response())
+        mock_urlopen.side_effect = Mock(dummy_api_response())
         main("nixpkgs-review", ["merge"])
 
     @patch("urllib.request.urlopen")
     def test_approve(self, mock_urlopen: MagicMock) -> None:
-        mock_urlopen.side_effect = Mock(self, dummy_api_response())
+        mock_urlopen.side_effect = Mock(dummy_api_response())
         main("nixpkgs-review", ["approve"])

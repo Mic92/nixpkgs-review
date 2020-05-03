@@ -60,7 +60,7 @@ class PrCommandTestcase(CliTestCase):
     def test_local_eval(
         self, mock_popen: MagicMock, mock_run: MagicMock, mock_urlopen: MagicMock
     ) -> None:
-        effects = Mock(self, local_eval_cmds() + build_cmds)
+        effects = Mock(local_eval_cmds() + build_cmds)
         mock_urlopen.side_effect = effects
         mock_run.side_effect = effects
 
