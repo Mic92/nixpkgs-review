@@ -1,7 +1,7 @@
 import os
 from io import StringIO
 from tempfile import TemporaryDirectory
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union, Type
 from unittest import TestCase
 
 TEST_ROOT = os.path.dirname(os.path.realpath(__file__))
