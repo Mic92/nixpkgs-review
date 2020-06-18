@@ -5,6 +5,7 @@ from typing import Any, List, Pattern, Optional
 from pathlib import Path
 
 from .approve import approve_command
+from .comments import show_comments
 from .merge import merge_command
 from .post_result import post_result_command
 from .pr import pr_command
@@ -189,11 +190,15 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
     approve_parser = subparsers.add_parser("approve", help="approve PR")
     approve_parser.set_defaults(func=approve_command)
 
+    comments_parser = subparsers.add_parser("comments", help="show comments")
+    comments_parser.set_defaults(func=show_comments)
+
     merge_parser = subparsers.add_parser("merge", help="merge PR")
     merge_parser.set_defaults(func=merge_command)
 
     parsers = [
         approve_parser,
+        comments_parser,
         merge_parser,
         post_result_parser,
         pr_flags(subparsers),
