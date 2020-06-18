@@ -57,6 +57,24 @@ class GithubClient:
         print(f"Merging  {pr_url(pr)}")
         return self.put(f"/repos/NixOS/nixpkgs/pulls/{pr}/merge")
 
+    def comments(self, pr: int) -> Any:
+        "Show comments of a PR"
+        issue_comments = self.get(f"repos/NixOS/nixpkgs/issues/{pr}/comments")
+        pulls_comments = self.get(f"repos/NixOS/nixpkgs/pulls/{pr}/comments")
+        sorted_comments = sorted(
+            issue_comments + pulls_comments, key=lambda x: x["created_at"]
+        )
+
+        for comment in sorted_comments:
+            if "diff_hunk" in comment:
+                diff_lines = comment["diff_hunk"].split("\n")
+                start_line = max(0, comment["original_line"] - 2)
+                end_line = comment["original_line"] + 1
+                for line in diff_lines[start_line:end_line]:
+                    print(line)
+            print(f"{comment['user']['login']}: {comment['body']}")
+            print("")
+
     def pull_request(self, number: int) -> Any:
         "Get a pull request"
         return self.get(f"repos/NixOS/nixpkgs/pulls/{number}")

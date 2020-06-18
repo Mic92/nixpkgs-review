@@ -19,6 +19,7 @@ NOTE: this project used to be called `nix-review`
 - GitHub integration:
   - post PR comments with results
   - approve or merge PRs (the last one requires maintainer permission)
+  - Show PR comments/reviews
 - logs per built or failed package
 - symlinks build packages to result directory for inspection
 
