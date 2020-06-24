@@ -80,14 +80,15 @@ def nix_eval(attrs: Set[str]) -> List[Attr]:
     delete = True
     try:
         json.dump(list(attrs), attr_json)
-        eval_script = str(ROOT.joinpath("nix/evalAttrs.nix"))
+        eval_script = str(ROOT.joinpath("nix/evalDrvPaths.nix"))
         attr_json.flush()
-        cmd = ["nix", "eval", "--json", f"(import {eval_script} {attr_json.name})"]
+        cmd = ["nix", "eval", "--show-trace", "--json", f"(import {eval_script} {attr_json.name})"]
 
         try:
-            nix_eval = subprocess.run(
-                cmd, check=True, stdout=subprocess.PIPE, text=True
-            )
+            nix_eval = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
+            with nix_eval as proc:
+                assert proc.stdout is not None
+                data = json.load(proc.stdout)
         except subprocess.CalledProcessError:
             warn(
                 f"{' '.join(cmd)} failed to run, {attr_json.name} was stored inspection"
@@ -95,7 +96,8 @@ def nix_eval(attrs: Set[str]) -> List[Attr]:
             delete = False
             raise
 
-        return _nix_eval_filter(json.loads(nix_eval.stdout))
+        return data
+        #return _nix_eval_filter(data)
     finally:
         attr_json.close()
         if delete:

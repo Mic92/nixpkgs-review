@@ -1,11 +1,15 @@
 import argparse
 import os
 import subprocess
+from multiprocessing import Pool
 import sys
 import xml.etree.ElementTree as ET
+import json
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import IO, Dict, List, Optional, Pattern, Set, Tuple
+from typing import IO, Dict, List, Optional, Pattern, Set, Tuple, Any, Iterator
+import time
+
 
 from .builddir import Builddir
 from .github import GithubClient
@@ -25,13 +29,18 @@ class CheckoutOption(Enum):
 
 
 def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
-    system = subprocess.run(
-        ["nix", "eval", "--raw", "nixpkgs.system"],
+    system = subprocess.run([
+        "nix-instantiate",
+        "--json",
+        "--eval",
+        "--expr",
+        "builtins.currentSystem"],
         check=True,
         stdout=subprocess.PIPE,
         text=True,
     )
-    return set(packages_per_system[system.stdout])
+    name = json.loads(system.stdout)
+    return set(packages_per_system[name])
 
 
 def print_packages(names: List[str], msg: str,) -> None:
@@ -49,10 +58,8 @@ class Package:
     pname: str
     version: str
     attr_path: str
-    store_path: Optional[str]
-    homepage: Optional[str]
-    description: Optional[str]
-    position: Optional[str]
+    description: str
+    store_path: Optional[str] = None
     old_pkg: "Optional[Package]" = field(init=False)
 
 
@@ -187,6 +194,7 @@ class Review:
         self.checkout_pr(base_rev, pr_rev)
 
         packages = native_packages(packages_per_system)
+        breakpoint()
         return self.build(packages, self.build_args)
 
     def start_review(
@@ -221,70 +229,59 @@ class Review:
         self.start_review(self.build_commit(branch_rev, reviewed_commit, staged))
 
 
-def parse_packages_xml(stdout: IO[bytes]) -> List[Package]:
-    packages: List[Package] = []
-    path = None
-    context = ET.iterparse(stdout, events=("start", "end"))
-    for (event, elem) in context:
-        if elem.tag == "item":
-            if event == "start":
-                attrs = elem.attrib
-                homepage = None
-                description = None
-                position = None
-                path = None
-            else:
-                assert attrs is not None
-                if path is None:
-                    # architecture not supported
-                    continue
-                pkg = Package(
-                    pname=attrs["pname"],
-                    version=attrs["version"],
-                    attr_path=attrs["attrPath"],
-                    store_path=path,
-                    homepage=homepage,
-                    description=description,
-                    position=position,
-                )
-                packages.append(pkg)
-        elif event == "start" and elem.tag == "output" and elem.attrib["name"] == "out":
-            path = elem.attrib["path"]
-        elif event == "start" and elem.tag == "meta":
-            name = elem.attrib["name"]
-            if name not in ["homepage", "description", "position"]:
-                continue
-            if elem.attrib["type"] == "strings":
-                values = (e.attrib["value"] for e in elem.getchildren())
-                value = ", ".join(values)
-            else:
-                value = elem.attrib["value"]
-            if name == "homepage":
-                homepage = value
-            elif name == "description":
-                description = value
-            elif name == "position":
-                position = value
-    return packages
+def chunk_list(lst: List[Any], n: int) -> Iterator[List[Any]]:
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
 
 def list_packages(path: str, check_meta: bool = False) -> List[Package]:
     cmd = [
-        "nix-env",
-        "-f",
-        path,
-        "-qaP",
-        "--xml",
-        "--out-path",
-        "--show-trace",
+        "nix",
+        "search",
+        "--file", path,
+        "--json",
+        "--no-cache"
     ]
-    if check_meta:
-        cmd.append("--meta")
-    info("$ " + " ".join(cmd))
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    with proc as nix_env:
-        assert nix_env.stdout
-        return parse_packages_xml(nix_env.stdout)
+
+    with proc as nix_search:
+        assert nix_search.stdout is not None
+        raw_packages = json.load(nix_search.stdout)
+        packages = []
+        for attr, p in raw_packages.items():
+            pkg = Package(pname=p["pkgName"],
+                          version=p["version"],
+                          attr_path=attr,
+                          description=p["description"])
+            packages.append(pkg)
+
+    raw_attrs = []
+    packages.sort(key=lambda l: l.attr_path)
+    for pkg in packages:
+        raw_attrs.append(pkg.attr_path)
+
+    start = time.time()
+    attrs = []
+    for chunk in chunk_list(raw_attrs, 8000):
+        attrs.extend(nix_eval(chunk))
+        print(f"{len(attrs)}/{len(raw_attrs)}")
+
+    #attrs = nix_eval(raw_attrs)
+    #with Pool(1) as pool:
+    #    for res in pool.imap_unordered(nix_eval, chunk_list(raw_attrs, len(raw_attrs))):
+    #        pass
+    #        #attrs.extend(res)
+    #        #print(len(attrs))
+    end = time.time()
+    print(end - start)
+    #while True:
+    #    try:
+    #        chunk = next(chunk)
+    #    except StopIteration:
+    #        break
+    #for chunk in :
+    #    attrs.extend(nix_eval(chunk))
+    breakpoint()
 
 
 def package_attrs(
