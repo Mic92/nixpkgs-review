@@ -54,16 +54,14 @@ class GithubClient:
 
     def merge_pr(self, pr: int) -> Any:
         "Merge a PR. Requires maintainer access to NixPkgs"
-        print(f"Merging  {pr_url(pr)}")
+        print(f"Merging {pr_url(pr)}")
         return self.put(f"/repos/NixOS/nixpkgs/pulls/{pr}/merge")
 
-    def comments(self, pr: int) -> List[Dict[str, Any]]:
-        "Show comments of a PR"
-        issue_comments = self.get(f"repos/NixOS/nixpkgs/issues/{pr}/comments")
-        pulls_comments = self.get(f"repos/NixOS/nixpkgs/pulls/{pr}/comments")
-        return sorted(
-            issue_comments + pulls_comments, key=lambda x: x["created_at"]
-        )
+    def graphql(self, query: str) -> Dict[str, Any]:
+        resp = self.post("/graphql", data=dict(query=query))
+        if "errors" in resp:
+            raise RuntimeError(f"Expected data from graphql api, got: {resp}")
+        return resp["data"]
 
     def pull_request(self, number: int) -> Any:
         "Get a pull request"
