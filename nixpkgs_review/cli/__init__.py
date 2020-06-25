@@ -194,11 +194,7 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
     comments_parser.set_defaults(func=show_comments)
 
     merge_parser = subparsers.add_parser("merge", help="merge PR")
-    merge_parser.add_argument(
-            "-m",
-            "--method",
-            default="merge",
-            help="Merge method")
+    merge_parser.add_argument("-m", "--method", default="merge", help="Merge method")
     merge_parser.set_defaults(func=merge_command)
 
     parsers = [

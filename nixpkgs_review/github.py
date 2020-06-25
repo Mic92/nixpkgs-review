@@ -13,9 +13,8 @@ class GithubClient:
     def __init__(self, api_token: Optional[str]) -> None:
         self.api_token = api_token
 
-
     def _request(
-            self, path: str, method: str, data: Optional[Dict[str, Any]] = None
+        self, path: str, method: str, data: Optional[Dict[str, Any]] = None
     ) -> Any:
         url = urllib.parse.urljoin("https://api.github.com/", path)
         headers = {"Content-Type": "application/json"}
@@ -50,7 +49,7 @@ class GithubClient:
         "Approve a PR"
         print(f"Approving {pr_url(pr)}")
         return self.post(
-            f"/repos/NixOS/nixpkgs/pulls/{pr}/reviews", data=dict(event="APPROVE"),
+            f"/repos/NixOS/nixpkgs/pulls/{pr}/reviews", data=dict(event="APPROVE")
         )
 
     def merge_pr(self, pr: int, data: Optional[Dict[str, str]] = None) -> Any:

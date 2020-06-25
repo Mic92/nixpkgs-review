@@ -37,9 +37,7 @@ class GithubActions(CliTestCase):
 
         print(os.environ["GITHUB_TOKEN"])
 
-        main(
-            "nixpkgs-review", ["post-result"],
-        )
+        main("nixpkgs-review", ["post-result"])
 
     @patch("urllib.request.urlopen")
     def test_merge(self, mock_urlopen: MagicMock) -> None:

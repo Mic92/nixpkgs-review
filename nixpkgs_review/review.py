@@ -34,7 +34,7 @@ def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
     return set(packages_per_system[system.stdout])
 
 
-def print_packages(names: List[str], msg: str,) -> None:
+def print_packages(names: List[str], msg: str) -> None:
     if len(names) == 0:
         return
     plural = "s" if len(names) > 1 else ""
@@ -269,15 +269,7 @@ def parse_packages_xml(stdout: IO[bytes]) -> List[Package]:
 
 
 def list_packages(path: str, check_meta: bool = False) -> List[Package]:
-    cmd = [
-        "nix-env",
-        "-f",
-        path,
-        "-qaP",
-        "--xml",
-        "--out-path",
-        "--show-trace",
-    ]
+    cmd = ["nix-env", "-f", path, "-qaP", "--xml", "--out-path", "--show-trace"]
     if check_meta:
         cmd.append("--meta")
     info("$ " + " ".join(cmd))
