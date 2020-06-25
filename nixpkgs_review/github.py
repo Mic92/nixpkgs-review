@@ -13,8 +13,9 @@ class GithubClient:
     def __init__(self, api_token: Optional[str]) -> None:
         self.api_token = api_token
 
+
     def _request(
-        self, path: str, method: str, data: Optional[Dict[str, Any]] = None
+            self, path: str, method: str, data: Optional[Dict[str, Any]] = None
     ) -> Any:
         url = urllib.parse.urljoin("https://api.github.com/", path)
         headers = {"Content-Type": "application/json"}
@@ -35,8 +36,8 @@ class GithubClient:
     def post(self, path: str, data: Dict[str, str]) -> Any:
         return self._request(path, "POST", data)
 
-    def put(self, path: str) -> Any:
-        return self._request(path, "PUT")
+    def put(self, path: str, data: Optional[Dict[str, str]] = None) -> Any:
+        return self._request(path, "PUT", data)
 
     def comment_issue(self, pr: int, msg: str) -> Any:
         "Post a comment on a PR with nixpkgs-review report"
@@ -52,10 +53,10 @@ class GithubClient:
             f"/repos/NixOS/nixpkgs/pulls/{pr}/reviews", data=dict(event="APPROVE"),
         )
 
-    def merge_pr(self, pr: int) -> Any:
+    def merge_pr(self, pr: int, data: Optional[Dict[str, str]] = None) -> Any:
         "Merge a PR. Requires maintainer access to NixPkgs"
-        print(f"Merging {pr_url(pr)}")
-        return self.put(f"/repos/NixOS/nixpkgs/pulls/{pr}/merge")
+        print(f"Merging  {pr_url(pr)}")
+        return self.put(f"/repos/NixOS/nixpkgs/pulls/{pr}/merge", data)
 
     def graphql(self, query: str) -> Dict[str, Any]:
         resp = self.post("/graphql", data=dict(query=query))
