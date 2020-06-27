@@ -302,7 +302,7 @@ def package_attrs(
             attrs[attr.path] = attr
 
     if not ignore_nonexisting and len(nonexisting) > 0:
-        warn(f"The packages do not exists:")
+        warn("The packages do not exists:")
         warn(" ".join(nonexisting))
         sys.exit(1)
     return attrs

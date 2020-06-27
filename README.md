@@ -19,6 +19,7 @@ NOTE: this project used to be called `nix-review`
 - GitHub integration:
   - post PR comments with results
   - approve or merge PRs (the last one requires maintainer permission)
+  - Show PR comments/reviews
 - logs per built or failed package
 - symlinks build packages to result directory for inspection
 
@@ -137,7 +138,7 @@ $ nixpkgs-review pr --post-result 37242
 
 Often, after reviewing a diff on a pull request, you may want to say "This diff
 looks good to me, approve/merge it provided that there are no package build
-failures". To do so run the following subcommands from within the nix-shell provided 
+failures". To do so run the following subcommands from within the nix-shell provided
 by nixpkgs-review
 
 ```console
@@ -147,6 +148,8 @@ nix-shell> nixpkgs-review approve
 nix-shell> nixpkgs-review merge
 # It is also possible to upload the result report from here
 nix-shell> nixpkgs-review post-result
+# Review-comments can also be shown
+nix-shell> nixpkgs-review comments
 ```
 
 ## Using nix-review in scripts

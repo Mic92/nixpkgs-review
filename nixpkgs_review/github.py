@@ -54,8 +54,15 @@ class GithubClient:
 
     def merge_pr(self, pr: int) -> Any:
         "Merge a PR. Requires maintainer access to NixPkgs"
-        print(f"Merging  {pr_url(pr)}")
+        print(f"Merging {pr_url(pr)}")
         return self.put(f"/repos/NixOS/nixpkgs/pulls/{pr}/merge")
+
+    def graphql(self, query: str) -> Dict[str, Any]:
+        resp = self.post("/graphql", data=dict(query=query))
+        if "errors" in resp:
+            raise RuntimeError(f"Expected data from graphql api, got: {resp}")
+        data: Dict[str, Any] = resp["data"]
+        return data
 
     def pull_request(self, number: int) -> Any:
         "Get a pull request"
