@@ -1,11 +1,10 @@
 import argparse
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Union
 
 from ..github import GithubClient
 from .utils import ensure_github_token, get_current_pr
-
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import List, Union, Optional, Dict, Any
 
 
 def comments_query(pr: int) -> str:

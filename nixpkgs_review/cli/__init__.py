@@ -1,8 +1,8 @@
 import argparse
 import os
 import re
-from typing import Any, List, Pattern, Optional
 from pathlib import Path
+from typing import Any, List, Optional, Pattern
 
 from .approve import approve_command
 from .comments import show_comments
