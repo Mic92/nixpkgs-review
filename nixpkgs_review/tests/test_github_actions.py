@@ -1,9 +1,11 @@
 import os
-from nixpkgs_review.cli import main
-from .cli_mocks import CliTestCase, Mock, IgnoreArgument, MockCompletedProcess
-from unittest.mock import patch, mock_open, MagicMock
-from typing import List, Tuple, Any
 from pathlib import Path
+from typing import Any, List, Tuple
+from unittest.mock import MagicMock, mock_open, patch
+
+from nixpkgs_review.cli import main
+
+from .cli_mocks import CliTestCase, IgnoreArgument, Mock, MockCompletedProcess
 
 
 def dummy_api_response() -> List[Tuple[Any, Any]]:
