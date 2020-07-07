@@ -111,7 +111,7 @@ class Report:
         cmd = "nixpkgs-review"
         if pr is not None:
             cmd += f" pr {pr}"
-        msg = f"Result of `{cmd}` [1](https://github.com/Mic92/nixpkgs-review)\n"
+        msg = f"##### Result of `{cmd}` [1](https://github.com/Mic92/nixpkgs-review)\n"
 
         msg += html_pkgs_section(self.broken, "marked as broken and skipped")
         msg += html_pkgs_section(
@@ -122,6 +122,63 @@ class Report:
         msg += html_pkgs_section(self.failed, "failed to build")
         msg += html_pkgs_section(self.tests, "built", what="test")
         msg += html_pkgs_section(self.built, "built")
+        
+        msg += "\n"
+        msg += "<!-- remove inapropriate review points sections -->\n"
+        msg += "\n"
+        
+        msg += "##### Reviewed points (package update)\n"
+        msg += "- [ ] package name fits guidelines\n"
+        msg += "- [ ] package version fits guidelines\n"
+        msg += "- [ ] package build on <ARCHITECTURE>\n"
+        msg += "- [ ] executables tested on <ARCHITECTURE>\n"
+        msg += "- [ ] all depending packages build\n"
+        msg += "\n"
+
+        msg += "##### Reviewed points (new package)\n"
+        msg += "- [ ] package path fits guidelines\n"
+        msg += "- [ ] package name fits guidelines\n"
+        msg += "- [ ] package version fits guidelines\n"
+        msg += "- [ ] package build on <ARCHITECTURE>\n"
+        msg += "- [ ] executables tested on <ARCHITECTURE>\n"
+        msg += "- [ ] `meta.description` is set and fits guidelines\n"
+        msg += "- [ ] `meta.license` fits upstream license\n"
+        msg += "- [ ] `meta.platforms` is set\n"
+        msg += "- [ ] `meta.maintainers` is set\n"
+        msg += "- [ ] build time only dependencies are declared in `nativeBuildInputs`\n"
+        msg += "- [ ] source is fetched using the appropriate function\n"
+        msg += "- [ ] phases are respected\n"
+        msg += "- [ ] patches that are remotely available are fetched with `fetchpatch`\n"
+        msg += "\n"
+
+        msg += "##### Reviewed points (module update)\n"
+        msg += "- [ ] changes are backward compatible\n"
+        msg += "- [ ] removed options are declared with `mkRemovedOptionModule`\n"
+        msg += "- [ ] changes that are not backward compatible are documented in release notes\n"
+        msg += "- [ ] module tests succeed on <ARCHITECTURE>\n"
+        msg += "- [ ] options types are appropriate\n"
+        msg += "- [ ] options description is set\n"
+        msg += "- [ ] options example is provided\n"
+        msg += "- [ ] documentation affected by the changes is updated\n"
+        msg += "\n"
+
+        msg += "##### Reviewed points (module update)\n"
+        msg += "- [ ] module path fits the guidelines\n"
+        msg += "- [ ] module tests succeed on <ARCHITECTURE>\n"
+        msg += "- [ ] options have appropriate types\n"
+        msg += "- [ ] options have default\n"
+        msg += "- [ ] options have example\n"
+        msg += "- [ ] options have descriptions\n"
+        msg += "- [ ] No unneeded package is added to environment.systemPackages\n"
+        msg += "- [ ] meta.maintainers is set\n"
+        msg += "- [ ] module documentation is declared in meta.doc\n"
+        msg += "\n"
+
+        msg += "##### Possible improvements\n"
+        msg += "\n"
+
+        msg += "##### Comments\n"
+        msg += "\n"
 
         return msg
 
