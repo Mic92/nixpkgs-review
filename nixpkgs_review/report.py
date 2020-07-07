@@ -122,11 +122,11 @@ class Report:
         msg += html_pkgs_section(self.failed, "failed to build")
         msg += html_pkgs_section(self.tests, "built", what="test")
         msg += html_pkgs_section(self.built, "built")
-        
+
         msg += "\n"
         msg += "<!-- remove inapropriate review points sections -->\n"
         msg += "\n"
-        
+
         msg += "##### Reviewed points (package update)\n"
         msg += "- [ ] package name fits guidelines\n"
         msg += "- [ ] package version fits guidelines\n"
@@ -145,10 +145,14 @@ class Report:
         msg += "- [ ] `meta.license` fits upstream license\n"
         msg += "- [ ] `meta.platforms` is set\n"
         msg += "- [ ] `meta.maintainers` is set\n"
-        msg += "- [ ] build time only dependencies are declared in `nativeBuildInputs`\n"
+        msg += (
+            "- [ ] build time only dependencies are declared in `nativeBuildInputs`\n"
+        )
         msg += "- [ ] source is fetched using the appropriate function\n"
         msg += "- [ ] phases are respected\n"
-        msg += "- [ ] patches that are remotely available are fetched with `fetchpatch`\n"
+        msg += (
+            "- [ ] patches that are remotely available are fetched with `fetchpatch`\n"
+        )
         msg += "\n"
 
         msg += "##### Reviewed points (module update)\n"
