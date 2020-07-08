@@ -1,10 +1,14 @@
 Result of `nixpkgs-review pr 1234` [1](https://github.com/Mic92/nixpkgs-review)
 <details>
   <summary>1 package failed to build:</summary>
-<br>- baz
+  <ul>
+    <li>baz</li>
+  </ul>
 </details>
 <details>
   <summary>2 packages built:</summary>
-<br>- foo
-<br>- bar
+  <ul>
+    <li>foo</li>
+    <li>bar</li>
+  </ul>
 </details>
