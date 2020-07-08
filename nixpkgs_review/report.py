@@ -111,7 +111,7 @@ class Report:
         cmd = "nixpkgs-review"
         if pr is not None:
             cmd += f" pr {pr}"
-        msg = f"Result of `{cmd}` [1](https://github.com/Mic92/nixpkgs-review)\n"
+        msg = f"Result of `{cmd}` [1](https://github.com/Mic92/nixpkgs-review)\n<blockquote>"
 
         msg += html_pkgs_section(self.broken, "marked as broken and skipped")
         msg += html_pkgs_section(
@@ -122,6 +122,7 @@ class Report:
         msg += html_pkgs_section(self.failed, "failed to build")
         msg += html_pkgs_section(self.tests, "built", what="test")
         msg += html_pkgs_section(self.built, "built")
+        msg += "</blockquote>"
 
         return msg
 
