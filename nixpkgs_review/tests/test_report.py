@@ -6,14 +6,14 @@ from nixpkgs_review.report import Report
 from .cli_mocks import read_asset
 
 
-def mkAttr(name: str, success: bool) -> Attr:
+def mkAttr(name: str, success: bool, path: str) -> Attr:
     "Helper to construct a mock Attr result for the report"
     res = Attr(
         name=name,
         exists=True,
         broken=False,
         blacklisted=False,
-        path="some_out_path",
+        path=path,
         drv_path="some_drv_path",
     )
     res._path_verified = success
@@ -23,9 +23,9 @@ def mkAttr(name: str, success: bool) -> Attr:
 class ReportTestcase(unittest.TestCase):
     def test_markdown_report(self) -> None:
         "Test that the markdown report format is as expected"
-        foo = mkAttr("foo", True)
-        bar = mkAttr("bar", True)
-        baz = mkAttr("baz", False)
+        foo = mkAttr("foo", True, "bash")
+        bar = mkAttr("bar", True, "sh")
+        baz = mkAttr("baz", False, "some_out_path")
 
         report = Report([foo, bar, baz])
 

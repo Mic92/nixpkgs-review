@@ -1,5 +1,6 @@
 import os
 import subprocess
+from subprocess import DEVNULL
 from pathlib import Path
 from typing import Callable, List, Optional
 
@@ -36,6 +37,21 @@ def html_pkgs_section(packages: List[Attr], msg: str, what: str = "package") -> 
             res += f" ({' ,'.join(pkg.aliases)})"
         res += "\n"
     res += "</details>\n"
+    return res
+
+
+def md_pkgs_generic_test(packages: List[Attr]) -> str:
+    if len(packages) == 0:
+        return ""
+    res = "\n"
+    for pkg in packages:
+        if subprocess.call([pkg.path, "--help"],
+            stdin=DEVNULL, stdout=DEVNULL, stderr=DEVNULL):
+            res += f"- [ ] `{pkg.path} --help`: nok -- tested manually\n"
+        else:
+            res += f"- [x] `{pkg.path} --help`: ok\n"
+        
+    res += "\n"
     return res
 
 
@@ -122,6 +138,8 @@ class Report:
         msg += html_pkgs_section(self.failed, "failed to build")
         msg += html_pkgs_section(self.tests, "built", what="test")
         msg += html_pkgs_section(self.built, "built")
+
+        msg += md_pkgs_generic_test(self.built)
 
         return msg
 

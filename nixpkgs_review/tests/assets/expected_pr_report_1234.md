@@ -8,3 +8,7 @@ Result of `nixpkgs-review pr 1234` [1](https://github.com/Mic92/nixpkgs-review)
 <br>- foo
 <br>- bar
 </details>
+
+- [x] `bash --help`: ok
+- [x] `sh --help`: ok
+
