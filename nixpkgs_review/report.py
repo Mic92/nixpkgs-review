@@ -46,7 +46,7 @@ def md_pkgs_generic_test(packages: List[Attr]) -> str:
     res = "\n"
     for pkg in packages:
         if subprocess.call([pkg.path, "--help"],
-            stdin=DEVNULL, stdout=DEVNULL, stderr=DEVNULL):
+            stdin=DEVNULL, stdout=DEVNULL, stderr=DEVNULL, timeout=2):
             res += f"- [ ] `{pkg.path} --help`: nok -- tested manually\n"
         else:
             res += f"- [x] `{pkg.path} --help`: ok\n"
