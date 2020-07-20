@@ -178,4 +178,4 @@ def _generate_check_command_expression(attr: str) -> str:
       {escape_attr(attr + 'Check')} = runCommand "check-{attr}" {} ''
          ${{checkCommands}}/bin/checkCommands ${{{escape_attr(a)}}} $out/report.json
       ''
-    """"
+""""
