@@ -40,7 +40,7 @@ def html_pkgs_section(packages: List[Attr], msg: str, what: str = "package") -> 
 
 
 def md_pkgs_generic_test_report(attrs: List[Attr]) -> str:
-    if len(packages) == 0:
+    if len(attrs) == 0:
         return ""
     res = "\n"
     for attr in attrs:
