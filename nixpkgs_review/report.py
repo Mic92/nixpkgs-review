@@ -1,6 +1,5 @@
 import os
 import subprocess
-from subprocess import DEVNULL
 from pathlib import Path
 from typing import Callable, List, Optional
 
