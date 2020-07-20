@@ -166,10 +166,9 @@ in {
 """
         )
         for a in attrs:
-            
-        f.write(_generate_check_command_expression(a))
+            f.write(_generate_check_command_expression(a))
+        f.write(
             """
-  
 }
 """
         )
