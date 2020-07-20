@@ -144,17 +144,39 @@ def write_shell_expression(filename: Path, attrs: List[str]) -> None:
         f.write(
             """{ pkgs ? import ./nixpkgs {} }:
 with pkgs;
-stdenv.mkDerivation {
-  name = "env";
-  buildInputs = [
-"""
+let
+   checkCommands = callPackage """
         )
-        f.write("\n".join(f"    {escape_attr(a)}" for a in attrs))
+        f.write(str(ROOT.joinpath("nix/checkCommands.nix")) + " {};")
         f.write(
             """
-  ];
-  unpackPhase = ":";
-  installPhase = "touch $out";
+in {
+  stdenv.mkDerivation {
+    name = "env";
+    buildInputs = [
+"""
+        )
+        f.write("\n".join(f"      {escape_attr(a)}" for a in attrs))
+        f.write(
+            """
+    ];
+    unpackPhase = ":";
+    installPhase = "touch $out; echo '[]' > $out/report.json";
+  };
+"""
+        )
+        for a in attrs:
+            
+        f.write(_generate_check_command_expression(a))
+            """
+  
 }
 """
         )
+
+def _generate_check_command_expression(attr: str) -> str:
+    return f"""
+      {escape_attr(attr + 'Check')} = runCommand "check-{attr}" {} ''
+         ${{checkCommands}}/bin/checkCommands ${{{escape_attr(a)}}} $out/report.json
+      ''
+    """"

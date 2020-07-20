@@ -40,16 +40,23 @@ def html_pkgs_section(packages: List[Attr], msg: str, what: str = "package") -> 
     return res
 
 
-def md_pkgs_generic_test(packages: List[Attr]) -> str:
+def md_pkgs_generic_test_report(attrs: List[Attr]) -> str:
     if len(packages) == 0:
         return ""
     res = "\n"
-    for pkg in packages:
-        if subprocess.call([pkg.path, "--help"],
-            stdin=DEVNULL, stdout=DEVNULL, stderr=DEVNULL, timeout=2):
-            res += f"- [ ] `{pkg.path} --help`: nok -- tested manually\n"
-        else:
+    for attr in attrs:
+        if attr.report.result == "succeded":
             res += f"- [x] `{pkg.path} --help`: ok\n"
+        if attr.report.result == "timed out":
+            res += f"- [ ] `{pkg.path} --help`: ***timed out***\n"
+        if attr.report.result == "not invokable":
+            res += f"- [ ] `{pkg.path}`: ***not invokable***\n"
+        if attr.report.result == "not found":
+            res += f"- [ ] `{pkg.path}`: ***not found***\n"
+        if attr.report.result == "failed":
+            res += f"- [ ] `{pkg.path} --help`: ok -- tested manually\n"
+        else:
+            raise Exception("Not a valid code path: review case switch!")
         
     res += "\n"
     return res
@@ -139,7 +146,7 @@ class Report:
         msg += html_pkgs_section(self.tests, "built", what="test")
         msg += html_pkgs_section(self.built, "built")
 
-        msg += md_pkgs_generic_test(self.built)
+        msg += md_pkgs_generic_test_report(self.built)
 
         return msg
 
