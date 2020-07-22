@@ -17,7 +17,7 @@ python3.pkgs.buildPythonApplication rec {
     mypy --strict nixpkgs_review
   '';
   makeWrapperArgs = [
-    "--prefix PATH" ":" "${nix}/bin"
+    "--prefix PATH : ${stdenv.lib.makeBinPath [ nix git ]}"
   ];
   shellHook = ''
     # workaround because `python setup.py develop` breaks for me
