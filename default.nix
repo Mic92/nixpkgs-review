@@ -18,6 +18,7 @@ python3.pkgs.buildPythonApplication rec {
   '';
   makeWrapperArgs = [
     "--prefix PATH : ${stdenv.lib.makeBinPath [ nix git ]}"
+    "--set NIX_SSL_CERT_FILE ${cacert}/etc/ssl/certs/ca-bundle.crt"
   ];
   shellHook = ''
     # workaround because `python setup.py develop` breaks for me
