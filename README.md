@@ -168,6 +168,22 @@ for pr in 807{60..70}; do
 done
 ```
 
+## Review multiple pull requests at once
+
+nixpkgs-review accept multiple pull request numbers at once:
+
+```console
+$ nixpkgs-review pr 94524 94494 94522 94493 94520
+```
+
+This will first evaluate & build all pull requests in serial.
+Than a nix-shell will be opened for each of them after the previous
+shell has been closed.
+
+Tipp: Since it's hard to keep track of the numbers, for each opened
+shell also the corresponding pull request url showed.
+
+
 ## Remote builder:
 
 Nix-review will pass all arguments given in `--build-arg` to `nix-build`:
