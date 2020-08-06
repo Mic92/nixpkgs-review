@@ -52,7 +52,7 @@ class GithubClient:
             f"/repos/NixOS/nixpkgs/pulls/{pr}/reviews", data=dict(event="APPROVE")
         )
 
-        def merge_pr(self, pr: int, merge_method: str = "merge") -> Any:
+    def merge_pr(self, pr: int, merge_method: str = "merge") -> Any:
         "Merge a PR. Requires maintainer access to NixPkgs"
         print(f"Merging  {pr_url(pr)}")
         return self.put(f"/repos/NixOS/nixpkgs/pulls/{pr}/merge", dict(merge_method=merge_method))
