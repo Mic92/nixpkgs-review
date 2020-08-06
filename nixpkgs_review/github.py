@@ -55,7 +55,9 @@ class GithubClient:
     def merge_pr(self, pr: int, merge_method: str = "merge") -> Any:
         "Merge a PR. Requires maintainer access to NixPkgs"
         print(f"Merging  {pr_url(pr)}")
-        return self.put(f"/repos/NixOS/nixpkgs/pulls/{pr}/merge", dict(merge_method=merge_method))
+        return self.put(
+            f"/repos/NixOS/nixpkgs/pulls/{pr}/merge", dict(merge_method=merge_method)
+        )
 
     def graphql(self, query: str) -> Dict[str, Any]:
         resp = self.post("/graphql", data=dict(query=query))
