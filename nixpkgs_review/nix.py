@@ -104,7 +104,7 @@ def nix_eval(attrs: Set[str]) -> List[Attr]:
 
 def nix_build(attr_names: Set[str], args: str, cache_directory: Path) -> List[Attr]:
     if not attr_names:
-        info("Nothing changed")
+        info("Nothing to be built.")
         return []
 
     attrs = nix_eval(attr_names)
