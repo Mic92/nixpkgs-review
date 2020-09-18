@@ -1,11 +1,14 @@
 {
   description = "nixpkgs-review";
 
-  outputs = { self, nixpkgs }: {
-    packages.x86_64-linux.nixpkgs-review = import ./. {
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
-    };
+  inputs.flake-utils.url = "github:numtide/flake-utils";
 
-    defaultPackage.x86_64-linux = self.packages.x86_64-linux.nixpkgs-review;
-  };
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system: {
+      packages.nixpkgs-review = import ./. {
+        pkgs = nixpkgs.legacyPackages.${system};
+      };
+
+      defaultPackage = self.packages.${system}.nixpkgs-review;
+    });
 }
