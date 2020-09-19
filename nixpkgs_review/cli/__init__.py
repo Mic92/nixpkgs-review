@@ -187,13 +187,22 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
     )
     post_result_parser.set_defaults(func=post_result_command)
 
-    approve_parser = subparsers.add_parser("approve", help="approve PR")
+    approve_parser = subparsers.add_parser(
+        "approve",
+        help="Approve the current PR - meant to be used only inside a nixpkgs-review nix-shell",
+    )
     approve_parser.set_defaults(func=approve_command)
 
-    comments_parser = subparsers.add_parser("comments", help="show comments")
+    comments_parser = subparsers.add_parser(
+        "comments",
+        help="Show comments of the current PR - meant to be used only inside a nixpkgs-review nix-shell",
+    )
     comments_parser.set_defaults(func=show_comments)
 
-    merge_parser = subparsers.add_parser("merge", help="merge PR")
+    merge_parser = subparsers.add_parser(
+        "merge",
+        help="Merge the current PR - meant to be used only inside a nixpkgs-review nix-shell",
+    )
     merge_parser.set_defaults(func=merge_command)
 
     parsers = [
