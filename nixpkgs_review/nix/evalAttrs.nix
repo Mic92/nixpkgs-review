@@ -2,7 +2,7 @@ attr-json:
 
 with builtins;
 let
-  pkgs = import <nixpkgs> {};
+  pkgs = import <nixpkgs> { config = { checkMeta = true; }; };
   lib = pkgs.lib;
 
   attrs = fromJSON (readFile attr-json);
@@ -10,10 +10,9 @@ let
     attrPath = lib.splitString "." name;
     pkg = lib.attrByPath attrPath null pkgs;
     maybePath = builtins.tryEval "${pkg}";
-    markedBroken = lib.attrByPath [ "meta" "broken" ] false pkg;
   in rec {
     exists = lib.hasAttrByPath attrPath pkgs;
-    broken = !exists || !maybePath.success || markedBroken;
+    broken = !exists || !maybePath.success;
     path = if !broken then maybePath.value else null;
     drvPath = if !broken then pkg.drvPath else null;
   };
