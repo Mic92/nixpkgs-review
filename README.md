@@ -28,7 +28,7 @@ NOTE: this project used to be called `nix-review`
 `nixpkgs-review` is included in nixpkgs. Older versions of nixpkgs might still
 call it `nix-review`.
 
-To use it run without installing it, use:
+To use it without installing it, use:
 
 ```console
 $ nix run nixpkgs.nixpkgs-review
@@ -72,7 +72,7 @@ or just use:
 
 ## Usage
 
-Change to your local nixpkgs repository checkout, i.e.:
+Frist, change to your local nixpkgs repository directory, i.e.:
 
 ```console
 cd ~/git/nixpkgs
@@ -93,7 +93,7 @@ $ nixpkgs-review pr 37242
 $ nixpkgs-review pr https://github.com/NixOS/nixpkgs/pull/37242
 ```
 
-The output then looks as follow:
+The output will then look as follows:
 
 ```console
 $ git fetch --force https://github.com/NixOS/nixpkgs pull/37242/head:refs/nixpkgs-review/0
@@ -235,7 +235,7 @@ To build only certain packages use the `--package` (or `-p`) flag.
 $ nixpkgs-review pr -p openjpeg -p ImageMagick 49262
 ```
 
-There is also `--package-regex` option that takes a regular expression
+There is also the `--package-regex` option that takes a regular expression
 to match against the attribute name:
 
 ```console
@@ -243,7 +243,7 @@ to match against the attribute name:
 $ nixpkgs-review pr --packages-regex 'linux_' 51292
 ```
 
-`-p` and `--package-regex` can be used together in which case
+`-p` and `--package-regex` can be used together, in which case
 the matching packages will merged.
 
 ## Running tests
@@ -256,7 +256,7 @@ $ nixpkgs-review pr -p nixosTests.ferm 47077
 
 ## Ignoring ofborg evaluations
 
-By default, nixpkgs-review will use ofborg's evaluation result if available to
+By default nixpkgs-review will use ofborg's evaluation result if available to
 figure out what packages need to be rebuild. This can be turned off using
 `--eval local`, which is useful if ofborg's evaluation result is outdated. Even
 if using `--eval ofborg`, nixpkgs-review will fallback to local evaluation if
@@ -298,7 +298,7 @@ $ mypy nixpkgs_review
 ## Related projects:
 
 - [nox-review](https://github.com/madjar/nox):
-    - works but is slow as a snail: the checkout process of nox-review is slow
+    - works but is as slow as a snail: the checkout process of nox-review is slow
       since it requires multiple git fetches. Also it cannot make use of
       ofborg's evaluation
     - it only builds all packages without providing a `nix-shell` for review
