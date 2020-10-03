@@ -2,7 +2,7 @@ attr-json:
 
 with builtins;
 let
-  pkgs = import <nixpkgs> { config = { checkMeta = true; }; };
+  pkgs = import <nixpkgs> { config = { checkMeta = true; allowUnfree = true; }; };
   lib = pkgs.lib;
 
   attrs = fromJSON (readFile attr-json);
