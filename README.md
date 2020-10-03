@@ -256,7 +256,7 @@ $ nixpkgs-review pr -p nixosTests.ferm 47077
 
 ## Ignoring ofborg evaluations
 
-By default nixpkgs-review will use ofborg's evaluation result if available to
+By default, nixpkgs-review will use ofborg's evaluation result if available to
 figure out what packages need to be rebuild. This can be turned off using
 `--eval local`, which is useful if ofborg's evaluation result is outdated. Even
 if using `--eval ofborg`, nixpkgs-review will fallback to local evaluation if
