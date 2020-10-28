@@ -109,7 +109,10 @@ class Report:
         cmd = "nixpkgs-review"
         if pr is not None:
             cmd += f" pr {pr}"
-        msg = f"Result of `{cmd}` [1](https://github.com/Mic92/nixpkgs-review)\n"
+
+        system = subprocess.check_output(["nix-instantiate", "--eval", "--json", "--expr", "builtins.currentSystem"], text=True).strip('"')
+
+        msg = f"Result of `{cmd}` run on {system} [1](https://github.com/Mic92/nixpkgs-review)\n"
 
         msg += html_pkgs_section(self.broken, "marked as broken and skipped")
         msg += html_pkgs_section(

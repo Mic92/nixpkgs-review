@@ -1,4 +1,4 @@
-Result of `nixpkgs-review pr 1234` [1](https://github.com/Mic92/nixpkgs-review)
+Result of `nixpkgs-review pr 1234` run on x86_64-linux [1](https://github.com/Mic92/nixpkgs-review)
 <details>
   <summary>1 package failed to build:</summary>
   <ul>
