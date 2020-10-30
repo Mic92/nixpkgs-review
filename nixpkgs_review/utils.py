@@ -20,6 +20,7 @@ def color_text(code: int, file: IO[Any] = sys.stdout) -> Callable[[str], None]:
 
 warn = color_text(31, file=sys.stderr)
 info = color_text(32)
+link = color_text(34)
 
 
 def sh(

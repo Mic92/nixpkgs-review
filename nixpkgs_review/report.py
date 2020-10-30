@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Callable, List, Optional
 
 from .nix import Attr
-from .utils import info, warn
+from .utils import info, link, warn
 
 
 def print_number(
@@ -125,7 +125,9 @@ class Report:
 
     def print_console(self, pr: Optional[int]) -> None:
         if pr is not None:
-            info(f"https://github.com/NixOS/nixpkgs/pull/{pr}")
+            pr_url = f"https://github.com/NixOS/nixpkgs/pull/{pr}"
+            info(f"\nLink to currently reviewing PR:")
+            link(f"\u001b]8;;{pr_url}\u001b\\{pr_url}\u001b]8;;\u001b\\\n")
         print_number(self.broken, "marked as broken and skipped")
         print_number(
             self.non_existant,
