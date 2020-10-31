@@ -4,6 +4,7 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
+import functools
 from enum import Enum
 from typing import IO, Dict, List, Optional, Pattern, Set, Tuple
 
@@ -24,14 +25,28 @@ class CheckoutOption(Enum):
     COMMIT = 2
 
 
-def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
+@functools.lru_cache
+def current_system() -> str:
     system = subprocess.run(
-        ["nix", "eval", "--raw", "nixpkgs.system"],
+        [
+            "nix",
+            "--experimental-features",
+            "nix-command",
+            "eval",
+            "--impure",
+            "--raw",
+            "--expr",
+            "builtins.currentSystem",
+        ],
         check=True,
         stdout=subprocess.PIPE,
         text=True,
     )
-    return set(packages_per_system[system.stdout])
+    return system.stdout
+
+
+def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
+    return set(packages_per_system[current_system()])
 
 
 def print_packages(names: List[str], msg: str,) -> None:

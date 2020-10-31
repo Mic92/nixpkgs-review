@@ -17,7 +17,7 @@ python3.pkgs.buildPythonApplication rec {
     mypy --strict nixpkgs_review
   '';
   makeWrapperArgs = [
-    "--prefix PATH : ${stdenv.lib.makeBinPath [ nix git ]}"
+    "--prefix PATH : ${stdenv.lib.makeBinPath [ nixFlakes git ]}"
     "--set NIX_SSL_CERT_FILE ${cacert}/etc/ssl/certs/ca-bundle.crt"
   ];
   shellHook = ''

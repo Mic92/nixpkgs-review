@@ -65,7 +65,16 @@ def write_error_logs(attrs: List[Attr], directory: Path) -> None:
 
         if attr.drv_path is not None:
             with open(logs.ensure().joinpath(attr.name + ".log"), "w+") as f:
-                subprocess.run(["nix", "log", attr.drv_path], stdout=f)
+                subprocess.run(
+                    [
+                        "nix",
+                        "--experimental-features",
+                        "nix-command",
+                        "log",
+                        attr.drv_path,
+                    ],
+                    stdout=f,
+                )
 
 
 class Report:
@@ -110,9 +119,7 @@ class Report:
         if pr is not None:
             cmd += f" pr {pr}"
 
-        system = subprocess.check_output(["nix-instantiate", "--eval", "--json", "--expr", "builtins.currentSystem"], text=True).strip('"')
-
-        msg = f"Result of `{cmd}` run on {system} [1](https://github.com/Mic92/nixpkgs-review)\n"
+        msg = f"Result of `{cmd}` run on [1](https://github.com/Mic92/nixpkgs-review)\n"
 
         msg += html_pkgs_section(self.broken, "marked as broken and skipped")
         msg += html_pkgs_section(
