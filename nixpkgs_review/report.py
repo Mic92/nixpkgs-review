@@ -126,7 +126,7 @@ class Report:
     def print_console(self, pr: Optional[int]) -> None:
         if pr is not None:
             pr_url = f"https://github.com/NixOS/nixpkgs/pull/{pr}"
-            info(f"\nLink to currently reviewing PR:")
+            info("\nLink to currently reviewing PR:")
             link(f"\u001b]8;;{pr_url}\u001b\\{pr_url}\u001b]8;;\u001b\\\n")
         print_number(self.broken, "marked as broken and skipped")
         print_number(
