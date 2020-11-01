@@ -24,14 +24,27 @@ class CheckoutOption(Enum):
     COMMIT = 2
 
 
-def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
+def current_system() -> str:
     system = subprocess.run(
-        ["nix", "eval", "--raw", "nixpkgs.system"],
+        [
+            "nix",
+            "--experimental-features",
+            "nix-command",
+            "eval",
+            "--impure",
+            "--raw",
+            "--expr",
+            "builtins.currentSystem",
+        ],
         check=True,
         stdout=subprocess.PIPE,
         text=True,
     )
-    return set(packages_per_system[system.stdout])
+    return system.stdout
+
+
+def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
+    return set(packages_per_system[current_system()])
 
 
 def print_packages(names: List[str], msg: str,) -> None:
@@ -198,7 +211,7 @@ class Review:
         os.environ["NIX_PATH"] = self.builddir.nixpkgs_path()
         if pr:
             os.environ["PR"] = str(pr)
-        report = Report(attr)
+        report = Report(current_system(), attr)
         report.print_console(pr)
         report.write(self.builddir.path, pr)
 

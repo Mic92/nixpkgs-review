@@ -82,7 +82,16 @@ def nix_eval(attrs: Set[str]) -> List[Attr]:
         json.dump(list(attrs), attr_json)
         eval_script = str(ROOT.joinpath("nix/evalAttrs.nix"))
         attr_json.flush()
-        cmd = ["nix", "eval", "--json", f"(import {eval_script} {attr_json.name})"]
+        cmd = [
+            "nix",
+            "--experimental-features",
+            "nix-command",
+            "eval",
+            "--json",
+            "--impure",
+            "--expr",
+            f"(import {eval_script} {attr_json.name})",
+        ]
 
         try:
             nix_eval = subprocess.run(
@@ -121,6 +130,8 @@ def nix_build(attr_names: Set[str], args: str, cache_directory: Path) -> List[At
 
     command = [
         "nix",
+        "--experimental-features",
+        "nix-command",
         "build",
         "--no-link",
         "--keep-going",

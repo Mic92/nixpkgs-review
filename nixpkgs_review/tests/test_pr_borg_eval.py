@@ -49,7 +49,16 @@ def borg_eval_cmds() -> List[Tuple[Any, Any]]:
         (["git", "worktree", "add", IgnoreArgument, "hash1"], MockCompletedProcess()),
         (["git", "merge", "--no-commit", "hash2"], MockCompletedProcess()),
         (
-            ["nix", "eval", "--raw", "nixpkgs.system"],
+            [
+                "nix",
+                "--experimental-features",
+                "nix-command",
+                "eval",
+                "--impure",
+                "--raw",
+                "--expr",
+                "builtins.currentSystem",
+            ],
             MockCompletedProcess(stdout="x86_64-linux"),
         ),
     ]

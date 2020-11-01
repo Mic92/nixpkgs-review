@@ -5,10 +5,16 @@ python3.pkgs.buildPythonApplication rec {
   name = "nixpkgs-review";
   src = ./.;
   buildInputs = [ makeWrapper ];
-  checkInputs = [ mypy python3.pkgs.black python3.pkgs.flake8 glibcLocales ];
+  checkInputs = [
+    mypy
+    python3.pkgs.black
+    python3.pkgs.flake8
+    python3.pkgs.pytest
+    glibcLocales
+  ];
   checkPhase = ''
     echo -e "\x1b[32m## run unittest\x1b[0m"
-    ${pkgs.python3.interpreter} -m unittest discover .
+    py.test .
     echo -e "\x1b[32m## run black\x1b[0m"
     LC_ALL=en_US.utf-8 black --check .
     echo -e "\x1b[32m## run flake8\x1b[0m"
@@ -17,7 +23,7 @@ python3.pkgs.buildPythonApplication rec {
     mypy --strict nixpkgs_review
   '';
   makeWrapperArgs = [
-    "--prefix PATH : ${stdenv.lib.makeBinPath [ nix git ]}"
+    "--prefix PATH : ${stdenv.lib.makeBinPath [ nixFlakes git ]}"
     "--set NIX_SSL_CERT_FILE ${cacert}/etc/ssl/certs/ca-bundle.crt"
   ];
   shellHook = ''
