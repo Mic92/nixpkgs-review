@@ -4,7 +4,6 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-import functools
 from enum import Enum
 from typing import IO, Dict, List, Optional, Pattern, Set, Tuple
 
@@ -25,7 +24,6 @@ class CheckoutOption(Enum):
     COMMIT = 2
 
 
-@functools.lru_cache
 def current_system() -> str:
     system = subprocess.run(
         [
@@ -213,7 +211,7 @@ class Review:
         os.environ["NIX_PATH"] = self.builddir.nixpkgs_path()
         if pr:
             os.environ["PR"] = str(pr)
-        report = Report(attr)
+        report = Report(current_system(), attr)
         report.print_console(pr)
         report.write(self.builddir.path, pr)
 

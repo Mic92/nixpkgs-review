@@ -63,7 +63,16 @@ class CliTestCase(TestCase):
 
 build_cmds = [
     (
-        ["nix", "eval", "--json", IgnoreArgument],
+        [
+            "nix",
+            "--experimental-features",
+            "nix-command",
+            "eval",
+            "--json",
+            "--impure",
+            "--expr",
+            IgnoreArgument,
+        ],
         # hack to make sure the path exists
         MockCompletedProcess(
             stdout=(
@@ -75,6 +84,8 @@ build_cmds = [
     (
         [
             "nix",
+            "--experimental-features",
+            "nix-command",
             "build",
             "--no-link",
             "--keep-going",
@@ -88,8 +99,24 @@ build_cmds = [
         ],
         MockCompletedProcess(),
     ),
+    (
+        [
+            "nix",
+            "--experimental-features",
+            "nix-command",
+            "eval",
+            "--impure",
+            "--raw",
+            "--expr",
+            "builtins.currentSystem",
+        ],
+        MockCompletedProcess(stdout="x86_64-linux"),
+    ),
     (["nix-store", "--verify-path", IgnoreArgument], MockCompletedProcess()),
-    (["nix", "log", IgnoreArgument], MockCompletedProcess()),
+    (
+        ["nix", "--experimental-features", "nix-command", "log", IgnoreArgument],
+        MockCompletedProcess(),
+    ),
     (["nix-shell", IgnoreArgument], MockCompletedProcess()),
     (["git", "worktree", "prune"], MockCompletedProcess()),
 ]

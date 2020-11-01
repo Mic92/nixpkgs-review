@@ -27,7 +27,7 @@ class ReportTestcase(unittest.TestCase):
         bar = mkAttr("bar", True)
         baz = mkAttr("baz", False)
 
-        report = Report([foo, bar, baz])
+        report = Report("x86_64-linux", [foo, bar, baz])
 
         expected = read_asset("expected_pr_report_1234.md")
         actual = report.markdown(1234)

@@ -78,7 +78,8 @@ def write_error_logs(attrs: List[Attr], directory: Path) -> None:
 
 
 class Report:
-    def __init__(self, attrs: List[Attr]) -> None:
+    def __init__(self, system: str, attrs: List[Attr]) -> None:
+        self.system = system
         self.attrs = attrs
         self.broken: List[Attr] = []
         self.failed: List[Attr] = []
@@ -119,7 +120,7 @@ class Report:
         if pr is not None:
             cmd += f" pr {pr}"
 
-        msg = f"Result of `{cmd}` run on [1](https://github.com/Mic92/nixpkgs-review)\n"
+        msg = f"Result of `{cmd}` run on {self.system} [1](https://github.com/Mic92/nixpkgs-review)\n"
 
         msg += html_pkgs_section(self.broken, "marked as broken and skipped")
         msg += html_pkgs_section(
