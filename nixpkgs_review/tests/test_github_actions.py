@@ -38,7 +38,8 @@ class GithubActions(CliTestCase):
         print(os.environ["GITHUB_TOKEN"])
 
         main(
-            "nixpkgs-review", ["post-result"],
+            "nixpkgs-review",
+            ["post-result"],
         )
 
     @patch("urllib.request.urlopen")
