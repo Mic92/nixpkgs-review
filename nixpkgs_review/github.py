@@ -49,8 +49,7 @@ class GithubClient:
         "Approve a PR"
         print(f"Approving {pr_url(pr)}")
         return self.post(
-            f"/repos/NixOS/nixpkgs/pulls/{pr}/reviews",
-            data=dict(event="APPROVE"),
+            f"/repos/NixOS/nixpkgs/pulls/{pr}/reviews", data=dict(event="APPROVE"),
         )
 
     def merge_pr(self, pr: int) -> Any:

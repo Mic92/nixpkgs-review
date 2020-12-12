@@ -47,10 +47,7 @@ def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
     return set(packages_per_system[current_system()])
 
 
-def print_packages(
-    names: List[str],
-    msg: str,
-) -> None:
+def print_packages(names: List[str], msg: str,) -> None:
     if len(names) == 0:
         return
     plural = "s" if len(names) > 1 else ""
