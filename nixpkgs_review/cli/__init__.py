@@ -157,6 +157,20 @@ def common_flags() -> List[CommonFlag]:
             help="Regular expression that package attributes have to match (can be passed multiple times)",
         ),
         CommonFlag(
+            "-P",
+            "--skip-package",
+            action="append",
+            default=[],
+            help="Packages to not build (can be passed multiple times)",
+        ),
+        CommonFlag(
+            "--skip-package-regex",
+            action="append",
+            default=[],
+            type=regex_type,
+            help="Regular expression that package attributes have not to match (can be passed multiple times)",
+        ),
+        CommonFlag(
             "--no-shell",
             action="store_true",
             help="Only evaluate and build without executing nix-shell",

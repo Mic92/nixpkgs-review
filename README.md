@@ -236,14 +236,29 @@ $ nixpkgs-review pr -p openjpeg -p ImageMagick 49262
 ```
 
 There is also the `--package-regex` option that takes a regular expression
-to match against the attribute name:
+to match against the attribute name.
 
 ```console
 # build only linux kernels but not the packages
 $ nixpkgs-review pr --packages-regex 'linux_' 51292
 ```
 
-`-p` and `--package-regex` can be used together, in which case
+To skip building certain packages use the `--skip-package` (or `-P`) flag.
+
+```console
+$ nixpkgs-review pr -P ImageMagick 49262
+```
+
+There is also the `--skip-package-regex` option that takes a regular expression
+to match against the attribute name.
+Unlike the `--package-regex` option a full match is required which means you probably want to work with `.*` or `\w+`.
+
+```console
+# skip building linux kernels but not the packages
+$ nixpkgs-review pr --skip-packages-regex 'linux_.*' 51292
+```
+
+`-p`, `-P`, `--package-regex` and `--skip-package-regex` can be used together, in which case
 the matching packages will merged.
 
 ## Running tests
