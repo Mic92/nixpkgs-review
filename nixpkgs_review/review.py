@@ -5,6 +5,7 @@ import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import IO, Dict, List, Optional, Pattern, Set, Tuple
 
 from .builddir import Builddir
@@ -208,15 +209,16 @@ class Review:
     def start_review(
         self,
         attr: List[Attr],
+        path: Path,
         pr: Optional[int] = None,
         post_result: Optional[bool] = False,
     ) -> None:
-        os.environ["NIX_PATH"] = self.builddir.nixpkgs_path()
+        os.environ["NIX_PATH"] = path.as_posix()
         if pr:
             os.environ["PR"] = str(pr)
         report = Report(current_system(), attr)
         report.print_console(pr)
-        report.write(self.builddir.path, pr)
+        report.write(path, pr)
 
         if pr and post_result:
             self.github_client.comment_issue(pr, report.markdown(pr))
@@ -224,17 +226,18 @@ class Review:
         if self.no_shell:
             sys.exit(0 if report.succeeded() else 1)
         else:
-            nix_shell(report.built_packages(), self.builddir.path)
+            nix_shell(report.built_packages(), path)
 
     def review_commit(
         self,
+        path: Path,
         branch: str,
         remote: str,
         reviewed_commit: Optional[str],
         staged: bool = False,
     ) -> None:
         branch_rev = fetch_refs(remote, branch)[0]
-        self.start_review(self.build_commit(branch_rev, reviewed_commit, staged))
+        self.start_review(self.build_commit(branch_rev, reviewed_commit, staged), path)
 
 
 def parse_packages_xml(stdout: IO[bytes]) -> List[Package]:
@@ -411,4 +414,4 @@ def review_local_revision(
             only_packages=set(args.package),
             package_regexes=args.package_regex,
         )
-        review.review_commit(args.branch, args.remote, commit, staged)
+        review.review_commit(builddir.path, args.branch, args.remote, commit, staged)
