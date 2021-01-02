@@ -281,6 +281,8 @@ def parse_packages_xml(stdout: IO[bytes]) -> List[Package]:
                 description = value
             elif name == "position":
                 position = value
+        elif event == "end":
+            elem.clear()
     return packages
 
 
