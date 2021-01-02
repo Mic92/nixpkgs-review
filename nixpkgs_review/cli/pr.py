@@ -57,12 +57,12 @@ def pr_command(args: argparse.Namespace) -> None:
                     package_regexes=args.package_regex,
                     checkout=checkout_option,
                 )
-                contexts.append((pr, review.build_pr(pr)))
+                contexts.append((pr, builddir.path, review.build_pr(pr)))
             except subprocess.CalledProcessError:
                 warn(f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build")
 
-        for pr, attrs in contexts:
-            review.start_review(attrs, pr, args.post_result)
+        for pr, path, attrs in contexts:
+            review.start_review(attrs, path, pr, args.post_result)
 
         if len(contexts) != len(prs):
             sys.exit(1)
