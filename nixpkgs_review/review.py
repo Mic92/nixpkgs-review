@@ -104,6 +104,8 @@ class Review:
         use_ofborg_eval: Optional[bool] = True,
         only_packages: Set[str] = set(),
         package_regexes: List[Pattern[str]] = [],
+        skip_packages: Set[str] = set(),
+        skip_packages_regex: List[Pattern[str]] = [],
         checkout: CheckoutOption = CheckoutOption.MERGE,
     ) -> None:
         self.builddir = builddir
@@ -114,6 +116,8 @@ class Review:
         self.checkout = checkout
         self.only_packages = only_packages
         self.package_regex = package_regexes
+        self.skip_packages = skip_packages
+        self.skip_packages_regex = skip_packages_regex
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -171,7 +175,13 @@ class Review:
             self.git_worktree(pr_rev)
 
     def build(self, packages: Set[str], args: str) -> List[Attr]:
-        packages = filter_packages(packages, self.only_packages, self.package_regex)
+        packages = filter_packages(
+            packages,
+            self.only_packages,
+            self.package_regex,
+            self.skip_packages,
+            self.skip_packages_regex,
+        )
         return nix_build(packages, args, self.builddir.path)
 
     def build_pr(self, pr_number: int) -> List[Attr]:
@@ -354,10 +364,17 @@ def filter_packages(
     changed_packages: Set[str],
     specified_packages: Set[str],
     package_regexes: List[Pattern[str]],
+    skip_packages: Set[str],
+    skip_package_regexes: List[Pattern[str]],
 ) -> Set[str]:
     packages: Set[str] = set()
 
-    if len(specified_packages) == 0 and len(package_regexes) == 0:
+    if (
+        len(specified_packages) == 0
+        and len(package_regexes) == 0
+        and len(skip_packages) == 0
+        and len(skip_package_regexes) == 0
+    ):
         return changed_packages
 
     if len(specified_packages) > 0:
@@ -367,6 +384,22 @@ def filter_packages(
         for regex in package_regexes:
             if regex.match(attr):
                 packages.add(attr)
+
+    # if no packages are build explicitly then treat
+    # like like all changed packages are supplied via --package
+    # otherwise we can't discard the ones we do not like to build
+    if not packages:
+        packages = changed_packages
+
+    if len(skip_packages) > 0:
+        for package in skip_packages:
+            packages.discard(package)
+
+    for attr in packages.copy():
+        for regex in skip_package_regexes:
+            if regex.match(attr):
+                packages.discard(attr)
+
     return packages
 
 
