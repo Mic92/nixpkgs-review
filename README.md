@@ -240,7 +240,7 @@ to match against the attribute name.
 
 ```console
 # build only linux kernels but not the packages
-$ nixpkgs-review pr --packages-regex 'linux_' 51292
+$ nixpkgs-review pr --package-regex 'linux_' 51292
 ```
 
 To skip building certain packages use the `--skip-package` (or `-P`) flag.
