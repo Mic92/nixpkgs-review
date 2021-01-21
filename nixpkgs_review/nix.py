@@ -4,6 +4,7 @@ import shlex
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
+from sys import platform
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict, List, Optional, Set
 
@@ -135,10 +136,17 @@ def nix_build(attr_names: Set[str], args: str, cache_directory: Path) -> List[At
         "build",
         "--no-link",
         "--keep-going",
-        # only matters for single-user nix and trusted users
-        "--option",
-        "build-use-sandbox",
-        "relaxed",
+    ]
+
+    if platform == "linux":
+        command += [
+            # only matters for single-user nix and trusted users
+            "--option",
+            "build-use-sandbox",
+            "relaxed",
+        ]
+
+    command += [
         "-f",
         str(build),
     ] + shlex.split(args)
