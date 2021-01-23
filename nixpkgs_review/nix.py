@@ -42,7 +42,7 @@ class Attr:
 def nix_shell(attrs: List[str], cache_directory: Path) -> None:
     shell = cache_directory.joinpath("shell.nix")
     write_shell_expression(shell, attrs)
-    sh(["nix-shell", str(shell)], cwd=cache_directory)
+    sh(["nix-shell", str(shell)], cwd=cache_directory, check=False)
 
 
 def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
