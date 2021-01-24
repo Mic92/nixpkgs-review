@@ -327,11 +327,21 @@ overwrite the upstream repository URL (defaults to
 `https://github.com/NixOS/nixpkgs`). The following example will use the
 `mayflower` nixpkg's fork to fetch the branch where the changes will be merged into:
 
-```
-nixpkgs-review --remote https://github.com/mayflower/nixpkgs wip
+```console
+$ nixpkgs-review --remote https://github.com/mayflower/nixpkgs wip
 ```
 
 Note that this has been not yet implemented for pull requests i.e. `pr` subcommand.
+
+## Review changes for other operating systems/architectures
+
+The `--system` flag allows to set a system different from the current one.
+Note that the result nix-shell may not be able to execute all hooks correctly
+since the architecture/operating system mismatches.
+
+```console
+$ nixpkgs-review --system aarch64-linux pr 98734
+```
 
 ## Roadmap
 

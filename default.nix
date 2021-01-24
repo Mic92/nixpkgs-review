@@ -14,6 +14,7 @@ python3.pkgs.buildPythonApplication rec {
     # needed for interactive unittests
     python3.pkgs.pytest
     nixFlakes
+    git
   ];
 
   checkPhase = ''

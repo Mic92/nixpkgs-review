@@ -42,11 +42,12 @@ class Attr:
 def nix_shell(
     attrs: List[str],
     cache_directory: Path,
+    system: str,
     pkgs: Optional[str],
     run: Optional[str] = None,
 ) -> None:
     shell = cache_directory.joinpath("shell.nix")
-    write_shell_expression(shell, attrs, pkgs)
+    write_shell_expression(shell, attrs, system, pkgs)
     args = ["nix-shell", str(shell)]
     if run:
         args.extend(["--run", run])
@@ -89,7 +90,7 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
     return list(attr_by_path.values()) + broken
 
 
-def nix_eval(attrs: Set[str]) -> List[Attr]:
+def nix_eval(attrs: Set[str], system: str) -> List[Attr]:
     attr_json = NamedTemporaryFile(mode="w+", delete=False)
     delete = True
     try:
@@ -100,6 +101,8 @@ def nix_eval(attrs: Set[str]) -> List[Attr]:
             "nix",
             "--experimental-features",
             "nix-command",
+            "--system",
+            system,
             "eval",
             "--json",
             "--impure",
@@ -126,13 +129,17 @@ def nix_eval(attrs: Set[str]) -> List[Attr]:
 
 
 def nix_build(
-    attr_names: Set[str], args: str, cache_directory: Path, pkgs: Optional[str]
+    attr_names: Set[str],
+    args: str,
+    cache_directory: Path,
+    system: str,
+    pkgs: Optional[str],
 ) -> List[Attr]:
     if not attr_names:
         info("Nothing to be built.")
         return []
 
-    attrs = nix_eval(attr_names)
+    attrs = nix_eval(attr_names, system)
     filtered = []
     for attr in attrs:
         if not (attr.broken or attr.blacklisted):
@@ -142,7 +149,7 @@ def nix_build(
         return attrs
 
     build = cache_directory.joinpath("build.nix")
-    write_shell_expression(build, filtered, pkgs)
+    write_shell_expression(build, filtered, system, pkgs)
 
     command = [
         "nix",
@@ -174,14 +181,14 @@ def nix_build(
 
 
 def write_shell_expression(
-    filename: Path, attrs: List[str], pkgs: Optional[str]
+    filename: Path, attrs: List[str], system: str, pkgs: Optional[str]
 ) -> None:
     if pkgs:
         pkgs = f".{pkgs}"
 
     with open(filename, "w+") as f:
         f.write(
-            f"""{{ pkgs ? import ./nixpkgs {{}} }}:
+            f"""{{ pkgs ? import ./nixpkgs {{ system = \"{system}\"; }} }}:
 with pkgs{pkgs or ""};
 let
   paths = [

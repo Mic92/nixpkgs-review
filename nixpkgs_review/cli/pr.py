@@ -60,6 +60,7 @@ def pr_command(args: argparse.Namespace) -> str:
                     package_regexes=args.package_regex,
                     skip_packages=set(args.skip_package),
                     skip_packages_regex=args.skip_package_regex,
+                    system=args.system,
                     checkout=checkout_option,
                 )
                 contexts.append((pr, builddir.path, review.build_pr(pr)))
