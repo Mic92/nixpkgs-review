@@ -164,45 +164,27 @@ def nix_build(attr_names: Set[str], args: str, cache_directory: Path) -> List[At
 
 def write_shell_expression(filename: Path, attrs: List[str]) -> None:
     with open(filename, "w+") as f:
-        if len(attrs) > 50:
-            f.write(
-                """{ pkgs ? import ./nixpkgs {} }:
+        f.write(
+            """{ pkgs ? import ./nixpkgs {} }:
 with pkgs;
-stdenv.mkDerivation rec {
-  name = "env";
-  buildInputs = [
-    (buildEnv {
-      inherit name;
-      ignoreCollisions = true;
-      paths = [
+let
+  paths = [
 """
-            )
-            f.write("\n".join(f"        {escape_attr(a)}" for a in attrs))
-            f.write(
-                """
-      ];
-    })
+        )
+        f.write("\n".join(f"        {escape_attr(a)}" for a in attrs))
+        f.write(
+            """
   ];
+  env = buildEnv {
+    name = "env";
+    inherit paths;
+    ignoreCollisions = true;
+  };
+in stdenv.mkDerivation rec {
+  name = "review-shell";
+  buildInputs = if builtins.length (paths) > 50 then paths else [ env ];
   unpackPhase = ":";
   installPhase = "touch $out";
 }
 """
-            )
-        else:
-            f.write(
-                """{ pkgs ? import ./nixpkgs {} }:
-with pkgs;
-stdenv.mkDerivation {
-  name = "env";
-  buildInputs = [
-"""
-            )
-            f.write("\n".join(f"    {escape_attr(a)}" for a in attrs))
-            f.write(
-                """
-  ];
-  unpackPhase = ":";
-  installPhase = "touch $out";
-}
-"""
-            )
+        )
