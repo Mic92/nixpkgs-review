@@ -182,7 +182,7 @@ let
   };
 in stdenv.mkDerivation rec {
   name = "review-shell";
-  buildInputs = if builtins.length (paths) > 50 then paths else [ env ];
+  buildInputs = if builtins.length paths > 50 then [ env ] else paths;
   unpackPhase = ":";
   installPhase = "touch $out";
 }
