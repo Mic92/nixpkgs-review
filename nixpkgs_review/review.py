@@ -123,7 +123,7 @@ class Review:
         return str(self.builddir.worktree_dir)
 
     def git_merge(self, commit: str) -> None:
-        sh(["git", "merge", "--no-commit", commit], cwd=self.worktree_dir())
+        sh(["git", "merge", "--no-commit", "--no-ff", commit], cwd=self.worktree_dir())
 
     def apply_unstaged(self, staged: bool = False) -> None:
         args = ["git", "--no-pager", "diff"]

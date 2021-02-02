@@ -47,7 +47,7 @@ def borg_eval_cmds() -> List[Tuple[Any, Any]]:
             MockCompletedProcess(stdout="hash2\n"),
         ),
         (["git", "worktree", "add", IgnoreArgument, "hash1"], MockCompletedProcess()),
-        (["git", "merge", "--no-commit", "hash2"], MockCompletedProcess()),
+        (["git", "merge", "--no-commit", "--no-ff", "hash2"], MockCompletedProcess()),
         (
             [
                 "nix",
