@@ -48,7 +48,11 @@ def nix_shell(attrs: List[str], cache_directory: Path) -> None:
 def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
     # workaround https://github.com/NixOS/ofborg/issues/269
     blacklist = set(
-        ["tests.nixos-functions.nixos-test", "tests.nixos-functions.nixosTest-test"]
+        [
+            "tests.nixos-functions.nixos-test",
+            "tests.nixos-functions.nixosTest-test",
+            "appimage-run-tests",
+        ]
     )
     attr_by_path: Dict[str, Attr] = {}
     broken = []
