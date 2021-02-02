@@ -45,7 +45,7 @@ def local_eval_cmds() -> List[Tuple[Any, Any]]:
         ),
         (["git", "worktree", "add", IgnoreArgument, "hash1"], 0),
         (IgnoreArgument, MockCompletedProcess(stdout=StringIO("<items></items>"))),
-        (["git", "merge", "--no-commit", "hash2"], MockCompletedProcess()),
+        (["git", "merge", "--no-commit", "--no-ff", "hash2"], MockCompletedProcess()),
         (
             IgnoreArgument,
             MockCompletedProcess(stdout=StringIO(read_asset("package_list_after.txt"))),

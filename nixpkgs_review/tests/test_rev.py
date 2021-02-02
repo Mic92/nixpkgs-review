@@ -39,7 +39,7 @@ def rev_command_cmds() -> List[Tuple[Any, Any]]:
         ),
         (["git", "worktree", "add", IgnoreArgument, "hash1"], MockCompletedProcess()),
         (IgnoreArgument, MockCompletedProcess(stdout=StringIO("<items></items>"))),
-        (["git", "merge", "--no-commit", "hash1"], MockCompletedProcess()),
+        (["git", "merge", "--no-commit", "--no-ff", "hash1"], MockCompletedProcess()),
         (
             IgnoreArgument,
             MockCompletedProcess(stdout=StringIO(read_asset("package_list_after.txt"))),
