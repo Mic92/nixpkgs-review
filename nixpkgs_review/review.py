@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+import tempfile
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -250,7 +251,7 @@ class Review:
         self.start_review(self.build_commit(branch_rev, reviewed_commit, staged), path)
 
 
-def parse_packages_xml(stdout: IO[bytes]) -> List[Package]:
+def parse_packages_xml(stdout: IO[str]) -> List[Package]:
     packages: List[Package] = []
     path = None
     context = ET.iterparse(stdout, events=("start", "end"))
@@ -310,10 +311,11 @@ def list_packages(path: str, check_meta: bool = False) -> List[Package]:
     if check_meta:
         cmd.append("--meta")
     info("$ " + " ".join(cmd))
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    with proc as nix_env:
-        assert nix_env.stdout
-        return parse_packages_xml(nix_env.stdout)
+    with tempfile.NamedTemporaryFile(mode="w") as tmp:
+        subprocess.run(cmd, stdout=tmp, check=True)
+        tmp.flush()
+        with open(tmp.name) as f:
+            return parse_packages_xml(f)
 
 
 def package_attrs(
