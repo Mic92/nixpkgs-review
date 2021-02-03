@@ -51,6 +51,7 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
         [
             "tests.nixos-functions.nixos-test",
             "tests.nixos-functions.nixosTest-test",
+            "tests.writers",
             "appimage-run-tests",
         ]
     )
