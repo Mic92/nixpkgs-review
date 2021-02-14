@@ -21,7 +21,7 @@ NOTE: this project used to be called `nix-review`
   - approve or merge PRs (the last one requires maintainer permission)
   - Show PR comments/reviews
 - logs per built or failed package
-- symlinks build packages to result directory for inspection
+- symlinks built packages to result directory for inspection
 
 ## Installation
 
@@ -217,7 +217,7 @@ Additionally nixpkgs-review will also read the oauth_token stored by [hub](https
 
 By default `nixpkgs-review pr` will merge the pull request into the pull request's
 target branch (most commonly master). However at times mass-rebuilding commits
-have been applied in the target branch, but not yet build by hydra. Often those
+have been applied in the target branch, but not yet built by hydra. Often those
 are not relevant for the current review, but will significantly increase the
 local build time. For this case the `--checkout` option can specified to
 override the default behavior (`merge`). By setting its value to `commit`,
@@ -272,7 +272,7 @@ $ nixpkgs-review pr -p nixosTests.ferm 47077
 ## Ignoring ofborg evaluations
 
 By default, nixpkgs-review will use ofborg's evaluation result if available to
-figure out what packages need to be rebuild. This can be turned off using
+figure out what packages need to be rebuilt. This can be turned off using
 `--eval local`, which is useful if ofborg's evaluation result is outdated. Even
 if using `--eval ofborg`, nixpkgs-review will fallback to local evaluation if
 ofborg's result is not (yet) available.

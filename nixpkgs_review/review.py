@@ -351,7 +351,7 @@ def join_packages(changed_packages: Set[str], specified_packages: Set[str]) -> S
 
     if len(nonexistant) != 0:
         warn(
-            "The following packages specified with `-p` are not rebuild by the pull request"
+            "The following packages specified with `-p` are not rebuilt by the pull request"
         )
         warn(" ".join(specified_attrs[path].name for path in nonexistant))
         sys.exit(1)
