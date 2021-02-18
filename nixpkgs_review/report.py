@@ -63,18 +63,30 @@ def write_error_logs(attrs: List[Attr], directory: Path) -> None:
                 symlink_source.unlink()
             symlink_source.symlink_to(attr.path)
 
-        if attr.path is not None:
+        if attr.drv_path:
             with open(logs.ensure().joinpath(attr.name + ".log"), "w+") as f:
-                subprocess.run(
+                nix_log = subprocess.run(
                     [
                         "nix",
                         "--experimental-features",
                         "nix-command",
                         "log",
-                        attr.path,
+                        attr.drv_path,
                     ],
                     stdout=f,
                 )
+
+                if attr.path and nix_log.returncode != 0:
+                    subprocess.run(
+                        [
+                            "nix",
+                            "--experimental-features",
+                            "nix-command",
+                            "log",
+                            attr.path,
+                        ],
+                        stdout=f,
+                    )
 
 
 class Report:
