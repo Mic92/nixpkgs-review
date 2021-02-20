@@ -9,8 +9,11 @@ python3.pkgs.buildPythonApplication rec {
     mypy
     python3.pkgs.black
     python3.pkgs.flake8
-    python3.pkgs.pytest
     glibcLocales
+
+    # needed for interactive unittests
+    python3.pkgs.pytest
+    nixFlakes
   ];
 
   # does not work in sandbox
