@@ -442,7 +442,7 @@ def review_local_revision(
     args: argparse.Namespace,
     commit: Optional[str],
     staged: bool = False,
-) -> None:
+) -> Path:
     with Builddir(builddir_path) as builddir:
         review = Review(
             builddir=builddir,
@@ -453,3 +453,4 @@ def review_local_revision(
             package_regexes=args.package_regex,
         )
         review.review_commit(builddir.path, args.branch, args.remote, commit, staged)
+        return builddir.path

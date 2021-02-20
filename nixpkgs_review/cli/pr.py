@@ -51,6 +51,7 @@ def pr_command(args: argparse.Namespace) -> None:
                     builddir=builddir,
                     build_args=args.build_args,
                     no_shell=args.no_shell,
+                    run=args.run,
                     api_token=args.token,
                     use_ofborg_eval=use_ofborg_eval,
                     only_packages=set(args.package),

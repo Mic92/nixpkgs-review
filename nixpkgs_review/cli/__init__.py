@@ -1,8 +1,9 @@
 import argparse
 import os
 import re
+import sys
 from pathlib import Path
-from typing import Any, List, Optional, Pattern
+from typing import Any, List, Optional, Pattern, cast
 
 from .approve import approve_command
 from .comments import show_comments
@@ -176,6 +177,12 @@ def common_flags() -> List[CommonFlag]:
             help="Only evaluate and build without executing nix-shell",
         ),
         CommonFlag(
+            "--run",
+            type=str,
+            default="",
+            help="Passed to nix-shell to run a command instead of an interactive nix-shell",
+        ),
+        CommonFlag(
             "--token",
             type=str,
             default=read_github_token(),
@@ -237,6 +244,17 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
     return main_parser.parse_args(args)
 
 
-def main(command: str, raw_args: List[str]) -> None:
+def check_common_flags(args: argparse.Namespace) -> bool:
+    if args.run == "":
+        args.run = None
+    elif args.no_shell:
+        print("--no-shell and --run are mutually exclusive", file=sys.stderr)
+        return False
+    return True
+
+
+def main(command: str, raw_args: List[str]) -> str:
     args = parse_args(command, raw_args)
-    args.func(args)
+    if not check_common_flags(args):
+        sys.exit(1)
+    return cast(str, args.func(args))
