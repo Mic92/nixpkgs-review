@@ -117,8 +117,16 @@ class Helpers:
 
     @staticmethod
     @contextmanager
+    def save_environ() -> Iterator[None]:
+        old = os.environ.copy()
+        yield
+        os.environ.clear()
+        os.environ.update(old)
+
+    @staticmethod
+    @contextmanager
     def nixpkgs() -> Iterator[Nixpkgs]:
-        with tempfile.TemporaryDirectory() as tmpdirname:
+        with Helpers.save_environ(), tempfile.TemporaryDirectory() as tmpdirname:
             path = Path(tmpdirname)
             nixpkgs_path = path.joinpath("nixpkgs")
             os.environ["XDG_CACHE_HOME"] = str(path.joinpath("cache"))
