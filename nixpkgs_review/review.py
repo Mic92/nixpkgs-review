@@ -101,6 +101,7 @@ class Review:
         builddir: Builddir,
         build_args: str,
         no_shell: bool,
+        run: str,
         api_token: Optional[str] = None,
         use_ofborg_eval: Optional[bool] = True,
         only_packages: Set[str] = set(),
@@ -112,6 +113,7 @@ class Review:
         self.builddir = builddir
         self.build_args = build_args
         self.no_shell = no_shell
+        self.run = run
         self.github_client = GithubClient(api_token)
         self.use_ofborg_eval = use_ofborg_eval
         self.checkout = checkout
@@ -237,7 +239,7 @@ class Review:
         if self.no_shell:
             sys.exit(0 if report.succeeded() else 1)
         else:
-            nix_shell(report.built_packages(), path)
+            nix_shell(report.built_packages(), path, self.run)
 
     def review_commit(
         self,
@@ -446,6 +448,7 @@ def review_local_revision(
             builddir=builddir,
             build_args=args.build_args,
             no_shell=args.no_shell,
+            run=args.run,
             only_packages=set(args.package),
             package_regexes=args.package_regex,
         )
