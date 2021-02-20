@@ -31,7 +31,7 @@ def parse_pr_numbers(number_args: List[str]) -> List[int]:
     return prs
 
 
-def pr_command(args: argparse.Namespace) -> None:
+def pr_command(args: argparse.Namespace) -> str:
     prs = parse_pr_numbers(args.number)
     use_ofborg_eval = args.eval == "ofborg"
     checkout_option = (
@@ -52,6 +52,7 @@ def pr_command(args: argparse.Namespace) -> None:
                     build_args=args.build_args,
                     no_shell=args.no_shell,
                     run=args.run,
+                    remote=args.remote,
                     api_token=args.token,
                     use_ofborg_eval=use_ofborg_eval,
                     only_packages=set(args.package),
@@ -69,3 +70,4 @@ def pr_command(args: argparse.Namespace) -> None:
 
         if len(contexts) != len(prs):
             sys.exit(1)
+    return str(builddir.path)

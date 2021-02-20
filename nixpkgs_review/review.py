@@ -102,6 +102,7 @@ class Review:
         build_args: str,
         no_shell: bool,
         run: str,
+        remote: str,
         api_token: Optional[str] = None,
         use_ofborg_eval: Optional[bool] = True,
         only_packages: Set[str] = set(),
@@ -114,6 +115,7 @@ class Review:
         self.build_args = build_args
         self.no_shell = no_shell
         self.run = run
+        self.remote = remote
         self.github_client = GithubClient(api_token)
         self.use_ofborg_eval = use_ofborg_eval
         self.checkout = checkout
@@ -195,7 +197,7 @@ class Review:
         else:
             packages_per_system = None
         merge_rev, pr_rev = fetch_refs(
-            "https://github.com/NixOS/nixpkgs",
+            self.remote,
             pr["base"]["ref"],
             f"pull/{pr['number']}/head",
         )
@@ -245,11 +247,10 @@ class Review:
         self,
         path: Path,
         branch: str,
-        remote: str,
         reviewed_commit: Optional[str],
         staged: bool = False,
     ) -> None:
-        branch_rev = fetch_refs(remote, branch)[0]
+        branch_rev = fetch_refs(self.remote, branch)[0]
         self.start_review(self.build_commit(branch_rev, reviewed_commit, staged), path)
 
 
@@ -449,8 +450,9 @@ def review_local_revision(
             build_args=args.build_args,
             no_shell=args.no_shell,
             run=args.run,
+            remote=args.remote,
             only_packages=set(args.package),
             package_regexes=args.package_regex,
         )
-        review.review_commit(builddir.path, args.branch, args.remote, commit, staged)
+        review.review_commit(builddir.path, args.branch, commit, staged)
         return builddir.path
