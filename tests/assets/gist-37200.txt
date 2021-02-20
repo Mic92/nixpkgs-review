@@ -1,4 +1,4 @@
-i686-linux	pong3d
-x86_64-linux	pong3d
-x86_64-darwin	pong3d
-aarch64-linux	pong3d
+i686-linux	pkg1
+x86_64-linux	pkg1
+x86_64-darwin	pkg1
+aarch64-linux	pkg1

@@ -106,6 +106,11 @@ class Helpers:
         return TEST_ROOT
 
     @staticmethod
+    def read_asset(asset: str) -> str:
+        with open(os.path.join(TEST_ROOT, "assets", asset)) as f:
+            return f.read()
+
+    @staticmethod
     def load_report(review_dir: str) -> Dict[str, Any]:
         with open(os.path.join(review_dir, "report.json")) as f:
             return cast(Dict[str, Any], json.load(f))
