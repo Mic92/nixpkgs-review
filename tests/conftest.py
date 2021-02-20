@@ -28,13 +28,29 @@ def run(cmd: List[Union[str, Path]]) -> None:
 
 
 def real_nixpkgs() -> str:
-    output = subprocess.run(
+    proc = subprocess.run(
         ["nix-instantiate", "--find-file", "nixpkgs"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    if proc.returncode == 0:
+        return proc.stdout.strip()
+
+    proc = subprocess.run(
+        [
+            "nix",
+            "eval",
+            "--experimental-features",
+            "nix-command flakes",
+            "--raw",
+            "nixpkgs#path",
+        ],
         check=True,
         stdout=subprocess.PIPE,
         text=True,
-    ).stdout.strip()
-    return output
+    )
+    return proc.stdout.strip()
 
 
 def setup_nixpkgs(target: Path) -> Path:
@@ -55,8 +71,19 @@ def setup_nixpkgs(target: Path) -> Path:
     return target
 
 
+class Chdir(object):
+    def __init__(self, path: Union[Path, str]) -> None:
+        self.old_dir = os.getcwd()
+        self.new_dir = path
+
+    def __enter__(self) -> None:
+        os.chdir(self.new_dir)
+
+    def __exit__(self, *args: Any) -> None:
+        os.chdir(self.old_dir)
+
+
 def setup_git(path: Path) -> Nixpkgs:
-    os.chdir(path)
     os.environ["GIT_AUTHOR_NAME"] = "nixpkgs-review"
     os.environ["GIT_AUTHOR_EMAIL"] = "nixpkgs-review@example.com"
     os.environ["GIT_COMMITTER_NAME"] = "nixpkgs-review"
@@ -90,7 +117,10 @@ class Helpers:
             path = Path(tmpdirname)
             nixpkgs_path = path.joinpath("nixpkgs")
             os.environ["XDG_CACHE_HOME"] = str(path.joinpath("cache"))
-            yield setup_git(setup_nixpkgs(nixpkgs_path))
+            setup_nixpkgs(nixpkgs_path)
+
+            with Chdir(nixpkgs_path):
+                yield setup_git(nixpkgs_path)
 
 
 # pytest.fixture is untyped
