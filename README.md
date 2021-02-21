@@ -152,7 +152,7 @@ nix-shell> nixpkgs-review post-result
 nix-shell> nixpkgs-review comments
 ```
 
-## Using nix-review in scripts
+## Using nixpkgs-review in scripts or other programs
 
 After building, `nixpkgs-review` will normally start a `nix-shell` with the
 packages built, to allow for interactive testing. To use `nixpkgs-review`
@@ -166,6 +166,26 @@ comments for later review:
 for pr in 807{60..70}; do
     nixpkgs-review pr --no-shell --post-result $pr && echo "PR $pr succeeded" || echo "PR $pr failed"
 done
+```
+
+`nixpkgs-review` also accepts a `--run` flag that allows to run a custom command
+inside the nix-shell instead of an interactive session:
+
+``` console
+$ nixpkgs-review pr --run 'jq < report.json' 113814
+# ...
+{
+  "blacklisted": [],
+  "broken": [],
+  "built": [
+    "cargo-deny"
+  ],
+  "failed": [],
+  "non-existant": [],
+  "pr": 113814,
+  "system": "x86_64-linux",
+  "tests": []
+}
 ```
 
 ## Review multiple pull requests at once
