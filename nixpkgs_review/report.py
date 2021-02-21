@@ -1,5 +1,6 @@
 import os
 import subprocess
+import json
 from pathlib import Path
 from typing import Callable, List, Optional
 
@@ -109,11 +110,33 @@ class Report:
         with open(directory.joinpath("report.md"), "w+") as f:
             f.write(self.markdown(pr))
 
+        with open(directory.joinpath("report.json"), "w+") as f:
+            f.write(self.json(pr))
+
         write_error_logs(self.attrs, directory)
 
     def succeeded(self) -> bool:
         """Whether the report is considered a success or a failure"""
         return len(self.failed) == 0
+
+    def json(self, pr: Optional[int]) -> str:
+        def serialize_attrs(attrs: List[Attr]) -> List[str]:
+            return list(map(lambda a: a.name, attrs))
+
+        return json.dumps(
+            {
+                "system": self.system,
+                "pr": pr,
+                "broken": serialize_attrs(self.broken),
+                "non-existant": serialize_attrs(self.non_existant),
+                "blacklisted": serialize_attrs(self.blacklisted),
+                "failed": serialize_attrs(self.failed),
+                "built": serialize_attrs(self.built),
+                "tests": serialize_attrs(self.tests),
+            },
+            sort_keys=True,
+            indent=4,
+        )
 
     def markdown(self, pr: Optional[int]) -> str:
         cmd = "nixpkgs-review"

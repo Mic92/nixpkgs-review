@@ -1,0 +1,2 @@
+# ignore nixpkgs remote that we put in the same directory
+/remote

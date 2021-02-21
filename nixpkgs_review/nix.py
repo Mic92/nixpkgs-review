@@ -39,10 +39,15 @@ class Attr:
         return self.name.startswith("nixosTests")
 
 
-def nix_shell(attrs: List[str], cache_directory: Path) -> None:
+def nix_shell(
+    attrs: List[str], cache_directory: Path, run: Optional[str] = None
+) -> None:
     shell = cache_directory.joinpath("shell.nix")
     write_shell_expression(shell, attrs)
-    sh(["nix-shell", str(shell)], cwd=cache_directory, check=False)
+    args = ["nix-shell", str(shell)]
+    if run:
+        args.extend(["--run", run])
+    sh(args, cwd=cache_directory, check=False)
 
 
 def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:

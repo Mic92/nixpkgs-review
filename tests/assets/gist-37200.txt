@@ -1,0 +1,4 @@
+i686-linux	pkg1
+x86_64-linux	pkg1
+x86_64-darwin	pkg1
+aarch64-linux	pkg1

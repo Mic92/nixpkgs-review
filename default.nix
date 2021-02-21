@@ -9,13 +9,17 @@ python3.pkgs.buildPythonApplication rec {
     mypy
     python3.pkgs.black
     python3.pkgs.flake8
-    python3.pkgs.pytest
     glibcLocales
+
+    # needed for interactive unittests
+    python3.pkgs.pytest
+    nixFlakes
   ];
 
+  # does not work in sandbox
+  dontCheck = false;
+
   checkPhase = ''
-    echo -e "\x1b[32m## run unittest\x1b[0m"
-    py.test .
     ${if pkgs.lib.versionAtLeast python3.pkgs.black.version "20" then ''
       echo -e "\x1b[32m## run black\x1b[0m"
       LC_ALL=en_US.utf-8 black --check .
@@ -23,9 +27,9 @@ python3.pkgs.buildPythonApplication rec {
       echo -e "\033[0;31mskip running black (version too old)\x1b[0m"
     ''}
     echo -e "\x1b[32m## run flake8\x1b[0m"
-    flake8 nixpkgs_review
+    flake8 .
     echo -e "\x1b[32m## run mypy\x1b[0m"
-    mypy --strict nixpkgs_review
+    mypy --strict .
   '';
   makeWrapperArgs = [
     "--prefix PATH : ${lib.makeBinPath [ nixFlakes git ]}"

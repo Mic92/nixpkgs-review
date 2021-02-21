@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
+import tempfile
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -100,6 +101,8 @@ class Review:
         builddir: Builddir,
         build_args: str,
         no_shell: bool,
+        run: str,
+        remote: str,
         api_token: Optional[str] = None,
         use_ofborg_eval: Optional[bool] = True,
         only_packages: Set[str] = set(),
@@ -111,6 +114,8 @@ class Review:
         self.builddir = builddir
         self.build_args = build_args
         self.no_shell = no_shell
+        self.run = run
+        self.remote = remote
         self.github_client = GithubClient(api_token)
         self.use_ofborg_eval = use_ofborg_eval
         self.checkout = checkout
@@ -192,7 +197,7 @@ class Review:
         else:
             packages_per_system = None
         merge_rev, pr_rev = fetch_refs(
-            "https://github.com/NixOS/nixpkgs",
+            self.remote,
             pr["base"]["ref"],
             f"pull/{pr['number']}/head",
         )
@@ -236,21 +241,20 @@ class Review:
         if self.no_shell:
             sys.exit(0 if report.succeeded() else 1)
         else:
-            nix_shell(report.built_packages(), path)
+            nix_shell(report.built_packages(), path, self.run)
 
     def review_commit(
         self,
         path: Path,
         branch: str,
-        remote: str,
         reviewed_commit: Optional[str],
         staged: bool = False,
     ) -> None:
-        branch_rev = fetch_refs(remote, branch)[0]
+        branch_rev = fetch_refs(self.remote, branch)[0]
         self.start_review(self.build_commit(branch_rev, reviewed_commit, staged), path)
 
 
-def parse_packages_xml(stdout: IO[bytes]) -> List[Package]:
+def parse_packages_xml(stdout: IO[str]) -> List[Package]:
     packages: List[Package] = []
     path = None
     context = ET.iterparse(stdout, events=("start", "end"))
@@ -310,10 +314,11 @@ def list_packages(path: str, check_meta: bool = False) -> List[Package]:
     if check_meta:
         cmd.append("--meta")
     info("$ " + " ".join(cmd))
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    with proc as nix_env:
-        assert nix_env.stdout
-        return parse_packages_xml(nix_env.stdout)
+    with tempfile.NamedTemporaryFile(mode="w") as tmp:
+        subprocess.run(cmd, stdout=tmp, check=True)
+        tmp.flush()
+        with open(tmp.name) as f:
+            return parse_packages_xml(f)
 
 
 def package_attrs(
@@ -438,13 +443,16 @@ def review_local_revision(
     args: argparse.Namespace,
     commit: Optional[str],
     staged: bool = False,
-) -> None:
+) -> Path:
     with Builddir(builddir_path) as builddir:
         review = Review(
             builddir=builddir,
             build_args=args.build_args,
             no_shell=args.no_shell,
+            run=args.run,
+            remote=args.remote,
             only_packages=set(args.package),
             package_regexes=args.package_regex,
         )
-        review.review_commit(builddir.path, args.branch, args.remote, commit, staged)
+        review.review_commit(builddir.path, args.branch, commit, staged)
+        return builddir.path

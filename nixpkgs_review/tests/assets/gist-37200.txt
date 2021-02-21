@@ -1,4 +1,0 @@
-i686-linux	pong3d
-x86_64-linux	pong3d
-x86_64-darwin	pong3d
-aarch64-linux	pong3d
