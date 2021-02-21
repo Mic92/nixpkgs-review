@@ -68,13 +68,16 @@ def write_error_logs(attrs: List[Attr], directory: Path) -> None:
             if not path:
                 continue
             with open(logs.ensure().joinpath(attr.name + ".log"), "w+") as f:
-                nix_log = subprocess.run([
-                    "nix",
-                    "--experimental-features",
-                    "nix-command",
-                    "log",
-                    path,
-                ], stdout=f)
+                nix_log = subprocess.run(
+                    [
+                        "nix",
+                        "--experimental-features",
+                        "nix-command",
+                        "log",
+                        path,
+                    ],
+                    stdout=f,
+                )
                 if nix_log.returncode == 0:
                     return
 
