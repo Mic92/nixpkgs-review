@@ -228,6 +228,7 @@ class Review:
         pr: Optional[int] = None,
         post_result: Optional[bool] = False,
     ) -> None:
+        os.environ.pop("NIXPKGS_CONFIG", None)
         os.environ["NIX_PATH"] = path.as_posix()
         if pr:
             os.environ["PR"] = str(pr)
