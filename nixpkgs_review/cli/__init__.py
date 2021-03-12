@@ -185,6 +185,12 @@ def common_flags() -> List[CommonFlag]:
             default="https://github.com/NixOS/nixpkgs",
             help="Name of the nixpkgs repo to review",
         ),
+        CommonFlag(
+            "--pkgs",
+            default=None,
+            type=str,
+            help="Which pkgs to use, eg: pkgsMusl or pkgsCross.aarch64-multiplatform",
+        ),
     ]
 
 

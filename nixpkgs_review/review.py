@@ -103,6 +103,7 @@ class Review:
         no_shell: bool,
         run: str,
         remote: str,
+        pkgs: Optional[str],
         api_token: Optional[str] = None,
         use_ofborg_eval: Optional[bool] = True,
         only_packages: Set[str] = set(),
@@ -116,6 +117,7 @@ class Review:
         self.no_shell = no_shell
         self.run = run
         self.remote = remote
+        self.pkgs = pkgs
         self.github_client = GithubClient(api_token)
         self.use_ofborg_eval = use_ofborg_eval
         self.checkout = checkout
@@ -187,7 +189,7 @@ class Review:
             self.skip_packages,
             self.skip_packages_regex,
         )
-        return nix_build(packages, args, self.builddir.path)
+        return nix_build(packages, args, self.builddir.path, self.pkgs)
 
     def build_pr(self, pr_number: int) -> List[Attr]:
         pr = self.github_client.pull_request(pr_number)
@@ -225,6 +227,7 @@ class Review:
         self,
         attr: List[Attr],
         path: Path,
+        pkgs: Optional[str],
         pr: Optional[int] = None,
         post_result: Optional[bool] = False,
     ) -> None:
@@ -241,17 +244,20 @@ class Review:
         if self.no_shell:
             sys.exit(0 if report.succeeded() else 1)
         else:
-            nix_shell(report.built_packages(), path, self.run)
+            nix_shell(report.built_packages(), path, pkgs, self.run)
 
     def review_commit(
         self,
         path: Path,
         branch: str,
         reviewed_commit: Optional[str],
+        pkgs: Optional[str],
         staged: bool = False,
     ) -> None:
         branch_rev = fetch_refs(self.remote, branch)[0]
-        self.start_review(self.build_commit(branch_rev, reviewed_commit, staged), path)
+        self.start_review(
+            self.build_commit(branch_rev, reviewed_commit, staged), path, pkgs
+        )
 
 
 def parse_packages_xml(stdout: IO[str]) -> List[Package]:
@@ -451,8 +457,9 @@ def review_local_revision(
             no_shell=args.no_shell,
             run=args.run,
             remote=args.remote,
+            pkgs=args.pkgs,
             only_packages=set(args.package),
             package_regexes=args.package_regex,
         )
-        review.review_commit(builddir.path, args.branch, commit, staged)
+        review.review_commit(builddir.path, args.branch, commit, args.pkgs, staged)
         return builddir.path

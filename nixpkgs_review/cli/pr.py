@@ -53,6 +53,7 @@ def pr_command(args: argparse.Namespace) -> str:
                     no_shell=args.no_shell,
                     run=args.run,
                     remote=args.remote,
+                    pkgs=args.pkgs,
                     api_token=args.token,
                     use_ofborg_eval=use_ofborg_eval,
                     only_packages=set(args.package),
@@ -66,7 +67,7 @@ def pr_command(args: argparse.Namespace) -> str:
                 warn(f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build")
 
         for pr, path, attrs in contexts:
-            review.start_review(attrs, path, pr, args.post_result)
+            review.start_review(attrs, path, args.pkgs, pr, args.post_result)
 
         if len(contexts) != len(prs):
             sys.exit(1)
