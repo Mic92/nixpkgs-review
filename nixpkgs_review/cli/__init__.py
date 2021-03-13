@@ -190,12 +190,6 @@ def common_flags() -> List[CommonFlag]:
             type=str,
             help="Nix 'system' to evaluate and build packages for",
         ),
-        CommonFlag(
-            "--pkgs",
-            default=None,
-            type=str,
-            help="Which pkgs to use, eg: pkgsMusl or pkgsCross.aarch64-multiplatform",
-        ),
     ]
 
 
