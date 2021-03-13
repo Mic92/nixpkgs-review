@@ -45,8 +45,8 @@ def current_system() -> str:
     return system.stdout
 
 
-def native_packages(packages_per_system: Dict[str, Set[str]]) -> Set[str]:
-    return set(packages_per_system[current_system()])
+def native_packages(packages_per_system: Dict[str, Set[str]], system: str) -> Set[str]:
+    return set(packages_per_system[system])
 
 
 def print_packages(
@@ -111,6 +111,7 @@ class Review:
         skip_packages: Set[str] = set(),
         skip_packages_regex: List[Pattern[str]] = [],
         checkout: CheckoutOption = CheckoutOption.MERGE,
+        system: Optional[str] = None,
     ) -> None:
         self.builddir = builddir
         self.build_args = build_args
@@ -125,6 +126,7 @@ class Review:
         self.package_regex = package_regexes
         self.skip_packages = skip_packages
         self.skip_packages_regex = skip_packages_regex
+        self.system = system or current_system()
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -157,14 +159,16 @@ class Review:
         Review a local git commit
         """
         self.git_worktree(base_commit)
-        base_packages = list_packages(str(self.worktree_dir()))
+        base_packages = list_packages(str(self.worktree_dir()), self.system)
 
         if reviewed_commit is None:
             self.apply_unstaged(staged)
         else:
             self.git_merge(reviewed_commit)
 
-        merged_packages = list_packages(str(self.worktree_dir()), check_meta=True)
+        merged_packages = list_packages(
+            str(self.worktree_dir()), self.system, check_meta=True
+        )
 
         changed_pkgs, removed_pkgs = differences(base_packages, merged_packages)
         changed_attrs = set(p.attr_path for p in changed_pkgs)
@@ -188,8 +192,9 @@ class Review:
             self.package_regex,
             self.skip_packages,
             self.skip_packages_regex,
+            self.system,
         )
-        return nix_build(packages, args, self.builddir.path, self.pkgs)
+        return nix_build(packages, args, self.builddir.path, self.system, self.pkgs)
 
     def build_pr(self, pr_number: int) -> List[Attr]:
         pr = self.github_client.pull_request(pr_number)
@@ -220,7 +225,7 @@ class Review:
 
         self.checkout_pr(base_rev, pr_rev)
 
-        packages = native_packages(packages_per_system)
+        packages = native_packages(packages_per_system, self.system)
         return self.build(packages, self.build_args)
 
     def start_review(
@@ -235,7 +240,7 @@ class Review:
         os.environ["NIX_PATH"] = path.as_posix()
         if pr:
             os.environ["PR"] = str(pr)
-        report = Report(current_system(), attr)
+        report = Report(self.system, attr)
         report.print_console(pr)
         report.write(path, pr)
 
@@ -245,7 +250,7 @@ class Review:
         if self.no_shell:
             sys.exit(0 if report.succeeded() else 1)
         else:
-            nix_shell(report.built_packages(), path, pkgs, self.run)
+            nix_shell(report.built_packages(), path, self.system, pkgs, self.run)
 
     def review_commit(
         self,
@@ -308,9 +313,12 @@ def parse_packages_xml(stdout: IO[str]) -> List[Package]:
     return packages
 
 
-def list_packages(path: str, check_meta: bool = False) -> List[Package]:
+def list_packages(path: str, system: str, check_meta: bool = False) -> List[Package]:
     cmd = [
         "nix-env",
+        "--option",
+        "system",
+        system,
         "-f",
         path,
         "-qaP",
@@ -329,13 +337,13 @@ def list_packages(path: str, check_meta: bool = False) -> List[Package]:
 
 
 def package_attrs(
-    package_set: Set[str], ignore_nonexisting: bool = True
+    package_set: Set[str], system: str, ignore_nonexisting: bool = True
 ) -> Dict[str, Attr]:
     attrs: Dict[str, Attr] = {}
 
     nonexisting = []
 
-    for attr in nix_eval(package_set):
+    for attr in nix_eval(package_set, system):
         if not attr.exists:
             nonexisting.append(attr.name)
         elif not attr.broken:
@@ -349,9 +357,13 @@ def package_attrs(
     return attrs
 
 
-def join_packages(changed_packages: Set[str], specified_packages: Set[str]) -> Set[str]:
-    changed_attrs = package_attrs(changed_packages)
-    specified_attrs = package_attrs(specified_packages, ignore_nonexisting=False)
+def join_packages(
+    changed_packages: Set[str], specified_packages: Set[str], system: str
+) -> Set[str]:
+    changed_attrs = package_attrs(changed_packages, system)
+    specified_attrs = package_attrs(
+        specified_packages, system, ignore_nonexisting=False
+    )
 
     tests: Dict[str, Attr] = {}
     for path, attr in specified_attrs.items():
@@ -378,6 +390,7 @@ def filter_packages(
     package_regexes: List[Pattern[str]],
     skip_packages: Set[str],
     skip_package_regexes: List[Pattern[str]],
+    system: str,
 ) -> Set[str]:
     packages: Set[str] = set()
 
@@ -390,7 +403,7 @@ def filter_packages(
         return changed_packages
 
     if len(specified_packages) > 0:
-        packages = join_packages(changed_packages, specified_packages)
+        packages = join_packages(changed_packages, specified_packages, system)
 
     for attr in changed_packages:
         for regex in package_regexes:
@@ -461,6 +474,7 @@ def review_local_revision(
             pkgs=args.pkgs,
             only_packages=set(args.package),
             package_regexes=args.package_regex,
+            system=args.system,
         )
         review.review_commit(builddir.path, args.branch, commit, args.pkgs, staged)
         return builddir.path

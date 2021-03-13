@@ -19,9 +19,10 @@
       "locked": {
         "lastModified": 1613848021,
         "narHash": "sha256-9JICogf6yTscjE3bmeX13vks+omv8408I3B7gWIau5U=",
-        "path": "/nix/store/z87z2f1vf6wzjl9nh1rs7k1ki9s6yf2k-source",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
         "rev": "1c5ca28030c459fc10d69b8608c66ed3a45f8fe9",
-        "type": "path"
+        "type": "github"
       },
       "original": {
         "id": "nixpkgs",

@@ -186,6 +186,11 @@ def common_flags() -> List[CommonFlag]:
             help="Name of the nixpkgs repo to review",
         ),
         CommonFlag(
+            "--system",
+            type=str,
+            help="Nix 'system' to evaluate and build packages for",
+        ),
+        CommonFlag(
             "--pkgs",
             default=None,
             type=str,
