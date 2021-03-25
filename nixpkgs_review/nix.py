@@ -159,6 +159,8 @@ def nix_build(
         "build",
         "--no-link",
         "--keep-going",
+        "--log-format",
+        "bar-with-logs",
     ]
 
     if platform == "linux":
