@@ -232,12 +232,16 @@ class Review:
         path: Path,
         pr: Optional[int] = None,
         post_result: Optional[bool] = False,
+        post_logs: Optional[bool] = False,
     ) -> None:
         os.environ.pop("NIXPKGS_CONFIG", None)
         os.environ["NIX_PATH"] = path.as_posix()
         if pr:
             os.environ["PR"] = str(pr)
         report = Report(self.system, attr)
+        if post_logs:
+            report.upload_build_logs(self.github_client, pr)
+
         report.print_console(pr)
         report.write(path, pr)
 

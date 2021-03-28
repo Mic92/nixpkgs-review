@@ -1,8 +1,9 @@
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
-from typing import IO, Any, Callable, List, Optional, Union
+from typing import IO, Any, Callable, Dict, List, Optional, Union
 
 HAS_TTY = sys.stdout.isatty()
 ROOT = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -24,10 +25,33 @@ link = color_text(34)
 
 
 def sh(
-    command: List[str], cwd: Optional[Union[Path, str]] = None, check: bool = True
+    command: List[str],
+    cwd: Optional[Union[Path, str]] = None,
+    check: bool = True,
+    stdout: Any = None,
+    stderr: Any = None,
+    input: Optional[str] = None,
+    **kwargs: Dict[str, Any],
 ) -> "subprocess.CompletedProcess[str]":
+    start_time = time.time()
     info("$ " + " ".join(command))
-    return subprocess.run(command, cwd=cwd, check=check, text=True)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    try:
+        return subprocess.run(  # type: ignore
+            command,
+            cwd=cwd,
+            check=check,
+            text=True,
+            stdout=stdout,
+            stderr=stderr,
+            input=input,
+            **kwargs,
+        )
+    finally:
+        elapsed = time.time() - start_time
+        if elapsed > 120.0:
+            info(f"{command[0]} subprocess took {elapsed:.1f} sec")
 
 
 def verify_commit_hash(commit: str) -> str:

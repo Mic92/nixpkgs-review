@@ -38,7 +38,7 @@ def pr_command(args: argparse.Namespace) -> str:
         CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
     )
 
-    if args.post_result:
+    if args.post_result or args.post_logs:
         ensure_github_token(args.token)
 
     contexts = []
@@ -67,7 +67,9 @@ def pr_command(args: argparse.Namespace) -> str:
                 warn(f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build")
 
         for pr, path, attrs in contexts:
-            review.start_review(attrs, path, pr, args.post_result)
+            review.start_review(
+                attrs, path, pr, post_result=args.post_result, post_logs=args.post_logs
+            )
 
         if len(contexts) != len(prs):
             sys.exit(1)

@@ -52,6 +52,11 @@ def pr_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
         action="store_true",
         help="Post the nixpkgs-review results as a PR comment",
     )
+    pr_parser.add_argument(
+        "--post-logs",
+        action="store_true",
+        help="Upload build logs to gist.github.com",
+    )
     pr_parser.set_defaults(func=pr_command)
     return pr_parser
 
