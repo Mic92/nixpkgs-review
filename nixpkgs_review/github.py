@@ -60,12 +60,32 @@ class GithubClient:
     def put(self, path: str) -> Any:
         return self._request(path, "PUT")
 
+    def patch(self, path: str, data: Dict[str, Any]) -> Any:
+        return self._request(path, "PATCH", data)
+
     def comment_issue(self, pr: int, msg: str) -> Any:
         "Post a comment on a PR with nixpkgs-review report"
         print(f"Posting result comment on {pr_url(pr)}")
         return self.post(
             f"/repos/{OWNER}/{REPO}/issues/{pr}/comments", data=dict(body=msg)
         )
+
+    def comment_or_update_prior_comment_issue(self, pr: int, msg: str) -> Any:
+        NEEDLE = "[1](https://github.com/Mic92/nixpkgs-review)"
+        user = self.get("/user")
+
+        my_prev_comment: Optional[Dict[str, Any]] = None
+        for comment in self.get(f"/repos/{OWNER}/{REPO}/issues/{pr}/comments")[::-1]:
+            if comment["user"]["login"] == user["login"] and NEEDLE in comment["body"]:
+                my_prev_comment = comment
+
+        if my_prev_comment is not None:
+            id = my_prev_comment["id"]
+            new_msg = my_prev_comment["body"] + "\n\n--------\n\n" + msg
+            return self.patch(
+                f"/repos/{OWNER}/{REPO}/issues/comments/{id}", data=dict(body=new_msg)
+            )
+        return self.comment_issue(pr, msg)
 
     def approve_pr(self, pr: int) -> Any:
         "Approve a PR"

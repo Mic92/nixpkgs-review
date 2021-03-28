@@ -31,4 +31,8 @@ def post_result_command(args: argparse.Namespace) -> None:
 
     with open(report) as f:
         report_text = f.read()
-    github_client.comment_issue(pr, report_text)
+
+    if args.prefer_edit:
+        github_client.comment_or_update_prior_comment_issue(pr, report_text)
+    else:
+        github_client.comment_issue(pr, report_text)

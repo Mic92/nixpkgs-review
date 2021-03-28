@@ -233,6 +233,7 @@ class Review:
         pr: Optional[int] = None,
         post_result: Optional[bool] = False,
         post_logs: Optional[bool] = False,
+        prefer_edit: Optional[bool] = False,
     ) -> None:
         os.environ.pop("NIXPKGS_CONFIG", None)
         os.environ["NIX_PATH"] = path.as_posix()
@@ -246,7 +247,12 @@ class Review:
         report.write(path, pr)
 
         if pr and post_result:
-            self.github_client.comment_issue(pr, report.markdown(pr))
+            if prefer_edit:
+                self.github_client.comment_or_update_prior_comment_issue(
+                    pr, report.markdown(pr)
+                )
+            else:
+                self.github_client.comment_issue(pr, report.markdown(pr))
 
         if self.no_shell:
             sys.exit(0 if report.succeeded() else 1)

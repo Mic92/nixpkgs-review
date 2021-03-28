@@ -53,6 +53,12 @@ def pr_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
         help="Post the nixpkgs-review results as a PR comment",
     )
     pr_parser.add_argument(
+        "--prefer-edit",
+        action="store_true",
+        default=False,
+        help="Prefer editing a prior github comment rather than posting a new one, if possible.",
+    )
+    pr_parser.add_argument(
         "--post-logs",
         action="store_true",
         help="Upload build logs to gist.github.com",
@@ -95,6 +101,24 @@ def wip_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser
     wip_parser.set_defaults(func=wip_command)
 
     return wip_parser
+
+
+def post_result_flags(
+    subparsers: argparse._SubParsersAction,
+) -> argparse.ArgumentParser:
+    post_result_parser = subparsers.add_parser(
+        "post-result", help="post PR comments with results"
+    )
+    post_result_parser.add_argument(
+        "--prefer-edit",
+        action="store_true",
+        default=False,
+        help="Prefer editing a prior github comment rather than posting a new one, if possible.",
+    )
+
+    post_result_parser.set_defaults(func=post_result_command)
+
+    return post_result_parser
 
 
 class CommonFlag:
@@ -210,11 +234,6 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
     )
     subparsers.required = True
 
-    post_result_parser = subparsers.add_parser(
-        "post-result", help="post PR comments with results"
-    )
-    post_result_parser.set_defaults(func=post_result_command)
-
     approve_parser = subparsers.add_parser(
         "approve",
         help="Approve the current PR - meant to be used only inside a nixpkgs-review nix-shell",
@@ -237,7 +256,7 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
         approve_parser,
         comments_parser,
         merge_parser,
-        post_result_parser,
+        post_result_flags(subparsers),
         pr_flags(subparsers),
         rev_flags(subparsers),
         wip_flags(subparsers),

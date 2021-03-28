@@ -68,7 +68,12 @@ def pr_command(args: argparse.Namespace) -> str:
 
         for pr, path, attrs in contexts:
             review.start_review(
-                attrs, path, pr, post_result=args.post_result, post_logs=args.post_logs
+                attrs,
+                path,
+                pr,
+                post_result=args.post_result,
+                post_logs=args.post_logs,
+                prefer_edit=args.prefer_edit,
             )
 
         if len(contexts) != len(prs):
