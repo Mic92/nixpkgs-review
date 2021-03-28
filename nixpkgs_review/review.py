@@ -131,7 +131,11 @@ class Review:
         return str(self.builddir.worktree_dir)
 
     def git_merge(self, commit: str) -> None:
-        sh(["git", "merge", "--no-commit", "--no-ff", commit], cwd=self.worktree_dir())
+        sh(
+            ["git", "merge", "--no-commit", "--no-ff", commit],
+            cwd=self.worktree_dir(),
+            stderr=sys.stdout,
+        )
 
     def apply_unstaged(self, staged: bool = False) -> None:
         args = ["git", "--no-pager", "diff"]
@@ -145,7 +149,9 @@ class Review:
             sys.exit(0)
 
         info("Applying `nixpkgs` diff...")
-        result = subprocess.run(["git", "apply"], cwd=self.worktree_dir(), input=diff)
+        result = subprocess.run(
+            ["git", "apply"], cwd=self.worktree_dir(), input=diff, stderr=sys.stdout
+        )
 
         if result.returncode != 0:
             warn("Failed to apply diff in %s" % self.worktree_dir())
@@ -172,10 +178,11 @@ class Review:
         changed_pkgs, removed_pkgs = differences(base_packages, merged_packages)
         changed_attrs = set(p.attr_path for p in changed_pkgs)
         print_updates(changed_pkgs, removed_pkgs)
+
         return self.build(changed_attrs, self.build_args)
 
     def git_worktree(self, commit: str) -> None:
-        sh(["git", "worktree", "add", self.worktree_dir(), commit])
+        sh(["git", "worktree", "add", self.worktree_dir(), commit], stderr=sys.stdout)
 
     def checkout_pr(self, base_rev: str, pr_rev: str) -> None:
         if self.checkout == CheckoutOption.MERGE:
@@ -216,6 +223,7 @@ class Review:
                 ["git", "merge-base", merge_rev, pr_rev],
                 check=True,
                 stdout=subprocess.PIPE,
+                stderr=sys.stdout,
                 text=True,
             )
             base_rev = run.stdout.strip()
@@ -438,11 +446,13 @@ def fetch_refs(repo: str, *refs: str) -> List[str]:
     cmd = ["git", "-c", "fetch.prune=false", "fetch", "--force", repo]
     for i, ref in enumerate(refs):
         cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
-    sh(cmd)
+    sh(cmd, stderr=sys.stdout)
     shas = []
     for i, ref in enumerate(refs):
         out = subprocess.check_output(
-            ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"], text=True
+            ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"],
+            text=True,
+            stderr=sys.stdout,
         )
         shas.append(out.strip())
     return shas
