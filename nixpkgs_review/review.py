@@ -124,6 +124,7 @@ class Review:
         self.package_regex = package_regexes
         self.skip_packages = skip_packages
         self.skip_packages_regex = skip_packages_regex
+        self.pr_rev: Optional[str] = None
         self.system = system or current_system()
 
     def worktree_dir(self) -> str:
@@ -196,16 +197,17 @@ class Review:
 
     def build_pr(self, pr_number: int) -> List[Attr]:
         pr = self.github_client.pull_request(pr_number)
-
         if self.use_ofborg_eval:
             packages_per_system = self.github_client.get_borg_eval_gist(pr)
         else:
             packages_per_system = None
+
         merge_rev, pr_rev = fetch_refs(
             self.remote,
             pr["base"]["ref"],
             f"pull/{pr['number']}/head",
         )
+        self.pr_rev = pr_rev
 
         if self.checkout == CheckoutOption.MERGE:
             base_rev = merge_rev
@@ -239,7 +241,7 @@ class Review:
         os.environ["NIX_PATH"] = path.as_posix()
         if pr:
             os.environ["PR"] = str(pr)
-        report = Report(self.system, attr)
+        report = Report(self.system, attr, self.pr_rev)
         if post_logs:
             report.upload_build_logs(self.github_client, pr)
 

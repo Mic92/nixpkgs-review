@@ -19,13 +19,17 @@ def print_number(
     msg: str,
     what: str = "package",
     log: Callable[[str], None] = warn,
+    show: int = -1,
 ) -> None:
     if len(packages) == 0:
         return
     plural = "s" if len(packages) > 1 else ""
     names = (a.name for a in packages)
     log(f"{len(packages)} {what}{plural} {msg}:")
-    log(" ".join(names))
+    if show == -1 or show > len(packages):
+        log(" ".join(names))
+    else:
+        log(" ".join(islice(names, show)) + " ...")
     log("")
 
 
@@ -91,10 +95,15 @@ def write_error_logs(attrs: List[Attr], directory: Path) -> None:
 
 
 class Report:
-    def __init__(self, system: str, attrs: List[Attr]) -> None:
+    def __init__(
+        self, system: str, attrs: List[Attr], pr_rev: Optional[str] = None
+    ) -> None:
         self.system = system
         self.attrs = attrs
+        self.pr_rev: Optional[str] = pr_rev
+        self.skipped: List[Attr] = []
         self.broken: List[Attr] = []
+        self.timed_out: List[Attr] = []
         self.failed: List[Attr] = []
         self.non_existant: List[Attr] = []
         self.blacklisted: List[Attr] = []
@@ -106,6 +115,10 @@ class Report:
                 self.broken.append(a)
             elif a.blacklisted:
                 self.blacklisted.append(a)
+            elif a.skipped:
+                self.skipped.append(a)
+            elif a.timed_out:
+                self.timed_out.append(a)
             elif not a.exists:
                 self.non_existant.append(a)
             elif a.name.startswith("nixosTests."):
@@ -161,12 +174,15 @@ class Report:
             {
                 "system": self.system,
                 "pr": pr,
+                "pr_rev": self.pr_rev,
                 "broken": serialize_attrs(self.broken),
                 "non-existant": serialize_attrs(self.non_existant),
-                "blacklisted": serialize_attrs(self.blacklisted),
                 "failed": serialize_attrs(self.failed),
-                "built": serialize_attrs(self.built),
+                "skipped": serialize_attrs(self.skipped),
+                "timed_out": serialize_attrs(self.timed_out),
+                "blacklisted": serialize_attrs(self.blacklisted),
                 "tests": serialize_attrs(self.tests),
+                "built": serialize_attrs(self.built),
             },
             sort_keys=True,
             indent=4,
@@ -177,17 +193,22 @@ class Report:
         if pr is not None:
             cmd += f" pr {pr}"
 
-        msg = f"Result of `{cmd}` run on {self.system} [1](https://github.com/Mic92/nixpkgs-review)\n"
+        shortcommit = f" at {self.pr_rev[:8]}" if self.pr_rev else ""
+        link = "[1](https://github.com/Mic92/nixpkgs-review)"
+        msg = f"Result of `{cmd}`{shortcommit} run on {self.system} {link}\n"
 
         msg += html_pkgs_section(self.broken, "marked as broken and skipped")
         msg += html_pkgs_section(
             self.non_existant,
             "present in ofBorgs evaluation, but not found in the checkout",
         )
-        msg += html_pkgs_section(self.blacklisted, "blacklisted")
         msg += html_pkgs_section(self.failed, "failed to build")
+        msg += html_pkgs_section(
+            self.skipped, "skipped due to time constraints", show=10
+        )
+        msg += html_pkgs_section(self.timed_out, "timed out")
         msg += html_pkgs_section(self.tests, "built", what="test")
-        msg += html_pkgs_section(self.built, "built")
+        msg += html_pkgs_section(self.built, "built successfully")
 
         return msg
 
@@ -202,6 +223,8 @@ class Report:
             "present in ofBorgs evaluation, but not found in the checkout",
         )
         print_number(self.blacklisted, "blacklisted")
+        print_number(self.skipped, "skipped due to time constraints", show=10)
+        print_number(self.timed_out, "timed out", show=True)
         print_number(self.failed, "failed to build")
         print_number(self.tests, "built", what="tests", log=print)
-        print_number(self.built, "built", log=print)
+        print_number(self.built, "built successfully", log=print)

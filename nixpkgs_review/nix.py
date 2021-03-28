@@ -3,6 +3,8 @@ import os
 import re
 import shlex
 import subprocess
+import sys
+import time
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
@@ -19,15 +21,21 @@ class Attr:
     exists: bool
     broken: bool
     blacklisted: bool
+    skipped: bool
     path: Optional[str]
     drv_path: Optional[str]
+    position: Optional[str]
     log_url: Optional[str] = field(default=None)
     aliases: List[str] = field(default_factory=lambda: [])
+    timed_out: bool = field(default=False)
     build_err_msg: Optional[str] = field(default=None)
     _path_verified: Optional[bool] = field(init=False, default=None)
 
     def was_build(self) -> bool:
         if self.path is None:
+            return False
+
+        if self.skipped:
             return False
 
         if self._path_verified is not None:
@@ -135,14 +143,17 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
     )
     attr_by_path: Dict[str, Attr] = {}
     broken = []
+
     for name, props in json.items():
         attr = Attr(
             name=name,
             exists=props["exists"],
             broken=props["broken"],
             blacklisted=name in blacklist,
+            skipped=False,
             path=props["path"],
             drv_path=props["drvPath"],
+            position=props["position"] if props["position"] is not None else None,
         )
         if attr.path is not None:
             other = attr_by_path.get(attr.path, None)
@@ -159,42 +170,69 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
     return list(attr_by_path.values()) + broken
 
 
-def nix_eval(attrs: Set[str], system: str) -> List[Attr]:
-    attr_json = NamedTemporaryFile(mode="w+", delete=False)
-    delete = True
-    try:
-        json.dump(list(attrs), attr_json)
-        eval_script = str(ROOT.joinpath("nix/evalAttrs.nix"))
-        attr_json.flush()
-        cmd = [
-            "nix",
-            "--experimental-features",
-            "nix-command",
-            "--system",
-            system,
-            "eval",
-            "--json",
-            "--impure",
-            "--expr",
-            f"(import {eval_script} {attr_json.name})",
-        ]
-
+def nix_eval(
+    attrs: Set[str], system: str, cache_directory: Optional[Path] = None
+) -> List[Attr]:
+    def _eval(attrs: List[str]) -> Dict[str, Any]:
+        attr_json = NamedTemporaryFile(mode="w+", delete=False)
+        delete = True
         try:
-            nix_eval = subprocess.run(
-                cmd, check=True, stdout=subprocess.PIPE, text=True
-            )
-        except subprocess.CalledProcessError:
-            warn(
-                f"{' '.join(cmd)} failed to run, {attr_json.name} was stored inspection"
-            )
-            delete = False
-            raise
+            json.dump(attrs, attr_json)
+            eval_script = str(ROOT.joinpath("nix/evalAttrs.nix"))
+            attr_json.flush()
+            cmd = [
+                "nix",
+                "--experimental-features",
+                "nix-command",
+                "eval",
+                "--json",
+                "--system",
+                system,
+                "--impure",
+                "--expr",
+                f"(import {eval_script} {attr_json.name})",
+            ]
 
-        return _nix_eval_filter(json.loads(nix_eval.stdout))
-    finally:
-        attr_json.close()
-        if delete:
-            os.unlink(attr_json.name)
+            try:
+                nix_eval = subprocess.run(
+                    cmd, check=True, stdout=subprocess.PIPE, text=True
+                )
+            except subprocess.CalledProcessError:
+                warn(
+                    f"{' '.join(cmd)} failed to run, {attr_json.name} was stored inspection"
+                )
+                delete = False
+                raise
+
+            return json.loads(nix_eval.stdout)
+        finally:
+            attr_json.close()
+            if delete:
+                os.unlink(attr_json.name)
+
+    #
+    # Split the evaluation into chunks of 4096 attrs at a time.
+    # This helps limit the memory usage, which can be a problem.
+    #
+    start_time = time.time()
+    eval_data = {}
+    attrlist = sorted(attrs)
+    MAX_ATTRS_AT_ONCE = 4096
+
+    for i in range(0, len(attrs), MAX_ATTRS_AT_ONCE):
+        chunk = attrlist[i : i + MAX_ATTRS_AT_ONCE]
+        eval_data.update(_eval(chunk))
+
+    if cache_directory is not None:
+        # This information contains a lot of details about each attr, and may
+        # be used by scripts that run inside the nixpkgs-review shell.
+        with open(cache_directory.joinpath("changed-attrs.json"), "w") as f:
+            json.dump(eval_data, f)
+
+    if time.time() - start_time > 30:
+        info(f"Time required for nix eval: {time.time() - start_time:.0f} sec")
+
+    return _nix_eval_filter(eval_data)
 
 
 def nix_build(
@@ -207,10 +245,11 @@ def nix_build(
         info("Nothing to be built.")
         return []
 
-    attrs = nix_eval(attr_names, system)
+    attrs = nix_eval(attr_names, system=system, cache_directory=cache_directory)
+    attrs = pre_build_filter(attrs, cache_directory=cache_directory)
     filtered = []
     for attr in attrs:
-        if not (attr.broken or attr.blacklisted):
+        if not (attr.broken or attr.blacklisted or attr.skipped):
             filtered.append(attr.name)
 
     if len(filtered) == 0:
@@ -256,6 +295,7 @@ def nix_build(
     )
 
     has_failed_dependencies = []
+    has_timeout = {}
     for line in stderr.splitlines():
         if "dependencies couldn't be built" in line:
             has_failed_dependencies.append(
@@ -263,14 +303,52 @@ def nix_build(
                 .lstrip("'")
                 .rstrip(":'")
             )
+        if "timed out after" in line:
+            drv = next(item for item in line.split() if nix_store in item).strip("'")
+            has_timeout[drv] = line
 
     drv_path_to_attr = {a.drv_path: a for a in attrs}
+    for drv_path in has_timeout.keys():
+        if drv_path in drv_path_to_attr:
+            attr = drv_path_to_attr[drv_path]
+            attr.build_err_msg = has_timeout[drv_path]
+            attr.timed_out = True
 
     for drv_path in has_failed_dependencies:
         if drv_path in drv_path_to_attr:
             attr = drv_path_to_attr[drv_path]
             attr.build_err_msg = stderr
 
+            # Without inspecting the build graph, let's just guess
+            # that if something failed to build and there were ANY timeouts
+            # that it's probably the case that this failure to build
+            # was probably caused by the timeout.
+            # e.g. https://github.com/NixOS/nixpkgs/pull/114609
+            if len(has_timeout) > 0:
+                attr.timed_out = True
+
+    return attrs
+
+
+def pre_build_filter(attrs: List[Attr], cache_directory: Path) -> List[Attr]:
+    for cmd in (
+        cmd
+        for cmd in os.environ.get("NIXPKGS_REVIEW_PRE_BUILD_FILTER", "").split(":")
+        if cmd
+    ):
+        encoded = json.dumps(
+            {
+                "attrs": [attr.__dict__ for attr in attrs],
+            }
+        )
+        p = sh(
+            [cmd],
+            input=encoded,
+            stdout=subprocess.PIPE,
+            stderr=sys.stdout,
+            cwd=cache_directory.as_posix(),
+        )
+        attrs = [Attr(**arg) for arg in json.loads(p.stdout)]
     return attrs
 
 
