@@ -114,6 +114,7 @@ class GithubClient:
     def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Optional[Dict[str, Set[str]]]:
         packages_per_system: DefaultDict[str, Set[str]] = defaultdict(set)
         statuses = self.get(pr["statuses_url"])
+        raw_gist_url = os.environ.get("NIXPKGS_REVIEW_OFBORG_GIST_URL")
         for status in statuses:
             url = status.get("target_url", "")
             if (
@@ -125,12 +126,15 @@ class GithubClient:
                 raw_gist_url = (
                     f"https://gist.githubusercontent.com/GrahamcOfBorg{url.path}/raw/"
                 )
-                for line in urllib.request.urlopen(raw_gist_url):
-                    if line == b"":
-                        break
-                    system, attribute = line.decode("utf-8").split()
-                    packages_per_system[system].add(attribute)
-                return packages_per_system
+                break
+
+        if raw_gist_url is not None:
+            for line in urllib.request.urlopen(raw_gist_url):
+                if line == b"":
+                    break
+                system, attribute = line.decode("utf-8").split()
+                packages_per_system[system].add(attribute)
+            return packages_per_system
         return None
 
     def upload_gist(self, name: str, content: str, description: str) -> Dict[str, Any]:
