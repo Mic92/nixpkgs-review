@@ -281,6 +281,9 @@ $ nixpkgs-review pr --skip-packages-regex 'linux_.*' 51292
 `-p`, `-P`, `--package-regex` and `--skip-package-regex` can be used together, in which case
 the matching packages will merged.
 
+Full documentation for regex matching syntax can be found
+[here](https://docs.python.org/3/library/re.html#regular-expression-syntax).
+
 ## Running tests
 
 NixOS tests can be run by using the `--package` feature and our `nixosTests` attribute set:
