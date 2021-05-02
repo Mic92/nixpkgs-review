@@ -14,7 +14,7 @@ class DisableKeyboardInterrupt:
         self.signal_received = False
 
         def handler(_sig: Any, _frame: Any) -> None:
-            warn("Ignore Ctrl-C: Cleanup in progress... Don't be so impatient human!")
+            warn("Ignore Ctrl-C: Cleanup in progress... Don't be so impatient, human!")
 
         self.old_handler = signal.signal(signal.SIGINT, handler)
 
