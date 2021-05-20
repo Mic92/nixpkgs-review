@@ -10,7 +10,7 @@ NOTE: this project used to be called `nix-review`
 ## Features
 
 - [ofborg](https://github.com/NixOS/ofborg) support: reuses evaluation output of CI to skip local evaluation, but
-  also fallbacks if ofborg is not finished
+  also falls back if ofborg is not finished
 - provides a `nix-shell` with all packages that did not fail to build
 - remote builder support
 - allows to build a subset of packages (great for mass-rebuilds)
@@ -197,11 +197,11 @@ $ nixpkgs-review pr 94524 94494 94522 94493 94520
 ```
 
 This will first evaluate & build all pull requests in serial.
-Than a nix-shell will be opened for each of them after the previous
+Then a nix-shell will be opened for each of them after the previous
 shell has been closed.
 
-Tipp: Since it's hard to keep track of the numbers, for each opened
-shell also the corresponding pull request url showed.
+Tip: Since it's hard to keep track of the numbers, for each opened
+shell also the corresponding pull request url is showed.
 
 
 ## Remote builder:
@@ -297,7 +297,7 @@ $ nixpkgs-review pr -p nixosTests.ferm 47077
 By default, nixpkgs-review will use ofborg's evaluation result if available to
 figure out what packages need to be rebuilt. This can be turned off using
 `--eval local`, which is useful if ofborg's evaluation result is outdated. Even
-if using `--eval ofborg`, nixpkgs-review will fallback to local evaluation if
+if using `--eval ofborg`, nixpkgs-review will fall back to local evaluation if
 ofborg's result is not (yet) available.
 
 ## Review changes in personal forks
