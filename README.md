@@ -201,7 +201,7 @@ Then a nix-shell will be opened for each of them after the previous
 shell has been closed.
 
 Tip: Since it's hard to keep track of the numbers, for each opened
-shell also the corresponding pull request url is showed.
+shell the corresponding pull request URL is shown.
 
 
 ## Remote builder:
