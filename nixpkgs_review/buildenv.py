@@ -31,11 +31,6 @@ class Buildenv:
         else:
             os.chdir(root)
 
-        os.environ["GIT_AUTHOR_NAME"] = "nixpkgs-review"
-        os.environ["GIT_AUTHOR_EMAIL"] = "nixpkgs-review@example.com"
-        os.environ["GIT_COMMITTER_NAME"] = "nixpkgs-review"
-        os.environ["GIT_COMMITTER_EMAIL"] = "nixpkgs-review@example.com"
-
         self.nixpkgs_config = NamedTemporaryFile()
         self.nixpkgs_config.write(
             b"""{
