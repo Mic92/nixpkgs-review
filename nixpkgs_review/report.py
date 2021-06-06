@@ -162,6 +162,8 @@ class Report:
                     )
                     pkg.log_url = gist["html_url"]
                 except urllib.error.HTTPError:
+                    # This is possible due to rate-limiting or a failure of that sort.
+                    # It should not be fatal.
                     traceback.print_exc(file=sys.stderr)
             else:
                 print(f"Log content for {pkg} was empty", file=sys.stderr)
