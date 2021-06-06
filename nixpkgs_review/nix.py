@@ -1,3 +1,4 @@
+import functools
 import json
 import os
 import re
@@ -400,6 +401,7 @@ def strip_ansi_colors(s: str) -> str:
     return ansi_escape.sub("", s)
 
 
+@functools.lru_cache()
 def _store_dir() -> str:
     return subprocess.check_output(
         [
