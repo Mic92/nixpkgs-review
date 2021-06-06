@@ -72,7 +72,8 @@ class GithubClient:
         "Post a comment on a PR with nixpkgs-review report"
         print(f"Posting result comment on {self._pr_url(pr)}")
         return self.post(
-            f"/repos/{self._owner}/{self._repo}/issues/{pr}/comments", data=dict(body=msg)
+            f"/repos/{self._owner}/{self._repo}/issues/{pr}/comments",
+            data=dict(body=msg),
         )
 
     def comment_or_update_prior_comment_issue(self, pr: int, msg: str) -> Any:
@@ -80,7 +81,9 @@ class GithubClient:
         user = self.get("/user")
 
         my_prev_comment: Optional[Dict[str, Any]] = None
-        for comment in self.get(f"/repos/{self._owner}/{self._repo}/issues/{pr}/comments")[::-1]:
+        for comment in self.get(
+            f"/repos/{self._owner}/{self._repo}/issues/{pr}/comments"
+        )[::-1]:
             if comment["user"]["login"] == user["login"] and NEEDLE in comment["body"]:
                 my_prev_comment = comment
 
@@ -88,7 +91,8 @@ class GithubClient:
             id = my_prev_comment["id"]
             new_msg = my_prev_comment["body"] + "\n\n--------\n\n" + msg
             return self.patch(
-                f"/repos/{self._owner}/{self._repo}/issues/comments/{id}", data=dict(body=new_msg)
+                f"/repos/{self._owner}/{self._repo}/issues/comments/{id}",
+                data=dict(body=new_msg),
             )
         return self.comment_issue(pr, msg)
 
