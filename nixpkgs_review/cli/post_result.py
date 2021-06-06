@@ -10,7 +10,7 @@ from .utils import ensure_github_token
 
 
 def post_result_command(args: argparse.Namespace) -> None:
-    github_client = GithubClient(ensure_github_token(args.token))
+    github_client = GithubClient(ensure_github_token(args.token), args.remote)
     pr_env = os.environ.get("PR", None)
     if pr_env is None:
         warn("PR environment variable not set. Are you in a nixpkgs-review nix-shell?")

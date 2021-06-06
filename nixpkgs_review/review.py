@@ -117,7 +117,7 @@ class Review:
         self.no_shell = no_shell
         self.run = run
         self.remote = remote
-        self.github_client = GithubClient(api_token)
+        self.github_client = GithubClient(api_token, remote)
         self.use_ofborg_eval = use_ofborg_eval
         self.checkout = checkout
         self.only_packages = only_packages
