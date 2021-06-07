@@ -31,7 +31,7 @@ call it `nix-review`.
 To use it without installing it, use:
 
 ```console
-$ nix run nixpkgs.nixpkgs-review
+$ nix run nixpkgs#nixpkgs-review
 ```
 
 To install it:
