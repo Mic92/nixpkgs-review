@@ -294,7 +294,7 @@ def parse_packages_xml(stdout: IO[str]) -> List[Package]:
             if name not in ["homepage", "description", "position"]:
                 continue
             if elem.attrib["type"] == "strings":
-                values = (e.attrib["value"] for e in elem.getchildren())
+                values = (e.attrib["value"] for e in elem)
                 value = ", ".join(values)
             else:
                 value = elem.attrib["value"]
