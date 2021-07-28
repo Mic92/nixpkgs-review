@@ -13,7 +13,7 @@ python3.pkgs.buildPythonApplication rec {
 
     # needed for interactive unittests
     python3.pkgs.pytest
-    nixFlakes
+    nixUnstable
     git
   ];
 
@@ -30,7 +30,7 @@ python3.pkgs.buildPythonApplication rec {
     mypy --strict nixpkgs_review
   '';
   makeWrapperArgs = [
-    "--prefix PATH : ${lib.makeBinPath [ nixFlakes git ]}"
+    "--prefix PATH : ${lib.makeBinPath [ nixUnstable git ]}"
     "--set NIX_SSL_CERT_FILE ${cacert}/etc/ssl/certs/ca-bundle.crt"
     # we don't have any runtime deps but nix-review shells might inject unwanted dependencies
     "--unset PYTHONPATH"
