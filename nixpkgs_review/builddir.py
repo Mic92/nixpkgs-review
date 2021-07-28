@@ -54,11 +54,10 @@ class Builddir:
         else:
             self.path = self.directory
 
-        self.worktree_dir = self.path.joinpath("nixpkgs")
         self.overlay = Overlay()
 
+        self.worktree_dir = self.path.joinpath("nixpkgs")
         self.worktree_dir.mkdir()
-
         self.worktree_dir = self.worktree_dir
 
         os.environ["NIX_PATH"] = self.nixpkgs_path()

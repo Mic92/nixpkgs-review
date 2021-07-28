@@ -38,12 +38,17 @@ def pr_command(args: argparse.Namespace) -> str:
         CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
     )
 
+    if args.allow_aliases:
+        args.allow_aliases = (
+            getattr(args, "branch", "") == "master" or args.checkout == "merge"
+        ) and args.remote == "https://github.com/NixOS/nixpkgs"
+
     if args.post_result:
         ensure_github_token(args.token)
 
     contexts = []
 
-    with Buildenv(), ExitStack() as stack:
+    with Buildenv(args), ExitStack() as stack:
         for pr in prs:
             builddir = stack.enter_context(Builddir(f"pr-{pr}"))
             try:
@@ -61,6 +66,7 @@ def pr_command(args: argparse.Namespace) -> str:
                     skip_packages_regex=args.skip_package_regex,
                     system=args.system,
                     checkout=checkout_option,
+                    allowAliases=args.allow_aliases,
                 )
                 contexts.append((pr, builddir.path, review.build_pr(pr)))
             except subprocess.CalledProcessError:

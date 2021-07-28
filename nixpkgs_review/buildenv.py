@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 from tempfile import NamedTemporaryFile
@@ -20,6 +21,9 @@ def find_nixpkgs_root() -> Optional[str]:
 
 
 class Buildenv:
+    def __init__(self, args: argparse.Namespace):
+        self.args = args
+
     def __enter__(self) -> None:
         self.environ = os.environ.copy()
         self.old_cwd = os.getcwd()
@@ -38,12 +42,15 @@ class Buildenv:
 
         self.nixpkgs_config = NamedTemporaryFile()
         self.nixpkgs_config.write(
-            b"""{
+            str.encode(
+                f"""{{
           allowUnfree = true;
           allowBroken = true;
+          {"allowAliases = false;" if self.args.allow_aliases else ""}
           ## TODO also build packages marked as insecure
           #allowInsecurePredicate = x: true;
-        } """
+        }}"""
+            )
         )
         self.nixpkgs_config.flush()
         os.environ["NIXPKGS_CONFIG"] = self.nixpkgs_config.name

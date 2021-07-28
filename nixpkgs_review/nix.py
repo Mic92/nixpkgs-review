@@ -90,13 +90,14 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
     return list(attr_by_path.values()) + broken
 
 
-def nix_eval(attrs: Set[str], system: str) -> List[Attr]:
+def nix_eval(attrs: Set[str], system: str, allow_aliases: bool) -> List[Attr]:
     attr_json = NamedTemporaryFile(mode="w+", delete=False)
     delete = True
     try:
         json.dump(list(attrs), attr_json)
         eval_script = str(ROOT.joinpath("nix/evalAttrs.nix"))
         attr_json.flush()
+        allowAliases = "true" if allow_aliases else "false"
         cmd = [
             "nix",
             "--experimental-features",
@@ -107,7 +108,7 @@ def nix_eval(attrs: Set[str], system: str) -> List[Attr]:
             "--json",
             "--impure",
             "--expr",
-            f"(import {eval_script} {attr_json.name})",
+            f"(import {eval_script} {{ allowAliases = {allowAliases}; attr-json = {attr_json.name}; }})",
         ]
 
         try:
@@ -133,12 +134,13 @@ def nix_build(
     args: str,
     cache_directory: Path,
     system: str,
+    allowAliases: bool,
 ) -> List[Attr]:
     if not attr_names:
         info("Nothing to be built.")
         return []
 
-    attrs = nix_eval(attr_names, system)
+    attrs = nix_eval(attr_names, system, allowAliases)
     filtered = []
     for attr in attrs:
         if not (attr.broken or attr.blacklisted):
