@@ -111,7 +111,7 @@ class Review:
         skip_packages_regex: List[Pattern[str]] = [],
         checkout: CheckoutOption = CheckoutOption.MERGE,
         system: Optional[str] = None,
-        allowAliases: bool = False,
+        allow_aliases: bool = False,
     ) -> None:
         self.builddir = builddir
         self.build_args = build_args
@@ -126,7 +126,7 @@ class Review:
         self.skip_packages = skip_packages
         self.skip_packages_regex = skip_packages_regex
         self.system = system or current_system()
-        self.allowAliases = allowAliases
+        self.allow_aliases = allow_aliases
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -193,10 +193,10 @@ class Review:
             self.skip_packages,
             self.skip_packages_regex,
             self.system,
-            self.allowAliases,
+            self.allow_aliases,
         )
         return nix_build(
-            packages, args, self.builddir.path, self.system, self.allowAliases
+            packages, args, self.builddir.path, self.system, self.allow_aliases
         )
 
     def build_pr(self, pr_number: int) -> List[Attr]:
@@ -339,13 +339,13 @@ def package_attrs(
     package_set: Set[str],
     system: str,
     ignore_nonexisting: bool = True,
-    allowAliases: bool = False,
+    allow_aliases: bool = False,
 ) -> Dict[str, Attr]:
     attrs: Dict[str, Attr] = {}
 
     nonexisting = []
 
-    for attr in nix_eval(package_set, system, allowAliases):
+    for attr in nix_eval(package_set, system, allow_aliases):
         if not attr.exists:
             nonexisting.append(attr.name)
         elif not attr.broken:
@@ -363,11 +363,11 @@ def join_packages(
     changed_packages: Set[str],
     specified_packages: Set[str],
     system: str,
-    allowAliases: bool,
+    allow_aliases: bool,
 ) -> Set[str]:
     changed_attrs = package_attrs(changed_packages, system)
     specified_attrs = package_attrs(
-        specified_packages, system, ignore_nonexisting=False, allowAliases=allowAliases
+        specified_packages, system, ignore_nonexisting=False, allow_aliases=allow_aliases
     )
 
     tests: Dict[str, Attr] = {}
@@ -396,7 +396,7 @@ def filter_packages(
     skip_packages: Set[str],
     skip_package_regexes: List[Pattern[str]],
     system: str,
-    allowAliases: bool,
+    allow_aliases: bool,
 ) -> Set[str]:
     packages: Set[str] = set()
 
@@ -410,7 +410,7 @@ def filter_packages(
 
     if len(specified_packages) > 0:
         packages = join_packages(
-            changed_packages, specified_packages, system, allowAliases
+            changed_packages, specified_packages, system, allow_aliases
         )
 
     for attr in changed_packages:

@@ -134,13 +134,13 @@ def nix_build(
     args: str,
     cache_directory: Path,
     system: str,
-    allowAliases: bool,
+    allow_aliases: bool,
 ) -> List[Attr]:
     if not attr_names:
         info("Nothing to be built.")
         return []
 
-    attrs = nix_eval(attr_names, system, allowAliases)
+    attrs = nix_eval(attr_names, system, allow_aliases)
     filtered = []
     for attr in attrs:
         if not (attr.broken or attr.blacklisted):
