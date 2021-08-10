@@ -367,7 +367,10 @@ def join_packages(
 ) -> Set[str]:
     changed_attrs = package_attrs(changed_packages, system)
     specified_attrs = package_attrs(
-        specified_packages, system, ignore_nonexisting=False, allow_aliases=allow_aliases
+        specified_packages,
+        system,
+        ignore_nonexisting=False,
+        allow_aliases=allow_aliases,
     )
 
     tests: Dict[str, Attr] = {}
