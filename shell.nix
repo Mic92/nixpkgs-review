@@ -2,8 +2,7 @@
 
 with pkgs;
 pkgs.mkShell {
-  nativeBuildInputs = [
-    black
-    mypy
+  buildInputs = [
+    (import ./. { }).passthru.env
   ];
 }
