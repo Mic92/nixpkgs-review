@@ -7,6 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: cachix/install-nix-action@v13
+    - uses: cachix/install-nix-action@v14
     - run: nix-build -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/master.tar.gz
     - run: nix-shell -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/master.tar.gz --run "pytest ./tests"
