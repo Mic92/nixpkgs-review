@@ -440,7 +440,7 @@ def filter_packages(
 
 
 def fetch_refs(repo: str, *refs: str) -> List[str]:
-    cmd = ["git", "-c", "fetch.prune=false", "fetch", "--force", repo]
+    cmd = ["git", "-c", "fetch.prune=false", "fetch", "--no-tags", "--force", repo]
     for i, ref in enumerate(refs):
         cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
     sh(cmd)
