@@ -172,11 +172,29 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
 
 
 def nix_eval(
-    attrs: Set[str], system: str, cache_directory: Optional[Path] = None
+    attrs: Set[str], system: str, cache_directory: Optional[Path] = None,
+    allow_aliases: bool
 ) -> List[Attr]:
     def _eval(attrs: List[str]) -> Dict[str, Any]:
         attr_json = NamedTemporaryFile(mode="w+", delete=False)
         delete = True
+        json.dump(list(attrs), attr_json)
+        eval_script = str(ROOT.joinpath("nix/evalAttrs.nix"))
+        attr_json.flush()
+        allowAliases = "true" if allow_aliases else "false"
+        cmd = [
+            "nix",
+            "--experimental-features",
+            "nix-command",
+            "--system",
+            system,
+            "eval",
+            "--json",
+            "--impure",
+            "--expr",
+            f"(import {eval_script} {{ allowAliases = {allowAliases}; attr-json = {attr_json.name}; }})",
+        ]
+
         try:
             json.dump(attrs, attr_json)
             eval_script = str(ROOT.joinpath("nix/evalAttrs.nix"))
@@ -241,12 +259,13 @@ def nix_build(
     args: str,
     cache_directory: Path,
     system: str,
+    allow_aliases: bool,
 ) -> List[Attr]:
     if not attr_names:
         info("Nothing to be built.")
         return []
 
-    attrs = nix_eval(attr_names, system=system, cache_directory=cache_directory)
+    attrs = nix_eval(attr_names, system=system, cache_directory=cache_directory, allow_aliases=allow_aliases)
     attrs = pre_build_filter(attrs, cache_directory=cache_directory)
     filtered = []
     for attr in attrs:

@@ -1,4 +1,4 @@
-attr-json:
+{ allowAliases ? false, attr-json }:
 
 with builtins;
 let
@@ -6,6 +6,7 @@ let
     checkMeta = true;
     allowUnfree = true;
     allowBroken = true;
+    inherit allowAliases;
   }; };
   lib = pkgs.lib;
 

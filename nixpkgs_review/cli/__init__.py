@@ -150,7 +150,9 @@ def read_github_token() -> Optional[str]:
         try:
             with open(path) as f:
                 for line in f:
-                    token_match = re.match(r"\s*oauth_token:\s+([a-f0-9]+)", line)
+                    token_match = re.match(
+                        r"\s*oauth_token:\s+((?:ghp_)?[a-f0-9]+)", line
+                    )
                     if token_match:
                         return token_match.group(1)
         except OSError:
@@ -161,7 +163,18 @@ def read_github_token() -> Optional[str]:
 def common_flags() -> List[CommonFlag]:
     return [
         CommonFlag(
+            "--disable-aliases",
+            dest="allow_aliases",
+            action="store_false",
+            help="Disable aliases while evaluating locally. They are automatically disabled when reviewing NixOS/nixpkgs PRs against master.",
+        ),
+        CommonFlag(
             "--build-args", default="", help="arguments passed to nix when building"
+        ),
+        CommonFlag(
+            "--no-shell",
+            action="store_true",
+            help="Only evaluate and build without executing nix-shell",
         ),
         CommonFlag(
             "-p",
@@ -178,6 +191,18 @@ def common_flags() -> List[CommonFlag]:
             help="Regular expression that package attributes have to match (can be passed multiple times)",
         ),
         CommonFlag(
+            "-r",
+            "--remote",
+            default="https://github.com/NixOS/nixpkgs",
+            help="Name of the nixpkgs repo to review",
+        ),
+        CommonFlag(
+            "--run",
+            type=str,
+            default="",
+            help="Passed to nix-shell to run a command instead of an interactive nix-shell",
+        ),
+        CommonFlag(
             "-P",
             "--skip-package",
             action="append",
@@ -192,32 +217,15 @@ def common_flags() -> List[CommonFlag]:
             help="Regular expression that package attributes have not to match (can be passed multiple times)",
         ),
         CommonFlag(
-            "--no-shell",
-            action="store_true",
-            help="Only evaluate and build without executing nix-shell",
-        ),
-        CommonFlag(
-            "--run",
+            "--system",
             type=str,
-            default="",
-            help="Passed to nix-shell to run a command instead of an interactive nix-shell",
+            help="Nix 'system' to evaluate and build packages for",
         ),
         CommonFlag(
             "--token",
             type=str,
             default=read_github_token(),
             help="Github access token (optional if request limit exceeds)",
-        ),
-        CommonFlag(
-            "-r",
-            "--remote",
-            default="https://github.com/NixOS/nixpkgs",
-            help="Name of the nixpkgs repo to review",
-        ),
-        CommonFlag(
-            "--system",
-            type=str,
-            help="Nix 'system' to evaluate and build packages for",
         ),
     ]
 

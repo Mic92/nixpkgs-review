@@ -31,7 +31,7 @@ call it `nix-review`.
 To use it without installing it, use:
 
 ```console
-$ nix run nixpkgs.nixpkgs-review
+$ nix run nixpkgs#nixpkgs-review
 ```
 
 To install it:
@@ -345,10 +345,10 @@ $ nixpkgs-review --system aarch64-linux pr 98734
 
 ## Run tests
 
-Just like `nixpkgs-review` also the tests are lightning fast:
+To run tests use:
 
 ```console
-$ python3 -m unittest discover .
+$ pytest
 ```
 
 We also use python3's type hints. To check them use `mypy`:
