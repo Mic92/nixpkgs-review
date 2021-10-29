@@ -201,6 +201,8 @@ let
   };
 in stdenv.mkDerivation rec {
   name = "review-shell";
+  preferLocalBuild = true;
+  allowSubstitutes = false;
   buildInputs = if builtins.length paths > 50 then [ env ] else paths;
   unpackPhase = ":";
   installPhase = "touch $out";
