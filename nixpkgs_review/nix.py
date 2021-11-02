@@ -57,11 +57,12 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
     # workaround https://github.com/NixOS/ofborg/issues/269
     blacklist = set(
         [
+            "appimage-run-tests",
+            "nixos-install-tools",
             "tests.nixos-functions.nixos-test",
             "tests.nixos-functions.nixosTest-test",
-            "tests.writers",
-            "appimage-run-tests",
             "tests.trivial",
+            "tests.writers",
         ]
     )
     attr_by_path: Dict[str, Attr] = {}
