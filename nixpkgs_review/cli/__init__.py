@@ -122,7 +122,7 @@ def read_github_token() -> Optional[str]:
             with open(path) as f:
                 for line in f:
                     token_match = re.match(
-                        r"\s*oauth_token:\s+((?:ghp_)?[a-f0-9]+)", line
+                        r"\s*oauth_token:\s+((?:gh[po]_)?[A-z0-9]+)", line
                     )
                     if token_match:
                         return token_match.group(1)
