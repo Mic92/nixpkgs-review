@@ -10,7 +10,7 @@ from .utils import ensure_github_token
 
 
 def post_result_command(args: argparse.Namespace) -> None:
-    github_client = GithubClient(ensure_github_token(args.token))
+    github_client = GithubClient(ensure_github_token(args.token), args.remote)
     pr_env = os.environ.get("PR", None)
     if pr_env is None:
         warn("PR environment variable not set. Are you in a nixpkgs-review nix-shell?")
@@ -31,4 +31,8 @@ def post_result_command(args: argparse.Namespace) -> None:
 
     with open(report) as f:
         report_text = f.read()
-    github_client.comment_issue(pr, report_text)
+
+    if args.prefer_edit:
+        github_client.comment_or_update_prior_comment_issue(pr, report_text)
+    else:
+        github_client.comment_issue(pr, report_text)

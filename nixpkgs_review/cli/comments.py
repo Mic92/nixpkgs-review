@@ -114,8 +114,10 @@ def bold(text: str) -> str:
     return f"\033[1m{text}\033[0m"
 
 
-def get_comments(github_token: str, pr_num: int) -> List[Union[Comment, Review]]:
-    github_client = GithubClient(github_token)
+def get_comments(
+    github_token: str, pr_num: int, remote: str
+) -> List[Union[Comment, Review]]:
+    github_client = GithubClient(github_token, remote)
     query = comments_query(pr_num)
     data = github_client.graphql(query)
     pr = data["repository"]["pullRequest"]
@@ -159,7 +161,9 @@ def colorize_diff(diff: str) -> str:
 
 
 def show_comments(args: argparse.Namespace) -> None:
-    comments = get_comments(ensure_github_token(args.token), get_current_pr())
+    comments = get_comments(
+        ensure_github_token(args.token), get_current_pr(), args.remote
+    )
 
     for comment in comments:
         if isinstance(comment, Review):

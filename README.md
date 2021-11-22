@@ -284,6 +284,20 @@ the matching packages will merged.
 Full documentation for regex matching syntax can be found
 [here](https://docs.python.org/3/library/re.html#regular-expression-syntax).
 
+
+## Filter plugins
+
+After `nixpkgs-review` evaluates the set of changed packages but before it performs a build, it
+can interact with a set of plugins that can modify the set of packages. Such plugins should
+register themselves by setting the environment variable `NIXPKGS_REVIEW_PRE_BUILD_FILTER` to
+a colon-separated list of executables. Each executable called in order and piped a JSON
+structure containing `nixpkgs-review`'s internal representation of the package set, can modify
+it arbitrarily, and should return a new copy of the same JSON structure back on stdout.
+
+Note: this interface is UNSTABLE and we make NO BACKWARD OR FORWARD COMPATIBILITY PROMISES
+about the structure of the JSON between versions of nixpkgs-review.
+
+
 ## Running tests
 
 NixOS tests can be run by using the `--package` feature and our `nixosTests` attribute set:

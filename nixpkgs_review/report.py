@@ -1,9 +1,15 @@
 import os
-import subprocess
+import sys
+import traceback
+import urllib.error
+from itertools import islice
 import json
 from pathlib import Path
 from typing import Callable, List, Optional
 
+from humanize import naturaldelta
+
+from .github import GithubClient
 from .nix import Attr
 from .utils import info, link, warn
 
@@ -13,24 +19,38 @@ def print_number(
     msg: str,
     what: str = "package",
     log: Callable[[str], None] = warn,
+    show: int = -1,
 ) -> None:
     if len(packages) == 0:
         return
     plural = "s" if len(packages) > 1 else ""
     names = (a.name for a in packages)
     log(f"{len(packages)} {what}{plural} {msg}:")
-    log(" ".join(names))
+    if show == -1 or show > len(packages):
+        log(" ".join(names))
+    else:
+        log(" ".join(islice(names, show)) + " ...")
     log("")
 
 
-def html_pkgs_section(packages: List[Attr], msg: str, what: str = "package") -> str:
+def html_pkgs_section(
+    packages: List[Attr], msg: str, what: str = "package", show: int = -1
+) -> str:
     if len(packages) == 0:
         return ""
     plural = "s" if len(packages) > 1 else ""
+
     res = "<details>\n"
     res += f"  <summary>{len(packages)} {what}{plural} {msg}:</summary>\n  <ul>\n"
-    for pkg in packages:
-        res += f"    <li>{pkg.name}"
+    for i, pkg in enumerate(packages):
+        if show > 0 and i >= show:
+            res += "    <li>...</li>\n"
+            break
+
+        if pkg.log_url is not None:
+            res += f'    <li><a href="{pkg.log_url}">{pkg.name}</a>'
+        else:
+            res += f"    <li>{pkg.name}"
         if len(pkg.aliases) > 0:
             res += f" ({' ,'.join(pkg.aliases)})"
         res += "</li>\n"
@@ -50,8 +70,7 @@ class LazyDirectory:
         return self.path
 
 
-def write_error_logs(attrs: List[Attr], directory: Path) -> None:
-    logs = LazyDirectory(directory.joinpath("logs"))
+def write_result_links(attrs: List[Attr], directory: Path) -> None:
     results = LazyDirectory(directory.joinpath("results"))
     failed_results = LazyDirectory(directory.joinpath("failed_results"))
     for attr in attrs:
@@ -64,29 +83,27 @@ def write_error_logs(attrs: List[Attr], directory: Path) -> None:
                 symlink_source.unlink()
             symlink_source.symlink_to(attr.path)
 
-        for path in [attr.drv_path, attr.path]:
-            if not path:
-                continue
-            with open(logs.ensure().joinpath(attr.name + ".log"), "w+") as f:
-                nix_log = subprocess.run(
-                    [
-                        "nix",
-                        "--experimental-features",
-                        "nix-command",
-                        "log",
-                        path,
-                    ],
-                    stdout=f,
-                )
-                if nix_log.returncode == 0:
-                    return
+
+def write_error_logs(attrs: List[Attr], directory: Path) -> None:
+    logs = LazyDirectory(directory.joinpath("logs"))
+
+    for attr in attrs:
+        with open(logs.ensure().joinpath(attr.name + ".log"), "w+") as f:
+            log_content = attr.log()
+            if log_content is not None:
+                f.write(log_content)
 
 
 class Report:
-    def __init__(self, system: str, attrs: List[Attr]) -> None:
+    def __init__(
+        self, system: str, attrs: List[Attr], pr_rev: Optional[str] = None
+    ) -> None:
         self.system = system
         self.attrs = attrs
+        self.pr_rev: Optional[str] = pr_rev
+        self.skipped: List[Attr] = []
         self.broken: List[Attr] = []
+        self.timed_out: List[Attr] = []
         self.failed: List[Attr] = []
         self.non_existant: List[Attr] = []
         self.blacklisted: List[Attr] = []
@@ -98,6 +115,10 @@ class Report:
                 self.broken.append(a)
             elif a.blacklisted:
                 self.blacklisted.append(a)
+            elif a.skipped:
+                self.skipped.append(a)
+            elif a.timed_out:
+                self.timed_out.append(a)
             elif not a.exists:
                 self.non_existant.append(a)
             elif a.name.startswith("nixosTests."):
@@ -117,11 +138,35 @@ class Report:
         with open(directory.joinpath("report.json"), "w+") as f:
             f.write(self.json(pr))
 
-        write_error_logs(self.attrs, directory)
+        write_result_links(self.attrs, directory)
+        write_error_logs(self.failed, directory)
 
     def succeeded(self) -> bool:
         """Whether the report is considered a success or a failure"""
         return len(self.failed) == 0
+
+    def upload_build_logs(self, github_client: GithubClient, pr: Optional[int]) -> None:
+        for pkg in self.failed:
+            log_content = pkg.log(tail=1 * 1024 * 1014, strip_colors=True)
+            build_time = pkg.build_time()
+            description = f"system: {self.system}"
+            if build_time is not None:
+                description += f" | build_time: {naturaldelta(build_time)}"
+            if pr is not None:
+                description += f" | https://github.com/NixOS/nixpkgs/pull/{pr}"
+
+            if log_content is not None and len(log_content) > 0:
+                try:
+                    gist = github_client.upload_gist(
+                        name=pkg.name, content=log_content, description=description
+                    )
+                    pkg.log_url = gist["html_url"]
+                except urllib.error.HTTPError:
+                    # This is possible due to rate-limiting or a failure of that sort.
+                    # It should not be fatal.
+                    traceback.print_exc(file=sys.stderr)
+            else:
+                print(f"Log content for {pkg} was empty", file=sys.stderr)
 
     def json(self, pr: Optional[int]) -> str:
         def serialize_attrs(attrs: List[Attr]) -> List[str]:
@@ -131,12 +176,15 @@ class Report:
             {
                 "system": self.system,
                 "pr": pr,
+                "pr_rev": self.pr_rev,
                 "broken": serialize_attrs(self.broken),
                 "non-existant": serialize_attrs(self.non_existant),
-                "blacklisted": serialize_attrs(self.blacklisted),
                 "failed": serialize_attrs(self.failed),
-                "built": serialize_attrs(self.built),
+                "skipped": serialize_attrs(self.skipped),
+                "timed_out": serialize_attrs(self.timed_out),
+                "blacklisted": serialize_attrs(self.blacklisted),
                 "tests": serialize_attrs(self.tests),
+                "built": serialize_attrs(self.built),
             },
             sort_keys=True,
             indent=4,
@@ -147,17 +195,22 @@ class Report:
         if pr is not None:
             cmd += f" pr {pr}"
 
-        msg = f"Result of `{cmd}` run on {self.system} [1](https://github.com/Mic92/nixpkgs-review)\n"
+        shortcommit = f" at {self.pr_rev[:8]}" if self.pr_rev else ""
+        link = "[1](https://github.com/Mic92/nixpkgs-review)"
+        msg = f"Result of `{cmd}`{shortcommit} run on {self.system} {link}\n"
 
         msg += html_pkgs_section(self.broken, "marked as broken and skipped")
         msg += html_pkgs_section(
             self.non_existant,
             "present in ofBorgs evaluation, but not found in the checkout",
         )
-        msg += html_pkgs_section(self.blacklisted, "blacklisted")
         msg += html_pkgs_section(self.failed, "failed to build")
+        msg += html_pkgs_section(
+            self.skipped, "skipped due to time constraints", show=10
+        )
+        msg += html_pkgs_section(self.timed_out, "timed out")
         msg += html_pkgs_section(self.tests, "built", what="test")
-        msg += html_pkgs_section(self.built, "built")
+        msg += html_pkgs_section(self.built, "built successfully")
 
         return msg
 
@@ -172,6 +225,8 @@ class Report:
             "present in ofBorgs evaluation, but not found in the checkout",
         )
         print_number(self.blacklisted, "blacklisted")
+        print_number(self.skipped, "skipped due to time constraints", show=10)
+        print_number(self.timed_out, "timed out", show=True)
         print_number(self.failed, "failed to build")
         print_number(self.tests, "built", what="tests", log=print)
-        print_number(self.built, "built", log=print)
+        print_number(self.built, "built successfully", log=print)
