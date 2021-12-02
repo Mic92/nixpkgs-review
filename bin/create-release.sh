@@ -30,7 +30,7 @@ if [[ "$unpushed_commits" != "" ]]; then
 fi
 sed -i -e "s!version=\".*\"!version=\"${version}\"!" setup.py
 git add setup.py
-nix-build default.nix
+nix-build --builders '' default.nix
 git commit -m "bump version ${version}"
 git tag -e "${version}"
 
