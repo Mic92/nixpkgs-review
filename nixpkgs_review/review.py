@@ -26,25 +26,6 @@ class CheckoutOption(Enum):
     COMMIT = 2
 
 
-def current_system() -> str:
-    system = subprocess.run(
-        [
-            "nix",
-            "--experimental-features",
-            "nix-command",
-            "eval",
-            "--impure",
-            "--raw",
-            "--expr",
-            "builtins.currentSystem",
-        ],
-        check=True,
-        stdout=subprocess.PIPE,
-        text=True,
-    )
-    return system.stdout
-
-
 def native_packages(packages_per_system: Dict[str, Set[str]], system: str) -> Set[str]:
     return set(packages_per_system[system])
 
@@ -103,6 +84,7 @@ class Review:
         no_shell: bool,
         run: str,
         remote: str,
+        system: str,
         api_token: Optional[str] = None,
         use_ofborg_eval: Optional[bool] = True,
         only_packages: Set[str] = set(),
@@ -110,7 +92,6 @@ class Review:
         skip_packages: Set[str] = set(),
         skip_packages_regex: List[Pattern[str]] = [],
         checkout: CheckoutOption = CheckoutOption.MERGE,
-        system: Optional[str] = None,
         allow_aliases: bool = False,
     ) -> None:
         self.builddir = builddir
@@ -125,7 +106,7 @@ class Review:
         self.package_regex = package_regexes
         self.skip_packages = skip_packages
         self.skip_packages_regex = skip_packages_regex
-        self.system = system or current_system()
+        self.system = system
         self.allow_aliases = allow_aliases
 
     def worktree_dir(self) -> str:

@@ -12,6 +12,7 @@ from .post_result import post_result_command
 from .pr import pr_command
 from .rev import rev_command
 from .wip import wip_command
+from ..utils import current_system
 
 
 def regex_type(s: str) -> Pattern[str]:
@@ -23,9 +24,17 @@ def regex_type(s: str) -> Pattern[str]:
 
 def pr_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
     pr_parser = subparsers.add_parser("pr", help="review a pull request on nixpkgs")
+    eval_default = "local"
+    # keep in sync with: https://github.com/NixOS/ofborg/blob/998adc8e2a7fddf9610d10a7657fb34c55492332/ofborg/src/outpaths.nix#L12
+    if current_system() in [
+        "x86_64-linux",
+        "aarch64-linux",
+        "x86_64-darwin",
+    ]:
+        eval_default = "ofborg"
     pr_parser.add_argument(
         "--eval",
-        default="ofborg",
+        default=eval_default,
         choices=["ofborg", "local"],
         help="Whether to use ofborg's evaluation result",
     )
@@ -190,6 +199,7 @@ def common_flags() -> List[CommonFlag]:
         CommonFlag(
             "--system",
             type=str,
+            default=current_system(),
             help="Nix 'system' to evaluate and build packages for",
         ),
         CommonFlag(

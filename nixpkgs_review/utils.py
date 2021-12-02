@@ -3,6 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import IO, Any, Callable, List, Optional, Union
+import functools
 
 HAS_TTY = sys.stdout.isatty()
 ROOT = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -41,3 +42,23 @@ def escape_attr(attr: str) -> str:
     if index == -1:
         return attr
     return f'{attr[:index]}."{attr[index+1:]}"'
+
+
+@functools.lru_cache(maxsize=1)
+def current_system() -> str:
+    system = subprocess.run(
+        [
+            "nix",
+            "--experimental-features",
+            "nix-command",
+            "eval",
+            "--impure",
+            "--raw",
+            "--expr",
+            "builtins.currentSystem",
+        ],
+        check=True,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    return system.stdout
