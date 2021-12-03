@@ -25,7 +25,7 @@ def regex_type(s: str) -> Pattern[str]:
 def pr_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
     pr_parser = subparsers.add_parser("pr", help="review a pull request on nixpkgs")
     eval_default = "local"
-    # keep in sync with: https://github.com/NixOS/ofborg/blob/998adc8e2a7fddf9610d10a7657fb34c55492332/ofborg/src/outpaths.nix#L12
+    # keep in sync with: https://github.com/NixOS/ofborg/blob/released/ofborg/src/outpaths.nix#L13-L17
     if current_system() in [
         "x86_64-linux",
         "aarch64-linux",
