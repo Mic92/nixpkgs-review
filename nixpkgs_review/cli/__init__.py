@@ -22,7 +22,9 @@ def regex_type(s: str) -> Pattern[str]:
         raise argparse.ArgumentTypeError(f"'{s}' is not a valid regex: {e}")
 
 
-def pr_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
+def pr_flags(
+    subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
+) -> argparse.ArgumentParser:
     pr_parser = subparsers.add_parser("pr", help="review a pull request on nixpkgs")
     eval_default = "local"
     # keep in sync with: https://github.com/NixOS/ofborg/blob/released/ofborg/src/outpaths.nix#L13-L17
@@ -65,7 +67,9 @@ def pr_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
     return pr_parser
 
 
-def rev_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
+def rev_flags(
+    subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
+) -> argparse.ArgumentParser:
     rev_parser = subparsers.add_parser(
         "rev", help="review a change in the local pull request repository"
     )
@@ -80,7 +84,9 @@ def rev_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser
     return rev_parser
 
 
-def wip_flags(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
+def wip_flags(
+    subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
+) -> argparse.ArgumentParser:
     wip_parser = subparsers.add_parser(
         "wip", help="review the uncommited changes in the working tree"
     )
