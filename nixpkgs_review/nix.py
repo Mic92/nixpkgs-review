@@ -1,12 +1,13 @@
 import json
 import os
 import shlex
+import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from sys import platform
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Union
 
 from .utils import ROOT, escape_attr, info, sh, warn
 
@@ -44,13 +45,87 @@ def nix_shell(
     cache_directory: Path,
     system: str,
     run: Optional[str] = None,
+    sandbox: bool = False,
 ) -> None:
+    nix_shell = shutil.which("nix-shell")
+    if not nix_shell:
+        raise RuntimeError("nix-shell not found in PATH")
+
     shell = cache_directory.joinpath("shell.nix")
     write_shell_expression(shell, attrs, system)
-    args = ["nix-shell", str(shell)]
+    if sandbox:
+        args = _nix_shell_sandbox(nix_shell, shell)
+    else:
+        args = [nix_shell, str(shell)]
     if run:
         args.extend(["--run", run])
     sh(args, cwd=cache_directory, check=False)
+
+
+def _nix_shell_sandbox(nix_shell: str, shell: Path) -> List[str]:
+    bwrap = shutil.which("bwrap")
+    if not bwrap:
+        raise RuntimeError(
+            "bwrap not found in PATH. Install it to use '--sandbox' flag."
+        )
+
+    def bind(
+        path: Union[Path, str],
+        ro: bool = True,
+        dev: bool = False,
+        try_: bool = False,
+    ) -> List[str]:
+        if dev:
+            prefix = "--dev-"
+        elif ro:
+            prefix = "--ro-"
+        else:
+            prefix = "--"
+
+        suffix = "-try" if try_ else ""
+
+        return [prefix + "bind" + suffix, str(path), str(path)]
+
+    def tmpfs(path: Union[Path, str]) -> List[str]:
+        return ["--tmpfs", str(path)]
+
+    nixpkgs_review_pr = shell.parent
+    home = Path.home()
+    current_dir = Path().absolute()
+    xdg_config_home = Path(os.environ.get("XDG_CONFIG_HOME", home.joinpath(".config")))
+    nixpkgs_config = xdg_config_home.joinpath("nixpkgs")
+    xauthority = Path(os.environ.get("XAUTHORITY", home.joinpath(".Xauthority")))
+    hub_config = xdg_config_home.joinpath("hub")
+    gh_config = xdg_config_home.joinpath("gh")
+
+    uid = os.environ.get("UID", "1000")
+    user = os.environ.get("USER", "user")
+
+    bwrap_args = [
+        "--die-with-parent",
+        "--unshare-cgroup",
+        "--unshare-ipc",
+        "--unshare-uts",
+        # / and cia.
+        *bind("/"),
+        *bind("/dev", dev=True),
+        *tmpfs("/tmp"),
+        # /run
+        *bind(Path("/run/user").joinpath(uid), dev=True, try_=True),
+        *tmpfs(Path("/run/media").joinpath(user)),
+        # HOME
+        *tmpfs(home),
+        *bind(current_dir, ro=False),
+        *bind(nixpkgs_review_pr, ro=False),
+        *bind(nixpkgs_config, try_=True),
+        # For X11 applications
+        *bind("/tmp/.X11-unix", try_=True),
+        *bind(xauthority, try_=True),
+        # GitHub
+        *bind(hub_config, try_=True),
+        *bind(gh_config, try_=True),
+    ]
+    return [bwrap, *bwrap_args, "--", nix_shell, str(shell)]
 
 
 def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
