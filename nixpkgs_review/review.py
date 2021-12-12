@@ -93,6 +93,7 @@ class Review:
         skip_packages_regex: List[Pattern[str]] = [],
         checkout: CheckoutOption = CheckoutOption.MERGE,
         allow_aliases: bool = False,
+        sandbox: bool = False,
     ) -> None:
         self.builddir = builddir
         self.build_args = build_args
@@ -108,6 +109,7 @@ class Review:
         self.skip_packages_regex = skip_packages_regex
         self.system = system
         self.allow_aliases = allow_aliases
+        self.sandbox = sandbox
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -233,7 +235,9 @@ class Review:
         if self.no_shell:
             sys.exit(0 if report.succeeded() else 1)
         else:
-            nix_shell(report.built_packages(), path, self.system, self.run)
+            nix_shell(
+                report.built_packages(), path, self.system, self.run, self.sandbox
+            )
 
     def review_commit(
         self,
