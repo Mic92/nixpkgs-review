@@ -6,8 +6,14 @@
 
   outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system: {
-      packages.nixpkgs-review = import ./. {
-        pkgs = nixpkgs.legacyPackages.${system};
+      packages = {
+        nixpkgs-review = import ./. {
+          pkgs = nixpkgs.legacyPackages.${system};
+        };
+        nixpkgs-review-sandbox = import ./. {
+          pkgs = nixpkgs.legacyPackages.${system};
+          withSandboxSupport = true;
+        };
       };
 
       defaultPackage = self.packages.${system}.nixpkgs-review;
