@@ -323,6 +323,38 @@ since the architecture/operating system mismatches.
 $ nixpkgs-review --system aarch64-linux pr 98734
 ```
 
+## Review changes inside sandbox [EXPERIMENTAL]
+
+The `--sandbox` flag setups a sandbox using
+[bubblewrap](https://github.com/containers/bubblewrap). This is the same tool
+used by Flatpak and OSTree, and offers an unprivileged sandbox based on user
+namespaces.
+
+Keep in mind that `--sandbox` flag is not necessary tuned for privacy or
+security. Instead, it uses a pretty lax sandbox where it is possible to leak
+data sensitive by environment variables or stateful filesystems (like `/run`).
+The reason for this is because many packages would break otherwise, and this
+would make this flag useless for review purposes.
+
+The objective of `--sandbox` is to protect your system against accidental
+modification and to offer a clean(ish) system state where packages can be
+tested. For example, it mounts a `tmpfs` in-place of your `HOME` directory,
+avoiding situations where a dirty configuration on your `HOME` directory can
+lead to a broken package during testing. It also protects your `HOME` and system
+against undesired files created during package testing.
+
+This flag is still in an experimental stage. Please note that it isn't
+exhaustive tested against nixpkgs, so some packages may break under it. Before
+disapproving a PR because the program is broken under the sandbox, try without
+this flag first to make sure that the issue is not the sandbox. If the issue is
+caused because of the sandbox, please open an issue including the PR number in
+nixpkgs so we can try to fix this issue.
+
+```console
+$ nix-shell -p bubblewrap # or install it using NixOS/Home-Manager/etc.
+$ nixpkgs-review --sandbox pr 98734
+```
+
 ## Roadmap
 
 - [ ] build on multiple platforms
