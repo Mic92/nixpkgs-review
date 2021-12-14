@@ -69,6 +69,8 @@ def _nix_shell_sandbox(nix_shell: str, shell: Path) -> List[str]:
             "bwrap not found in PATH. Install it to use '--sandbox' flag."
         )
 
+    warn("Using sandbox mode. Some things may break!")
+
     def bind(
         path: Union[Path, str],
         ro: bool = True,
