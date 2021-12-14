@@ -1,5 +1,6 @@
 import argparse
 import os
+import platform
 import re
 import sys
 from pathlib import Path
@@ -147,7 +148,7 @@ def read_github_token() -> Optional[str]:
 
 
 def common_flags() -> List[CommonFlag]:
-    return [
+    flags = [
         CommonFlag(
             "--disable-aliases",
             dest="allow_aliases",
@@ -192,7 +193,9 @@ def common_flags() -> List[CommonFlag]:
             "--sandbox",
             action="store_true",
             help="Wraps nix-shell inside a sandbox (requires `bwrap` in PATH)",
-        ),
+        )
+        if platform.system() == "Linux"
+        else None,
         CommonFlag(
             "-P",
             "--skip-package",
@@ -220,6 +223,7 @@ def common_flags() -> List[CommonFlag]:
             help="Github access token (optional if request limit exceeds)",
         ),
     ]
+    return [f for f in flags if f]
 
 
 def parse_args(command: str, args: List[str]) -> argparse.Namespace:

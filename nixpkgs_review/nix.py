@@ -112,7 +112,7 @@ def _nix_shell_sandbox(nix_shell: str, shell: Path) -> List[str]:
         *bind("/"),
         *bind("/dev", dev=True),
         *tmpfs("/tmp"),
-        # /run
+        # /run (also cover sockets for wayland/pulseaudio and pipewires)
         *bind(Path("/run/user").joinpath(uid), dev=True, try_=True),
         *tmpfs(Path("/run/media").joinpath(user)),
         # HOME
