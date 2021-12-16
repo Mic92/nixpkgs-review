@@ -3,6 +3,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from sys import platform
@@ -49,7 +50,8 @@ def nix_shell(
 ) -> None:
     nix_shell = shutil.which("nix-shell")
     if not nix_shell:
-        raise RuntimeError("nix-shell not found in PATH")
+        warn("nix-shell not found in PATH. Do you have nix installed?")
+        sys.exit(1)
 
     shell = cache_directory.joinpath("shell.nix")
     write_shell_expression(shell, attrs, system)
@@ -63,11 +65,14 @@ def nix_shell(
 
 
 def _nix_shell_sandbox(nix_shell: str, shell: Path) -> List[str]:
+    if platform != "linux":
+        warn("Sandbox mode is only available on Linux platforms.")
+        sys.exit(1)
+
     bwrap = shutil.which("bwrap")
     if not bwrap:
-        raise RuntimeError(
-            "bwrap not found in PATH. Install it to use '--sandbox' flag."
-        )
+        warn("bwrap not found in PATH. Install it to use '--sandbox' flag.")
+        sys.exit(1)
 
     warn("Using sandbox mode. Some things may break!")
 
@@ -112,7 +117,7 @@ def _nix_shell_sandbox(nix_shell: str, shell: Path) -> List[str]:
         *bind("/"),
         *bind("/dev", dev=True),
         *tmpfs("/tmp"),
-        # /run
+        # /run (also cover sockets for wayland/pulseaudio and pipewires)
         *bind(Path("/run/user").joinpath(uid), dev=True, try_=True),
         *tmpfs(Path("/run/media").joinpath(user)),
         # HOME
