@@ -50,8 +50,7 @@ def nix_shell(
 ) -> None:
     nix_shell = shutil.which("nix-shell")
     if not nix_shell:
-        warn("nix-shell not found in PATH. Do you have nix installed?")
-        sys.exit(1)
+        raise RuntimeError("nix-shell not found in PATH")
 
     shell = cache_directory.joinpath("shell.nix")
     write_shell_expression(shell, attrs, system)
@@ -66,13 +65,15 @@ def nix_shell(
 
 def _nix_shell_sandbox(nix_shell: str, shell: Path) -> List[str]:
     if platform != "linux":
-        warn("Sandbox mode is only available on Linux platforms.")
-        sys.exit(1)
+        raise RuntimeError(
+            "Sandbox mode is only available on Linux platforms."
+        )
 
     bwrap = shutil.which("bwrap")
     if not bwrap:
-        warn("bwrap not found in PATH. Install it to use '--sandbox' flag.")
-        sys.exit(1)
+        raise RuntimeError(
+            "bwrap not found in PATH. Install it to use '--sandbox' flag."
+        )
 
     warn("Using sandbox mode. Some things may break!")
 
