@@ -91,8 +91,12 @@ def _nix_shell_sandbox(nix_shell: str, shell: Path) -> List[str]:
 
         return [prefix + "bind" + suffix, str(path), str(path)]
 
-    def tmpfs(path: Union[Path, str]) -> List[str]:
-        return ["--tmpfs", str(path)]
+    def tmpfs(path: Union[Path, str], dir: bool = True) -> List[str]:
+        dir_cmd = []
+        if dir:
+            dir_cmd = ["--dir", str(path)]
+
+        return [*dir_cmd, "--tmpfs", str(path)]
 
     nixpkgs_review_pr = shell.parent
     home = Path.home()
