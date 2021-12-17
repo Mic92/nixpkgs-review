@@ -3,7 +3,6 @@ import os
 import shlex
 import shutil
 import subprocess
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from sys import platform
@@ -65,9 +64,7 @@ def nix_shell(
 
 def _nix_shell_sandbox(nix_shell: str, shell: Path) -> List[str]:
     if platform != "linux":
-        raise RuntimeError(
-            "Sandbox mode is only available on Linux platforms."
-        )
+        raise RuntimeError("Sandbox mode is only available on Linux platforms.")
 
     bwrap = shutil.which("bwrap")
     if not bwrap:
