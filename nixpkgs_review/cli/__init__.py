@@ -189,6 +189,11 @@ def common_flags() -> List[CommonFlag]:
             help="Passed to nix-shell to run a command instead of an interactive nix-shell",
         ),
         CommonFlag(
+            "--sandbox",
+            action="store_true",
+            help="Wraps nix-shell inside a sandbox (requires `bwrap` in PATH)",
+        ),
+        CommonFlag(
             "-P",
             "--skip-package",
             action="append",

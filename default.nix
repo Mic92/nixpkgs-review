@@ -1,4 +1,6 @@
-{ pkgs ? import <nixpkgs> { } }:
+{ pkgs ? import <nixpkgs> { }
+, withSandboxSupport ? false
+}:
 
 with pkgs;
 python3.pkgs.buildPythonApplication rec {
@@ -29,12 +31,17 @@ python3.pkgs.buildPythonApplication rec {
     echo -e "\x1b[32m## run mypy\x1b[0m"
     mypy --strict nixpkgs_review
   '';
-  makeWrapperArgs = [
-    "--prefix PATH : ${lib.makeBinPath [ nix_2_4 git ]}"
-    "--set NIX_SSL_CERT_FILE ${cacert}/etc/ssl/certs/ca-bundle.crt"
-    # we don't have any runtime deps but nix-review shells might inject unwanted dependencies
-    "--unset PYTHONPATH"
-  ];
+  makeWrapperArgs =
+    let
+      binPath = [ nix_2_4 git ]
+        ++ lib.optional withSandboxSupport bubblewrap;
+    in
+    [
+      "--prefix PATH : ${lib.makeBinPath binPath}"
+      "--set NIX_SSL_CERT_FILE ${cacert}/etc/ssl/certs/ca-bundle.crt"
+      # we don't have any runtime deps but nix-review shells might inject unwanted dependencies
+      "--unset PYTHONPATH"
+    ];
   shellHook = ''
     # workaround because `python setup.py develop` breaks for me
   '';
