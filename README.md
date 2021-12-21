@@ -204,7 +204,7 @@ Tip: Since it's hard to keep track of the numbers, for each opened
 shell the corresponding pull request URL is shown.
 
 
-## Remote builder:
+## Remote builder
 
 Nix-review will pass all arguments given in `--build-arg` to `nix-build`:
 
