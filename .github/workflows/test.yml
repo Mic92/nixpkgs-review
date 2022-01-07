@@ -1,5 +1,7 @@
 name: "Test"
 on:
+  repository_dispatch:
+  workflow_dispatch:
   pull_request:
   push:
 jobs:
