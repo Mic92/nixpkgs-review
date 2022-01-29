@@ -137,7 +137,7 @@ def read_github_token() -> Optional[str]:
             with open(path) as f:
                 for line in f:
                     # Allow substring match as hub uses yaml. Example string we match:
-                    # " - oauth_token: ghp_.....\n"
+                    # " - oauth_token: ghp_abcdefghijklmnopqrstuvwxyzABCDEF1234\n"
                     token_match = re.search(
                         r"\s*oauth_token:\s+((?:gh[po]_)?[A-Za-z0-9]+)", line
                     )
