@@ -79,7 +79,7 @@ def write_error_logs(attrs: List[Attr], directory: Path) -> None:
                     stdout=f,
                 )
                 if nix_log.returncode == 0:
-                    return
+                    break
 
 
 class Report:
