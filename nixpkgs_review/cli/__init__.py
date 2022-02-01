@@ -151,10 +151,10 @@ def read_github_token() -> Optional[str]:
 def common_flags() -> List[CommonFlag]:
     return [
         CommonFlag(
-            "--disable-aliases",
+            "--allow-aliases",
             dest="allow_aliases",
-            action="store_false",
-            help="Disable aliases while evaluating locally. They are automatically disabled when reviewing NixOS/nixpkgs PRs against master.",
+            action="store_true",
+            help="Allow aliases while evaluating locally",
         ),
         CommonFlag(
             "--build-args", default="", help="arguments passed to nix when building"
