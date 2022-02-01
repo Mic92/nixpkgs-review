@@ -38,11 +38,6 @@ def pr_command(args: argparse.Namespace) -> str:
         CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
     )
 
-    if args.allow_aliases:
-        args.allow_aliases = (
-            getattr(args, "branch", "") == "master" or args.checkout == "merge"
-        ) and args.remote == "https://github.com/NixOS/nixpkgs"
-
     if args.post_result:
         ensure_github_token(args.token)
 
