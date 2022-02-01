@@ -9,7 +9,11 @@ let
   getProperties = name: let
     attrPath = lib.splitString "." name;
     pkg = lib.attrByPath attrPath null pkgs;
-    maybePath = builtins.tryEval "${pkg}";
+    # some packages are set to null if they aren't compatible with a platform or package set
+    maybePath = if pkg == null then
+        { success = false; value = null; }
+      else
+        builtins.tryEval "${pkg}";
   in rec {
     exists = lib.hasAttrByPath attrPath pkgs;
     broken = !exists || !maybePath.success;
