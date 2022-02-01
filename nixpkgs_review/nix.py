@@ -52,7 +52,7 @@ def nix_shell(
         raise RuntimeError("nix-shell not found in PATH")
 
     shell = cache_directory.joinpath("shell.nix")
-    write_shell_expression(shell, attrs, system)
+    write_shell_expression(shell, attrs, system, True)
     if sandbox:
         args = _nix_shell_sandbox(nix_shell, shell)
     else:
@@ -233,7 +233,7 @@ def nix_build(
         return attrs
 
     build = cache_directory.joinpath("build.nix")
-    write_shell_expression(build, filtered, system)
+    write_shell_expression(build, filtered, system, allow_aliases)
 
     command = [
         "nix",
@@ -264,10 +264,14 @@ def nix_build(
     return attrs
 
 
-def write_shell_expression(filename: Path, attrs: List[str], system: str) -> None:
+def write_shell_expression(
+    filename: Path, attrs: List[str], system: str, allow_aliases: bool
+) -> None:
+    allowAliases = "true" if allow_aliases else "false"
+
     with open(filename, "w+") as f:
         f.write(
-            f"""{{ pkgs ? import ./nixpkgs {{ system = \"{system}\"; }} }}:
+            f"""{{ pkgs ? import ./nixpkgs {{ system = \"{system}\"; config = {{ allowAliases = {allowAliases}; allowUnfree = true; }}; }} }}:
 with pkgs;
 let
   paths = [
