@@ -275,7 +275,7 @@ Unlike the `--package-regex` option a full match is required which means you pro
 
 ```console
 # skip building linux kernels but not the packages
-$ nixpkgs-review pr --skip-packages-regex 'linux_.*' 51292
+$ nixpkgs-review pr --skip-package-regex 'linux_.*' 51292
 ```
 
 `-p`, `-P`, `--package-regex` and `--skip-package-regex` can be used together, in which case
