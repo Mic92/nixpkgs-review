@@ -15,7 +15,7 @@ python3.pkgs.buildPythonApplication rec {
 
     # needed for interactive unittests
     python3.pkgs.pytest
-    pkgs.nixVersions.nix_2_4 or nix_2_4
+    pkgs.nixVersions.stable or nix_2_4
     git
   ];
 
@@ -33,7 +33,7 @@ python3.pkgs.buildPythonApplication rec {
   '';
   makeWrapperArgs =
     let
-      binPath = [ pkgs.nixVersions.nix_2_4 or nix_2_4 git ]
+      binPath = [ pkgs.nixVersions.stable or nix_2_4 git ]
         ++ lib.optional withSandboxSupport bubblewrap;
     in
     [
