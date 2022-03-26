@@ -29,9 +29,10 @@ def pr_flags(
     eval_default = "local"
     # keep in sync with: https://github.com/NixOS/ofborg/blob/released/ofborg/src/outpaths.nix#L13-L17
     if current_system() in [
-        "x86_64-linux",
+        "aarch64-darwin",
         "aarch64-linux",
         "x86_64-darwin",
+        "x86_64-linux",
     ]:
         eval_default = "ofborg"
     pr_parser.add_argument(
