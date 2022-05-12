@@ -10,6 +10,7 @@ from .comments import show_comments
 from .merge import merge_command
 from .post_result import post_result_command
 from .pr import pr_command
+from .branch import branch_command
 from .rev import rev_command
 from .wip import wip_command
 from ..utils import current_system
@@ -66,6 +67,48 @@ def pr_flags(
     )
     pr_parser.set_defaults(func=pr_command)
     return pr_parser
+
+
+def branch_flags(
+    subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
+) -> argparse.ArgumentParser:
+    branch_parser = subparsers.add_parser("branch", help="review a branch of nixpkgs")
+    # , aliases=["br"] # not using alias, as "branch" should be a rarely-used command
+    eval_default = "local"
+    # keep in sync with: https://github.com/NixOS/ofborg/blob/released/ofborg/src/outpaths.nix#L13-L17
+    if current_system() in [
+        "aarch64-darwin",
+        "aarch64-linux",
+        "x86_64-darwin",
+        "x86_64-linux",
+    ]:
+        eval_default = "ofborg"
+    branch_parser.add_argument(
+        "--eval",
+        default=eval_default,
+        choices=["ofborg", "local"],
+        help="Whether to use ofborg's evaluation result",
+    )
+    checkout_help = (
+        "What to source checkout when building: "
+        + "`merge` will merge the branch into the target branch, "
+        + "while `commit` will checkout branch as the user has committed it"
+    )
+
+    branch_parser.add_argument(
+        "-c",
+        "--checkout",
+        default="merge",
+        choices=["merge", "commit"],
+        help=checkout_help,
+    )
+    branch_parser.add_argument(
+        "branches",
+        nargs="+",
+        help="one or more nixpkgs branches",
+    )
+    branch_parser.set_defaults(func=branch_command)
+    return branch_parser
 
 
 def rev_flags(
@@ -266,6 +309,7 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
         merge_parser,
         post_result_parser,
         pr_flags(subparsers),
+        branch_flags(subparsers),
         rev_flags(subparsers),
         wip_flags(subparsers),
     ]
