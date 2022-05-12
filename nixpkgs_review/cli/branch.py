@@ -50,7 +50,7 @@ class Branch:
     commit = None
 
     def __repr__(self):
-        return f"Branch(\n  remote={repr(self.remote)},\n  branch={repr(self.branch)},\n  commit={repr(self.commit)}\n)"
+        return f"Branch:\n  remote: {self.remote}\n  branch: {self.branch}\n  commit: {self.commit}"
 
     def __init__(self, raw_input):
 
