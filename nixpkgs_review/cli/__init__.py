@@ -272,6 +272,12 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
     main_parser = argparse.ArgumentParser(
         prog=command, formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+    main_parser.add_argument(
+        "-C", # similar: git -C dir/
+        "--workdir",
+        help="Local path to nixpkgs repo (default: current workdir)",
+        # TODO pretty: remove "(default: None)"
+    )
     subparsers = main_parser.add_subparsers(
         dest="subcommand",
         title="subcommands",
@@ -335,4 +341,6 @@ def main(command: str, raw_args: List[str]) -> str:
     args = parse_args(command, raw_args)
     if not check_common_flags(args):
         sys.exit(1)
+    if args.workdir:
+        os.chdir(args.workdir)
     return cast(str, args.func(args))
