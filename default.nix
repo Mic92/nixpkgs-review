@@ -15,6 +15,7 @@ python3.pkgs.buildPythonApplication rec {
 
     # needed for interactive unittests
     python3.pkgs.pytest
+    python3.pkgs.pytest-snapshot
     pkgs.nixVersions.stable or nix_2_4
     git
   ];

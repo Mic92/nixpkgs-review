@@ -30,22 +30,10 @@ from .utils import ensure_github_token
 # ec031ad1f3e405893ead8954dfab16aecd07f809        refs/heads/a/b/c/d/test
 # ec031ad1f3e405893ead8954dfab16aecd07f809        refs/heads/github.com/a/b/c/d
 
-# TODO handle special chars in branch names?
-# valid branch names:
-# a-b
-# a+b
-# a&b
-# a%b
-# https://stackoverflow.com/questions/3651860/which-characters-are-illegal-within-a-branch-name
-# https://stackoverflow.com/questions/56612400/not-a-valid-git-branch-name
-
-# parser was manually tested with
-# ./bin/nix-review branch "https://github.com/NixOS/nixpkgs/compare/master...a/b-c%2Bd%26e%25f(g)hijk%3Dl.m%5D__%40n%23op%3Cq%3Er%C2%A7t%22u'v%60w%C2%B4x%3By_z" staging milahu:patch-1 "https://github.com/delroth/nixpkgs/commit/a9f5b7dbfe16c81a026946f2c9931479be31171d"  "https://github.com/NixOS/nixpkgs/compare/master...milahu:patch-123" "https://github.com/NixOS/nixpkgs/compare/master..milahu:patch-123" 
-
-
 class Branch:
 
     remote = "https://github.com/NixOS/nixpkgs"
+    #base = "master" # TODO implement? allow comparing to other branches (staging ...)
     branch = None
     commit = None
 
@@ -82,36 +70,22 @@ class Branch:
             # TODO implement: gitlab, gitea, ... maybe use https://github.com/nephila/giturlparse
             raise Exception(f"not implemented. branch must be a github url, got {repr(raw_input)}")
 
-        # path='/alice/nixpkgs/tree/a/b-c+d&e%f'
-        # illegal chars in branch name: :^,~[\?!
-        # legal branch name: a/b-c+d&e%f(g)hijk=l.m]__@n#op<q>r§t"u'v`w´x;y_z
-        # https://github.com/milahu/random/tree/a/b-c%2Bd%26e%25f(g)hijk%3Dl.m%5D__%40n%23op%3Cq%3Er%C2%A7t%22u'v%60w%C2%B4x%3By_z
-        # path="/milahu/random/tree/a/b-c%2Bd%26e%25f(g)hijk%3Dl.m%5D__%40n%23op%3Cq%3Er%C2%A7t%22u'v%60w%C2%B4x%3By_z"
-        # unquote(path) = /milahu/random/tree/a/b-c+d&e%f(g)hijk=l.m]__@n#op<q>r§t"u'v`w´x;y_z
-
         dirs = url.path.split("/")
 
         if dirs[2] != "nixpkgs":
             raise Exception(f"branch repo name must be nixpkgs, got {repr(raw_input)}")
 
         if dirs[3] == "tree":
-            # https://github.com/delroth/nixpkgs/tree/gstreamermm-build-fix
-            # https://github.com/milahu/random/tree/a/b/c/d/test
-            # https://github.com/milahu/random/tree/github.com/a/b/c/d
-            # $ git branch a:b:c:d
-            # fatal: 'a:b:c:d' is not a valid branch name.
             self.branch = unquote("/".join(dirs[4:]))
             return
 
         if dirs[3] == "commit":
-            # https://github.com/delroth/nixpkgs/commit/a9f5b7dbfe16c81a026946f2c9931479be31171d
             self.commit = dirs[4]
             owner = dirs[1]
             self.remote = f"https://github.com/{owner}/nixpkgs"
             return
 
         if dirs[3] == "compare":
-            # ex: https://github.com/NixOS/nixpkgs/compare/master...delroth:gstreamermm-build-fix
             if not raw_input.startswith("https://github.com/NixOS/nixpkgs/compare/master.."):
                 raise Exception(f"expected github compare link versus nixpkgs master, got {repr(raw_input)}")
 
@@ -128,23 +102,15 @@ class Branch:
                 self.branch = branch
                 return
             if len(parts) == 1:
-                # base is NixOS/nixpkgs
+                # remote is NixOS/nixpkgs
                 self.branch = branch
                 return
             raise Exception(f"expected github compare link with user:branch or branch, got {repr(raw_input)}")
 
         raise Exception(f"failed to parse branch from {repr(raw_input)}")
 
-        #if branch == None and commit == None:
-        #    raise Exception("branch requires either branch-name or commit-hash")
-
 
 def parse_branches(branch_args: List[str]) -> List[int]:
-    # example inputs:
-    # https://github.com/delroth/nixpkgs/tree/gstreamermm-build-fix
-    # https://github.com/delroth/nixpkgs/commit/a9f5b7dbfe16c81a026946f2c9931479be31171d
-    # https://github.com/NixOS/nixpkgs/compare/master...delroth:gstreamermm-build-fix
-    # delroth:gstreamermm-build-fix
     branches: List[int] = []
     for arg in branch_args:
         branch = Branch(arg)
