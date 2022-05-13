@@ -72,7 +72,7 @@ def pr_flags(
 def branch_flags(
     subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
 ) -> argparse.ArgumentParser:
-    branch_parser = subparsers.add_parser("branch", help="review a branch of nixpkgs")
+    branch_parser = subparsers.add_parser("branch", help="review a branch of nixpkgs. can be a fork-branch")
     # , aliases=["br"] # not using alias, as "branch" should be a rarely-used command
     eval_default = "local"
     # keep in sync with: https://github.com/NixOS/ofborg/blob/released/ofborg/src/outpaths.nix#L13-L17
@@ -226,7 +226,7 @@ def common_flags() -> List[CommonFlag]:
             "-r",
             "--remote",
             default="https://github.com/NixOS/nixpkgs",
-            help="Name of the nixpkgs repo to review",
+            help="URL of the nixpkgs repo to review",
         ),
         CommonFlag(
             "--run",
@@ -263,7 +263,7 @@ def common_flags() -> List[CommonFlag]:
             "--token",
             type=str,
             default=read_github_token(),
-            help="Github access token (optional if request limit exceeds)",
+            help="Github access token (optional if request limit is exceeded)",
         ),
     ]
 
