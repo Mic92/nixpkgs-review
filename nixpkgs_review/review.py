@@ -141,6 +141,9 @@ class Review:
         """
         Review a local git commit
         """
+        if base_commit == reviewed_commit:
+            print(f"error: nothing to compare. base_commit == reviewed_commit == {reviewed_commit}")
+            sys.exit(1)
         self.git_worktree(base_commit)
         base_packages = list_packages(str(self.worktree_dir()), self.system)
 
