@@ -118,7 +118,7 @@ def rev_flags(
         "rev", help="review a change in the local pull request repository"
     )
     rev_parser.add_argument(
-        "-b", "--branch", default="master", help="branch to compare against with"
+        "-b", "--branch", default="master", help="branch to compare against with (default: master)"
     )
     rev_parser.add_argument(
         "commit", help="commit/tag/ref/branch in your local git repository"
