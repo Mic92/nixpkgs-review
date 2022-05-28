@@ -118,7 +118,7 @@ class Review:
         sh(["git", "merge", "--no-commit", "--no-ff", commit], cwd=self.worktree_dir())
 
     def apply_unstaged(self, staged: bool = False) -> None:
-        args = ["git", "--no-pager", "diff"]
+        args = ["git", "--no-pager", "diff", "--no-ext-diff"]
         args.extend(["--staged"] if staged else [])
         diff_proc = subprocess.Popen(args, stdout=subprocess.PIPE)
         assert diff_proc.stdout
