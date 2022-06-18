@@ -69,12 +69,24 @@ def current_system() -> str:
 class Branch:
     "parse string to branch object"
     remote = "https://github.com/NixOS/nixpkgs"
+    owner = "NixOS"
+    repo = "nixpkgs"
     #base = "master" # TODO implement? allow comparing to other branches (staging ...)
     branch = None
     commit = None
 
     def __repr__(self):
-        return f"Branch:\n  remote: {self.remote}\n  branch: {self.branch}\n  commit: {self.commit}"
+        parts = []
+        if self.remote.startswith("https://github.com/"):
+            parts.append("github")
+            parts.append(self.owner)
+            parts.append(self.repo)
+        # TODO else
+        if self.branch:
+            parts.append(self.branch)
+        elif self.commit:
+            parts.append(self.commit)
+        return "-".join(parts)
 
     def set_branch(self, branch, check=True):
         if check:
@@ -84,13 +96,18 @@ class Branch:
 
     def set_remote(self, owner=None, repo=None, url=None, check=True):
         if owner and repo:
+            self.owner = owner
+            self.repo = repo
             self.remote = f"https://github.com/{owner}/{repo}"
             return
         if owner and repo is None:
+            self.owner = owner
             self.remote = f"https://github.com/{owner}/nixpkgs"
             return
         if url:
             self.remote = url
+            self.owner = None
+            self.repo = None
             return
         if check:
             raise Exception(f"failed to parse remote from {repr(self.raw_input)}")

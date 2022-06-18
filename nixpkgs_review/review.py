@@ -4,16 +4,26 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 import tempfile
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import IO, Dict, List, Optional, Pattern, Set, Tuple
+from datetime import datetime
+
+import diskcache
 
 from .builddir import Builddir
 from .github import GithubClient
 from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
 from .utils import info, sh, warn
+from .utils import Branch
+
+
+debug = lambda *a, **k: None
+if os.environ.get("DEBUG"):
+    debug = print
 
 
 class CheckoutOption(Enum):
@@ -52,8 +62,9 @@ class Package:
     homepage: Optional[str]
     description: Optional[str]
     position: Optional[str]
-    old_pkg: "Optional[Package]" = field(init=False)
-
+    #old_pkg: "Optional[Package]" = field(init=False)
+    # quickfix: __repr__: AttributeError: 'Package' object has no attribute 'old_pkg'
+    old_pkg: "Optional[Package]" = field(init=False, repr=False)
 
 def print_updates(changed_pkgs: List[Package], removed_pkgs: List[Package]) -> None:
     new = []
@@ -74,6 +85,15 @@ def print_updates(changed_pkgs: List[Package], removed_pkgs: List[Package]) -> N
     print_packages(new, "added")
     print_packages(updated, "updated")
     print_packages(removed, "removed")
+
+
+def get_commit_date(commit):
+    "get UTC datetime of commit"
+    args = ["git", "show", "-s", "--format=%ct", commit]
+    timestamp_str = subprocess.check_output(args, text=True)
+    timestamp = int(timestamp_str)
+    date = datetime.utcfromtimestamp(timestamp).strftime("%F %T")
+    return date
 
 
 class Review:
@@ -135,31 +155,65 @@ class Review:
             warn("Failed to apply diff in %s" % self.worktree_dir())
             sys.exit(1)
 
+    # TODO rename reviewed_commit to head_commit
     def build_commit(
         self, base_commit: str, reviewed_commit: Optional[str], staged: bool = False
     ) -> List[Attr]:
         """
         Review a local git commit
         """
+
+        base_commit_date = get_commit_date(base_commit)
+        reviewed_commit_date = get_commit_date(reviewed_commit)
+
+        # TODO rename reviewed_commit -> head_commit
+        debug(f"base commit: {base_commit} ({base_commit_date})")
+        debug(f"head commit: {reviewed_commit} ({reviewed_commit_date})")
+
         if base_commit == reviewed_commit:
             print(f"error: nothing to compare. base_commit == reviewed_commit == {reviewed_commit}")
             sys.exit(1)
+
+        debug("build_commit: git_worktree")
         self.git_worktree(base_commit)
+
+        debug("build_commit: list_packages(base) ...")
+        t1 = time.time()
         base_packages = list_packages(str(self.worktree_dir()), self.system)
+        t2 = time.time()
+        debug(f"build_commit: list_packages(base) done after {round(t2 - t1)} seconds") # 447 sec
 
         if reviewed_commit is None:
+            debug("build_commit: apply_unstaged")
             self.apply_unstaged(staged)
         else:
+            debug("build_commit: git_merge")
             self.git_merge(reviewed_commit)
 
+        debug("build_commit: list_packages(head) ...")
+        t1 = time.time()
         merged_packages = list_packages(
             str(self.worktree_dir()), self.system, check_meta=True
         )
+        t2 = time.time()
+        debug(f"build_commit: list_packages(head) done after {round(t2 - t1)} seconds")
 
+        debug("build_commit: differences")
         changed_pkgs, removed_pkgs = differences(base_packages, merged_packages)
+        debug(f"build_commit: changed_pkgs = {changed_pkgs}") # FIXME __repr__
+        debug(f"build_commit: removed_pkgs = {removed_pkgs}")
+
         changed_attrs = set(p.attr_path for p in changed_pkgs)
+        debug(f"build_commit: changed_attrs = {changed_attrs}")
         print_updates(changed_pkgs, removed_pkgs)
-        return self.build(changed_attrs, self.build_args)
+
+        debug("build_commit: build ...")
+
+        t1 = time.time()
+        build_result = self.build(changed_attrs, self.build_args)
+        t2 = time.time()
+        debug(f"build_commit: build done after {round(t2 - t1)} seconds")
+        return build_result
 
     def git_worktree(self, commit: str) -> None:
         sh(["git", "worktree", "add", self.worktree_dir(), commit])
@@ -192,15 +246,22 @@ class Review:
             packages_per_system = self.github_client.get_borg_eval_gist(pr)
         else:
             packages_per_system = None
+        # TODO rename merge_rev to pr_base_rev
+        # TODO rename pr_rev to pr_head_rev
         merge_rev, pr_rev = fetch_refs(
             self.remote,
             pr["base"]["ref"],
             f"pull/{pr['number']}/head",
         )
+        debug(f"review.py: build_pr: pr_base_commit = {merge_rev}")
+        debug(f"review.py: build_pr: pr_head_commit = {pr_rev}")
 
         if self.checkout == CheckoutOption.MERGE:
+            debug(f"review.py: build_pr: base_rev = merge_rev")
             base_rev = merge_rev
         else:
+            # self.checkout == CheckoutOption.COMMIT
+            debug(f"review.py: build_pr: base_rev = $(git merge-base {merge_rev} {pr_rev})")
             run = subprocess.run(
                 ["git", "merge-base", merge_rev, pr_rev],
                 check=True,
@@ -210,11 +271,65 @@ class Review:
             base_rev = run.stdout.strip()
 
         if packages_per_system is None:
+            debug(f"review.py: build_pr: build_commit")
             return self.build_commit(base_rev, pr_rev)
 
+        debug(f"review.py: build_pr: checkout_pr")
         self.checkout_pr(base_rev, pr_rev)
 
         packages = native_packages(packages_per_system, self.system)
+        debug(f"review.py: build_pr: packages = {packages}")
+        return self.build(packages, self.build_args)
+
+
+    def build_branch(self, branch: Branch) -> List[Attr]:
+        # based on build_pr
+        #pr = self.github_client.pull_request(pr_number)
+        # git merge-base --fork-point (?)
+        # not needed
+
+        # FIXME
+        #if self.use_ofborg_eval:
+        #    packages_per_system = self.github_client.get_borg_eval_gist(pr)
+        #else:
+        #    packages_per_system = None
+        packages_per_system = None
+
+        (head_rev,) = fetch_refs(
+            branch.remote,
+            branch.branch or branch.commit,
+        )
+        debug(f"review.py: build_branch: head_rev = {head_rev}")
+
+        # find oldest common ancestor of branch and master
+        # https://stackoverflow.com/questions/1527234/finding-a-branch-point-with-git
+        main_branch = "master"
+        run_cmd = (
+            f'diff --old-line-format= --new-line-format= ' +
+            f'<(git rev-list --first-parent "{main_branch}") ' +
+            f'<(git rev-list --first-parent "{branch.branch}") | head -1'
+        )
+        run = subprocess.run(
+            run_cmd,
+            check=True,
+            stdout=subprocess.PIPE,
+            text=True,
+            shell=True,
+        )
+        base_rev = run.stdout.strip()
+        debug("review.py: build_branch: base_rev", base_rev)
+
+        if packages_per_system is None:
+            debug(f"review.py: build_branch: build_commit")
+            return self.build_commit(base_rev, head_rev)
+
+        debug(f"review.py: build_branch: checkout_pr")
+        self.checkout_pr(base_rev, head_rev)
+        debug(f"review.py: build_branch: checkout_branch")
+        #self.checkout_branch(branch)
+
+        packages = native_packages(packages_per_system, self.system)
+        debug(f"review.py: build_pr: packages = {packages}")
         return self.build(packages, self.build_args)
 
     def start_review(
@@ -249,7 +364,23 @@ class Review:
         reviewed_commit: Optional[str],
         staged: bool = False,
     ) -> None:
-        branch_rev = fetch_refs(self.remote, branch)[0]
+        ref = reviewed_commit
+        i = 0
+        cmd = ["git", "-c", "fetch.prune=false", "fetch", "--no-tags", "--force", self.remote, f"{ref}:refs/nixpkgs-review/{i}"]
+        sh(cmd)
+        out = subprocess.check_output(
+            ["git", "rev-list", "--left-right", "--count", f"{ref}...{branch}"], text=True # 1       1920 = ahead, behind
+        )
+        debug(f"git rev-list -> {repr(out)}")
+        ahead, behind = map(lambda s: int(s), out.split("\t"))
+        debug(f"review_commit: branch head {reviewed_commit} is {ahead} ahead of branch {branch} in remote {self.remote}")
+        # TODO better? find oldest common ancestor
+        out = subprocess.check_output(
+            ["git", "rev-parse", f"{ref}~{ahead}"], text=True
+        )
+        debug(f"git rev-parse -> {repr(out)}")
+        branch_rev = out.strip()
+
         self.start_review(self.build_commit(branch_rev, reviewed_commit, staged), path)
 
 
@@ -315,12 +446,49 @@ def list_packages(path: str, system: str, check_meta: bool = False) -> List[Pack
     ]
     if check_meta:
         cmd.append("--meta")
+
+    use_cache = False
+    #use_cache = True
+    # with cache, package.position is wrong
+    # example:
+    # Package(pname='gstreamermm', position='/home/user/.cache/nixpkgs-review/rev-a9f5b7dbfe16c81a026946f2c9931479be31171d-42/nixpkgs/pkgs/development/libraries/gstreamer/gstreamermm/default.nix:36')
+    # but store path is ok
+
+    if use_cache:
+
+        # parse commit hash from path
+        head_rev = path.split("/")[-2].split("-")[1]
+        cache_key = f"{head_rev} {system} check_meta={check_meta}"
+        debug(f"list_packages: cache_key = {cache_key}")
+        cache_dir = "/home/user/.cache/nixpkgs-review/list_packages/" # TODO
+        debug(f"list_packages: cache_dir = {cache_dir}")
+
+        cache_size_limit = 200 * 1000 * 1000, # 200MB (default: 1GB)
+
+        cache = diskcache.Cache(cache_dir, size_limit = cache_size_limit)
+        # FIXME sqlite3.InterfaceError: Error binding parameter 1 - probably unsupported type.
+
+        debug(f"list_packages: cache size = {cache.volume() / 1000 / 1000:.2f} MB")
+        # 2 entries = 6 + 14 = 20 MB
+
+        if cache_key in cache:
+            debug(f"list_packages: cache hit")
+            result = cache.get(cache_key)
+            cache.close()
+            return result
+
+        debug(f"list_packages: cache miss")
+
     info("$ " + " ".join(cmd))
     with tempfile.NamedTemporaryFile(mode="w") as tmp:
         subprocess.run(cmd, stdout=tmp, check=True)
         tmp.flush()
         with open(tmp.name) as f:
-            return parse_packages_xml(f)
+            result = parse_packages_xml(f)
+            if use_cache:
+                cache.set(cache_key, result)
+                cache.close()
+            return result
 
 
 def package_attrs(
@@ -428,6 +596,7 @@ def filter_packages(
 
 
 def fetch_refs(repo: str, *refs: str) -> List[str]:
+    debug(f"fetch_refs: refs = {refs}")
     cmd = ["git", "-c", "fetch.prune=false", "fetch", "--no-tags", "--force", repo]
     for i, ref in enumerate(refs):
         cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
@@ -438,6 +607,7 @@ def fetch_refs(repo: str, *refs: str) -> List[str]:
             ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"], text=True
         )
         shas.append(out.strip())
+    debug(f"fetch_refs: shas = {shas}")
     return shas
 
 

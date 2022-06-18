@@ -34,31 +34,26 @@ def parse_branches(branch_args: List[str]) -> List[int]:
     branches: List[int] = []
     for arg in branch_args:
         branch = Branch(arg)
-        print("arg", arg)
-        print("branch", branch)
         branches.append(branch)
     return branches
 
 
 # based on pr_command
 def branch_command(args: argparse.Namespace) -> str:
+
     branches = parse_branches(args.branches)
 
-    import sys; sys.exit() # debug
+    use_ofborg_eval = False # ofborg is only available for pr
 
-    use_ofborg_eval = args.eval == "ofborg"
     checkout_option = (
         CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
     )
-
-    #if args.post_result:
-    #    ensure_github_token(args.token)
 
     contexts = []
 
     with Buildenv(args), ExitStack() as stack:
         for branch in branches:
-            builddir = stack.enter_context(Builddir(f"branch-{branch}")) # TODO slugify branch to filepath
+            builddir = stack.enter_context(Builddir(f"branch-{branch}"))
             try:
                 review = Review(
                     builddir=builddir,
@@ -77,7 +72,6 @@ def branch_command(args: argparse.Namespace) -> str:
                     allow_aliases=args.allow_aliases,
                     sandbox=args.sandbox,
                 )
-                # TODO implement review.build_branch
                 contexts.append((branch, builddir.path, review.build_branch(branch)))
             except subprocess.CalledProcessError:
                 warn(f"failed to build branch: {branch}")

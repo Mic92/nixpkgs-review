@@ -73,28 +73,11 @@ def branch_flags(
     subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
 ) -> argparse.ArgumentParser:
     branch_parser = subparsers.add_parser("branch", help="review a branch of nixpkgs. can be a fork-branch")
-    # , aliases=["br"] # not using alias, as "branch" should be a rarely-used command
-    eval_default = "local"
-    # keep in sync with: https://github.com/NixOS/ofborg/blob/released/ofborg/src/outpaths.nix#L13-L17
-    if current_system() in [
-        "aarch64-darwin",
-        "aarch64-linux",
-        "x86_64-darwin",
-        "x86_64-linux",
-    ]:
-        eval_default = "ofborg"
-    branch_parser.add_argument(
-        "--eval",
-        default=eval_default,
-        choices=["ofborg", "local"],
-        help="Whether to use ofborg's evaluation result",
-    )
     checkout_help = (
         "What to source checkout when building: "
-        + "`merge` will merge the branch into the target branch, "
-        + "while `commit` will checkout branch as the user has committed it"
+        "`merge` will merge the branch into the target branch, "
+        "while `commit` will checkout branch as the user has committed it"
     )
-
     branch_parser.add_argument(
         "-c",
         "--checkout",
