@@ -165,45 +165,45 @@ class Review:
             print(f"error: nothing to compare. base_commit == reviewed_commit == {reviewed_commit}")
             sys.exit(1)
 
-        debug("build_commit: git_worktree")
+        debug("review.py: build_commit: git_worktree")
         self.git_worktree(base_commit)
 
-        debug("build_commit: list_packages(base) ...")
+        debug("review.py: build_commit: list_packages(base) ...")
         t1 = time.time()
         base_packages = list_packages(str(self.worktree_dir()), self.system)
         t2 = time.time()
-        debug(f"build_commit: list_packages(base) done after {round(t2 - t1)} seconds") # 447 sec
+        debug(f"review.py: build_commit: list_packages(base) done after {round(t2 - t1)} seconds") # 447 sec
 
         if reviewed_commit is None:
-            debug("build_commit: apply_unstaged")
+            debug("review.py: build_commit: apply_unstaged")
             self.apply_unstaged(staged)
         else:
-            debug("build_commit: git_merge")
+            debug("review.py: build_commit: git_merge")
             self.git_merge(reviewed_commit)
 
-        debug("build_commit: list_packages(head) ...")
+        debug("review.py: build_commit: list_packages(head) ...")
         t1 = time.time()
         merged_packages = list_packages(
             str(self.worktree_dir()), self.system, check_meta=True
         )
         t2 = time.time()
-        debug(f"build_commit: list_packages(head) done after {round(t2 - t1)} seconds")
+        debug(f"review.py: build_commit: list_packages(head) done after {round(t2 - t1)} seconds")
 
-        debug("build_commit: differences")
+        debug("review.py: build_commit: differences")
         changed_pkgs, removed_pkgs = differences(base_packages, merged_packages)
-        debug(f"build_commit: changed_pkgs = {changed_pkgs}") # FIXME __repr__
-        debug(f"build_commit: removed_pkgs = {removed_pkgs}")
+        debug(f"review.py: build_commit: changed_pkgs = {changed_pkgs}") # FIXME __repr__
+        debug(f"review.py: build_commit: removed_pkgs = {removed_pkgs}")
 
         changed_attrs = set(p.attr_path for p in changed_pkgs)
-        debug(f"build_commit: changed_attrs = {changed_attrs}")
+        debug(f"review.py: build_commit: changed_attrs = {changed_attrs}")
         print_updates(changed_pkgs, removed_pkgs)
 
-        debug("build_commit: build ...")
+        debug("review.py: build_commit: build ...")
 
         t1 = time.time()
         build_result = self.build(changed_attrs, self.build_args)
         t2 = time.time()
-        debug(f"build_commit: build done after {round(t2 - t1)} seconds")
+        debug(f"review.py: build_commit: build done after {round(t2 - t1)} seconds")
         return build_result
 
     def git_worktree(self, commit: str) -> None:
@@ -320,6 +320,16 @@ class Review:
         base_commit_date = get_commit_date(base_rev)
         debug(f"review.py: build_branch: base_rev: {base_rev} ({base_commit_date})", )
 
+        # TODO print ahead/behind status of branch
+        out = subprocess.check_output(
+            ["git", "rev-list", "--left-right", "--count", f"{head_rev}...{main_branch}"],
+            text=True,
+        )
+        debug(f"review.py: build_branch: git rev-list -> {repr(out)}")
+        ahead, behind = map(lambda s: int(s), out.split("\t"))
+        debug(f"review.py: build_branch: head_rev is {ahead} ahead of {main_branch} branch")
+        debug(f"review.py: build_branch: head_rev is {behind} behind of {main_branch} branch")
+
         if packages_per_system is None:
             debug(f"review.py: build_branch: build_commit")
             return self.build_commit(base_rev, head_rev)
@@ -371,16 +381,17 @@ class Review:
         cmd = ["git", "-c", "fetch.prune=false", "fetch", "--no-tags", "--force", self.remote, f"{ref}:refs/nixpkgs-review/{i}"]
         sh(cmd)
         out = subprocess.check_output(
-            ["git", "rev-list", "--left-right", "--count", f"{ref}...{branch}"], text=True # 1       1920 = ahead, behind
+            ["git", "rev-list", "--left-right", "--count", f"{ref}...{branch}"],
+            text=True,
         )
-        debug(f"git rev-list -> {repr(out)}")
+        debug(f"review.py: review_commit: git rev-list -> {repr(out)}")
         ahead, behind = map(lambda s: int(s), out.split("\t"))
-        debug(f"review_commit: branch head {reviewed_commit} is {ahead} ahead of branch {branch} in remote {self.remote}")
+        debug(f"review.py: review_commit: branch head {reviewed_commit} is {ahead} ahead of branch {branch} in remote {self.remote}")
         # TODO better? find oldest common ancestor
         out = subprocess.check_output(
             ["git", "rev-parse", f"{ref}~{ahead}"], text=True
         )
-        debug(f"git rev-parse -> {repr(out)}")
+        debug(f"review.py: review_commit: git rev-parse -> {repr(out)}")
         branch_rev = out.strip()
 
         self.start_review(self.build_commit(branch_rev, reviewed_commit, staged), path)
@@ -463,25 +474,25 @@ def list_packages(path: str, system: str, check_meta: bool = False) -> List[Pack
         # parse commit hash from path
         head_rev = path.split("/")[-2].split("-")[1]
         cache_key = f"{head_rev} {system} check_meta={check_meta}"
-        debug(f"list_packages: cache_key = {cache_key}")
+        debug(f"review.py: list_packages: cache_key = {cache_key}")
         cache_dir = "/home/user/.cache/nixpkgs-review/list_packages/" # TODO
-        debug(f"list_packages: cache_dir = {cache_dir}")
+        debug(f"review.py: list_packages: cache_dir = {cache_dir}")
 
         cache_size_limit = 200 * 1000 * 1000, # 200MB (default: 1GB)
 
         cache = diskcache.Cache(cache_dir, size_limit = cache_size_limit)
         # FIXME sqlite3.InterfaceError: Error binding parameter 1 - probably unsupported type.
 
-        debug(f"list_packages: cache size = {cache.volume() / 1000 / 1000:.2f} MB")
+        debug(f"review.py: list_packages: cache size = {cache.volume() / 1000 / 1000:.2f} MB")
         # 2 entries = 6 + 14 = 20 MB
 
         if cache_key in cache:
-            debug(f"list_packages: cache hit")
+            debug(f"review.py: list_packages: cache hit")
             result = cache.get(cache_key)
             cache.close()
             return result
 
-        debug(f"list_packages: cache miss")
+        debug(f"review.py: list_packages: cache miss")
 
     info("$ " + " ".join(cmd))
     with tempfile.NamedTemporaryFile(mode="w") as tmp:
@@ -602,7 +613,7 @@ def filter_packages(
 # TODO fetch shallow
 # fetching all commits of nixpkgs takes forever
 def fetch_refs(repo: str, *refs: str) -> List[str]:
-    debug(f"fetch_refs: refs = {refs}")
+    debug(f"review.py: fetch_refs: refs = {refs}")
     cmd = ["git", "-c", "fetch.prune=false", "fetch", "--no-tags", "--force", repo]
     for i, ref in enumerate(refs):
         cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
@@ -613,7 +624,7 @@ def fetch_refs(repo: str, *refs: str) -> List[str]:
             ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"], text=True
         )
         shas.append(out.strip())
-    debug(f"fetch_refs: shas = {shas}")
+    debug(f"review.py: fetch_refs: shas = {shas}")
     return shas
 
 
