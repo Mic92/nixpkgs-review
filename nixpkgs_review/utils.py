@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from typing import IO, Any, Callable, List, Optional, Union
 import functools
+from urllib.parse import urlparse, unquote
 
 HAS_TTY = sys.stdout.isatty()
 ROOT = Path(os.path.dirname(os.path.realpath(__file__)))
