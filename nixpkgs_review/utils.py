@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import IO, Any, Callable, List, Optional, Union
 import functools
 from urllib.parse import urlparse, unquote
+import re
 
 HAS_TTY = sys.stdout.isatty()
 ROOT = Path(os.path.dirname(os.path.realpath(__file__)))
@@ -75,11 +76,44 @@ class Branch:
     def __repr__(self):
         return f"Branch:\n  remote: {self.remote}\n  branch: {self.branch}\n  commit: {self.commit}"
 
+    def set_branch(self, branch, check=True):
+        if check:
+            if not branch:
+                raise Exception(f"failed to parse branch from {repr(self.raw_input)}")
+        self.branch = branch
+
+    def set_remote(self, owner=None, repo=None, url=None, check=True):
+        if owner and repo:
+            self.remote = f"https://github.com/{owner}/{repo}"
+            return
+        if owner and repo is None:
+            self.remote = f"https://github.com/{owner}/nixpkgs"
+            return
+        if url:
+            self.remote = url
+            return
+        if check:
+            raise Exception(f"failed to parse remote from {repr(self.raw_input)}")
+
+    _commit_expr = r"[0-9a-f]{40}"
+    _is_commit = re.compile(_commit_expr).fullmatch
+
+    def set_commit(self, commit):
+        if not commit:
+            raise Exception(f"failed to parse commit from {repr(raw_input)}")
+        if not self._is_commit(commit):
+            raise Exception(f"expected commit matching {self._commit_expr}, got {repr(commit)}")
+        self.commit = commit
+
+
+
     def __init__(self, raw_input):
+
+        self.raw_input = raw_input
 
         if not ":" in raw_input:
             # compare a nixpkgs branch to the nixpkgs master branch
-            self.branch = raw_input
+            self.set_branch(raw_input)
             # input is not a url, so it's not urlencoded
             #self.branch = unquote(raw_input)
             return
@@ -93,8 +127,9 @@ class Branch:
             if len(parts) != 2:
                 raise Exception(f"branch expected format user:branch, got {repr(raw_input)}")
             [owner, branch] = parts
-            self.remote = f"https://github.com/{owner}/nixpkgs"
-            self.branch = branch
+            self.set_branch(branch)
+            self.set_remote(owner=owner)
+
             # input is not a url, so it's not urlencoded
             # copy branch from github webinterface https://github.com/milahu/random/pull/5
             # -> a/b-c+d&e%f(g)hijk=l.m]__@n#op<q>r§t"u'v`w´x;y_z
@@ -106,21 +141,25 @@ class Branch:
             raise Exception(f"not implemented. branch must be a github url, got {repr(raw_input)}")
 
         dirs = url.path.split("/")
+        #print("dirs =", dirs)
 
-        if dirs[2] != "nixpkgs":
-            raise Exception(f"branch repo name must be nixpkgs, got {repr(raw_input)}")
+        if len(dirs) < 5:
+            raise Exception(f"bad input. could not parse {repr(raw_input)}")
 
         if dirs[3] == "tree":
-            self.branch = unquote("/".join(dirs[4:]))
+            # dirs = ['', 'some-user', 'nixpkgs', 'tree', 'some-branch']
+            self.set_remote(owner=dirs[1], repo=dirs[2])
+            self.set_branch(unquote("/".join(dirs[4:])))
             return
 
         if dirs[3] == "commit":
-            self.commit = dirs[4]
-            owner = dirs[1]
-            self.remote = f"https://github.com/{owner}/nixpkgs"
+            # dirs = ['', 'NixOS', 'nixpkgs', 'commit', '0000000000000000000000000000000000000000']
+            self.set_remote(owner=dirs[1], repo=dirs[2])
+            self.set_commit(dirs[4])
             return
 
         if dirs[3] == "compare":
+            # dirs = ['', 'NixOS', 'nixpkgs', 'compare', 'master...some-user:some-branch']
             if not raw_input.startswith("https://github.com/NixOS/nixpkgs/compare/master.."):
                 raise Exception(f"expected github compare link versus nixpkgs master, got {repr(raw_input)}")
 
@@ -132,13 +171,12 @@ class Branch:
 
             parts = branch.split(":")
             if len(parts) == 2:
-                [owner, branch] = parts
-                self.remote = f"https://github.com/{owner}/nixpkgs"
-                self.branch = branch
+                self.set_remote(owner=parts[0])
+                self.set_branch(parts[1])
                 return
             if len(parts) == 1:
                 # remote is NixOS/nixpkgs
-                self.branch = branch
+                self.set_branch(branch)
                 return
             raise Exception(f"expected github compare link with user:branch or branch, got {repr(raw_input)}")
 
