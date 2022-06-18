@@ -11,8 +11,6 @@ from pathlib import Path
 from typing import IO, Dict, List, Optional, Pattern, Set, Tuple
 from datetime import datetime
 
-import diskcache
-
 from .builddir import Builddir
 from .github import GithubClient
 from .nix import Attr, nix_build, nix_eval, nix_shell
@@ -447,38 +445,6 @@ def list_packages(path: str, system: str, check_meta: bool = False) -> List[Pack
     ]
     if check_meta:
         cmd.append("--meta")
-
-    use_cache = False
-    #use_cache = True
-    # with cache, package.position is wrong
-    # example:
-    # Package(pname='gstreamermm', position='/home/user/.cache/nixpkgs-review/rev-a9f5b7dbfe16c81a026946f2c9931479be31171d-42/nixpkgs/pkgs/development/libraries/gstreamer/gstreamermm/default.nix:36')
-    # but store path is ok
-
-    if use_cache:
-
-        # parse commit hash from path
-        head_rev = path.split("/")[-2].split("-")[1]
-        cache_key = f"{head_rev} {system} check_meta={check_meta}"
-        debug(f"list_packages: cache_key = {cache_key}")
-        cache_dir = "/home/user/.cache/nixpkgs-review/list_packages/" # TODO
-        debug(f"list_packages: cache_dir = {cache_dir}")
-
-        cache_size_limit = 200 * 1000 * 1000, # 200MB (default: 1GB)
-
-        cache = diskcache.Cache(cache_dir, size_limit = cache_size_limit)
-        # FIXME sqlite3.InterfaceError: Error binding parameter 1 - probably unsupported type.
-
-        debug(f"list_packages: cache size = {cache.volume() / 1000 / 1000:.2f} MB")
-        # 2 entries = 6 + 14 = 20 MB
-
-        if cache_key in cache:
-            debug(f"list_packages: cache hit")
-            result = cache.get(cache_key)
-            cache.close()
-            return result
-
-        debug(f"list_packages: cache miss")
 
     info("$ " + " ".join(cmd))
     with tempfile.NamedTemporaryFile(mode="w") as tmp:
