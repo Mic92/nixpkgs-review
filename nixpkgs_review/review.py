@@ -452,9 +452,6 @@ def list_packages(path: str, system: str, check_meta: bool = False) -> List[Pack
         tmp.flush()
         with open(tmp.name) as f:
             result = parse_packages_xml(f)
-            if use_cache:
-                cache.set(cache_key, result)
-                cache.close()
             return result
 
 
