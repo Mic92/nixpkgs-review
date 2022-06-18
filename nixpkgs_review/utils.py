@@ -173,6 +173,8 @@ class Branch:
             # dirs = ['', 'NixOS', 'nixpkgs', 'commit', '0000000000000000000000000000000000000000']
             self.set_remote(owner=dirs[1], repo=dirs[2])
             self.set_commit(dirs[4])
+            # challenge: find branch of commit. wontfix?
+            raise Exception("TODO implement review from commit")
             return
 
         if dirs[3] == "compare":

@@ -163,13 +163,6 @@ class Review:
         Review a local git commit
         """
 
-        base_commit_date = get_commit_date(base_commit)
-        reviewed_commit_date = get_commit_date(reviewed_commit)
-
-        # TODO rename reviewed_commit -> head_commit
-        debug(f"base commit: {base_commit} ({base_commit_date})")
-        debug(f"head commit: {reviewed_commit} ({reviewed_commit_date})")
-
         if base_commit == reviewed_commit:
             print(f"error: nothing to compare. base_commit == reviewed_commit == {reviewed_commit}")
             sys.exit(1)
@@ -295,19 +288,26 @@ class Review:
         #    packages_per_system = None
         packages_per_system = None
 
-        (head_rev,) = fetch_refs(
+        main_branch = "master"
+        main_rev, head_rev = fetch_refs(
             branch.remote,
+            main_branch,
             branch.branch or branch.commit,
         )
-        debug(f"review.py: build_branch: head_rev = {head_rev}")
+
+        head_commit_date = get_commit_date(head_rev)
+        main_commit_date = get_commit_date(main_rev)
+
+        debug(f"review.py: build_branch: head_rev: {head_rev} ({head_commit_date})", )
+        debug(f"review.py: build_branch: main_rev: {main_rev} ({main_commit_date})", )
 
         # find oldest common ancestor of branch and master
         # https://stackoverflow.com/questions/1527234/finding-a-branch-point-with-git
-        main_branch = "master"
         run_cmd = (
             f'diff --old-line-format= --new-line-format= ' +
-            f'<(git rev-list --first-parent "{main_branch}") ' +
-            f'<(git rev-list --first-parent "{branch.branch}") | head -1'
+            f'  <(git rev-list --first-parent "{main_rev}") ' +
+            f'  <(git rev-list --first-parent "{head_rev}") ' +
+            f'| head -1'
         )
         run = subprocess.run(
             run_cmd,
@@ -317,7 +317,8 @@ class Review:
             shell=True,
         )
         base_rev = run.stdout.strip()
-        debug("review.py: build_branch: base_rev", base_rev)
+        base_commit_date = get_commit_date(base_rev)
+        debug(f"review.py: build_branch: base_rev: {base_rev} ({base_commit_date})", )
 
         if packages_per_system is None:
             debug(f"review.py: build_branch: build_commit")
@@ -595,6 +596,8 @@ def filter_packages(
     return packages
 
 
+# TODO fetch shallow
+# fetching all commits of nixpkgs takes forever
 def fetch_refs(repo: str, *refs: str) -> List[str]:
     debug(f"fetch_refs: refs = {refs}")
     cmd = ["git", "-c", "fetch.prune=false", "fetch", "--no-tags", "--force", repo]
