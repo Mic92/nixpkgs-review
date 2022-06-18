@@ -195,6 +195,11 @@ def read_github_token() -> Optional[str]:
 def common_flags() -> List[CommonFlag]:
     return [
         CommonFlag(
+            "-C", # similar: git -C dir/
+            "--workdir",
+            help="Local path to nixpkgs repo (default: current workdir)",
+        ),
+        CommonFlag(
             "--allow-aliases",
             dest="allow_aliases",
             action="store_true",
@@ -271,12 +276,6 @@ def common_flags() -> List[CommonFlag]:
 def parse_args(command: str, args: List[str]) -> argparse.Namespace:
     main_parser = argparse.ArgumentParser(
         prog=command, formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    main_parser.add_argument(
-        "-C", # similar: git -C dir/
-        "--workdir",
-        help="Local path to nixpkgs repo (default: current workdir)",
-        # TODO pretty: remove "(default: None)"
     )
     subparsers = main_parser.add_subparsers(
         dest="subcommand",
