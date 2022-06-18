@@ -77,8 +77,7 @@ def branch_command(args: argparse.Namespace) -> str:
                 warn(f"failed to build branch: {branch}")
 
         for branch, path, attrs in contexts:
-            post_result = False # only for pr's
-            review.start_review(attrs, path, branch, post_result)
+            review.start_review(attrs, path, branch=branch)
 
         if len(contexts) != len(branches):
             sys.exit(1)

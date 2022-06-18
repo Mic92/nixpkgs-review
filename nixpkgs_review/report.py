@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Callable, List, Optional
 
 from .nix import Attr
-from .utils import info, link, warn
+from .utils import info, link, warn, Branch
 
 
 def print_number(
@@ -110,12 +110,12 @@ class Report:
     def built_packages(self) -> List[str]:
         return [a.name for a in self.built]
 
-    def write(self, directory: Path, pr: Optional[int]) -> None:
+    def write(self, directory: Path, pr: Optional[int], branch: Optional[Branch]) -> None:
         with open(directory.joinpath("report.md"), "w+") as f:
-            f.write(self.markdown(pr))
+            f.write(self.markdown(pr, branch))
 
         with open(directory.joinpath("report.json"), "w+") as f:
-            f.write(self.json(pr))
+            f.write(self.json(pr, branch))
 
         write_error_logs(self.attrs, directory)
 
@@ -123,26 +123,25 @@ class Report:
         """Whether the report is considered a success or a failure"""
         return len(self.failed) == 0
 
-    def json(self, pr: Optional[int]) -> str:
+    def json(self, pr: Optional[int], branch: Optional[Branch]) -> str:
         def serialize_attrs(attrs: List[Attr]) -> List[str]:
             return list(map(lambda a: a.name, attrs))
 
-        return json.dumps(
-            {
-                "system": self.system,
-                "pr": pr,
-                "broken": serialize_attrs(self.broken),
-                "non-existant": serialize_attrs(self.non_existant),
-                "blacklisted": serialize_attrs(self.blacklisted),
-                "failed": serialize_attrs(self.failed),
-                "built": serialize_attrs(self.built),
-                "tests": serialize_attrs(self.tests),
-            },
-            sort_keys=True,
-            indent=4,
-        )
+        report_data = dict()
 
-    def markdown(self, pr: Optional[int]) -> str:
+        report_data["system"] = self.system
+        if pr:
+            report_data["pr"] = pr
+        elif branch:
+            report_data["branch"] = str(branch)
+        for key in ["broken", "non_existant", "blacklisted", "failed", "built", "tests"]:
+            val = getattr(self, key)
+            report_key = key.replace("_", "-")
+            report_data[report_key] = serialize_attrs(val)
+
+        return json.dumps(report_data, sort_keys=True, indent=4)
+
+    def markdown(self, pr: Optional[int], branch: Optional[Branch]) -> str:
         cmd = "nixpkgs-review"
         if pr is not None:
             cmd += f" pr {pr}"
@@ -161,7 +160,7 @@ class Report:
 
         return msg
 
-    def print_console(self, pr: Optional[int]) -> None:
+    def print_console(self, pr: Optional[int], branch: Optional[Branch]) -> None:
         if pr is not None:
             pr_url = f"https://github.com/NixOS/nixpkgs/pull/{pr}"
             info("\nLink to currently reviewing PR:")
