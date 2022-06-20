@@ -1,53 +1,23 @@
 input: staging
-output: Branch:
-  remote: https://github.com/NixOS/nixpkgs
-  branch: staging
-  commit: None
+output: {'remote': 'https://github.com/NixOS/nixpkgs', 'owner': 'NixOS', 'repo': 'nixpkgs', 'branch': 'staging', 'commit': None}
 
 input: alice:patch-1
-output: Branch:
-  remote: https://github.com/alice/nixpkgs
-  branch: patch-1
-  commit: None
-
-input: https://github.com/alice/nixpkgs/commit/a94a8fe5ccb19ba61c4c0873d391e987982fbbd3
-output: Branch:
-  remote: https://github.com/alice/nixpkgs
-  branch: None
-  commit: a94a8fe5ccb19ba61c4c0873d391e987982fbbd3
+output: {'remote': 'https://github.com/alice/nixpkgs', 'owner': 'alice', 'repo': 'nixpkgs', 'branch': 'patch-1', 'commit': None}
 
 input: https://github.com/NixOS/nixpkgs/compare/master..alice:patch-1
-output: Branch:
-  remote: https://github.com/alice/nixpkgs
-  branch: patch-1
-  commit: None
+output: {'remote': 'https://github.com/alice/nixpkgs', 'owner': 'alice', 'repo': 'nixpkgs', 'branch': 'patch-1', 'commit': None}
 
 input: https://github.com/NixOS/nixpkgs/compare/master...alice:patch-1
-output: Branch:
-  remote: https://github.com/alice/nixpkgs
-  branch: patch-1
-  commit: None
+output: {'remote': 'https://github.com/alice/nixpkgs', 'owner': 'alice', 'repo': 'nixpkgs', 'branch': 'patch-1', 'commit': None}
 
 input: https://github.com/alice/nixpkgs/tree/patch-1
-output: Branch:
-  remote: https://github.com/NixOS/nixpkgs
-  branch: patch-1
-  commit: None
+output: {'remote': 'https://github.com/alice/nixpkgs', 'owner': 'alice', 'repo': 'nixpkgs', 'branch': 'patch-1', 'commit': None}
 
 input: https://github.com/alice/nixpkgs/tree/a/b/c/d
-output: Branch:
-  remote: https://github.com/NixOS/nixpkgs
-  branch: a/b/c/d
-  commit: None
+output: {'remote': 'https://github.com/alice/nixpkgs', 'owner': 'alice', 'repo': 'nixpkgs', 'branch': 'a/b/c/d', 'commit': None}
 
 input: https://github.com/alice/nixpkgs/tree/github.com/a/b/c/d
-output: Branch:
-  remote: https://github.com/NixOS/nixpkgs
-  branch: github.com/a/b/c/d
-  commit: None
+output: {'remote': 'https://github.com/alice/nixpkgs', 'owner': 'alice', 'repo': 'nixpkgs', 'branch': 'github.com/a/b/c/d', 'commit': None}
 
 input: https://github.com/NixOS/nixpkgs/compare/master...a/b-c%2Bd%26e%25f(g)hijk%3Dl.m%5D__%40n%23op%3Cq%3Er%C2%A7t%22u'v%60w%C2%B4x%3By_z
-output: Branch:
-  remote: https://github.com/NixOS/nixpkgs
-  branch: a/b-c+d&e%f(g)hijk=l.m]__@n#op<q>r§t"u'v`w´x;y_z
-  commit: None
+output: {'remote': 'https://github.com/NixOS/nixpkgs', 'owner': 'NixOS', 'repo': 'nixpkgs', 'branch': 'a/b-c+d&e%f(g)hijk=l.m]__@n#op<q>r§t"u\'v`w´x;y_z', 'commit': None}

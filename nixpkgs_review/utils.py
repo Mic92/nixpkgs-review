@@ -75,7 +75,22 @@ class Branch:
     branch = None
     commit = None
 
+    _keys = [
+        "remote",
+        "owner",
+        "repo",
+        "branch",
+        "commit",
+    ]
+
+    # python -c 'import nixpkgs_review.utils; b = nixpkgs_review.utils.Branch("a:b"); print(dict(b))'
+    def __iter__(self):
+        "dict(branch)"
+        for k in self._keys:
+            yield k, getattr(self, k)
+
     def __repr__(self):
+        "str(branch)"
         parts = []
         if self.remote.startswith("https://github.com/"):
             parts.append("github")
