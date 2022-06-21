@@ -51,5 +51,5 @@ python3.pkgs.buildPythonApplication rec {
     # workaround because `python setup.py develop` breaks for me
   '';
 
-  passthru.env = buildEnv { inherit name; paths = buildInputs ++ checkInputs; };
+  passthru.python = (python3.withPackages (_pp: checkInputs));
 }
