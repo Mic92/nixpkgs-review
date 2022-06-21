@@ -10,6 +10,7 @@ from enum import Enum
 from pathlib import Path
 from typing import IO, Dict, List, Optional, Pattern, Set, Tuple
 from datetime import datetime
+import gzip
 
 from .builddir import Builddir
 from .github import GithubClient
@@ -19,8 +20,9 @@ from .utils import info, sh, warn
 from .utils import Branch
 
 
+is_debug = bool(os.environ.get("DEBUG"))
 debug = lambda *a, **k: None
-if os.environ.get("DEBUG"):
+if is_debug:
     debug = print
 
 
@@ -162,15 +164,16 @@ class Review:
         """
 
         if base_commit == reviewed_commit:
-            print(f"error: nothing to compare. base_commit == reviewed_commit == {reviewed_commit}")
-            sys.exit(1)
+            raise Exception(f"nothing to compare. base_commit == reviewed_commit == {reviewed_commit}")
 
         debug("review.py: build_commit: git_worktree")
         self.git_worktree(base_commit)
 
         debug("review.py: build_commit: list_packages(base) ...")
         t1 = time.time()
-        base_packages = list_packages(str(self.worktree_dir()), self.system)
+        base_packages = list_packages(
+            str(self.worktree_dir()), self.system, check_meta=False
+        )
         t2 = time.time()
         debug(f"review.py: build_commit: list_packages(base) done after {round(t2 - t1)} seconds") # 447 sec
 
@@ -285,19 +288,26 @@ class Review:
         #else:
         #    packages_per_system = None
         packages_per_system = None
+        # fetch main branch from main remote.
+        # in the fork remote, the main branch is usually outdated
 
+        main_remote = "https://github.com/NixOS/nixpkgs"
+        fork_remote = branch.remote
         main_branch = "master"
+        main_ref = main_branch
+        fork_ref = branch.branch or branch.commit
+
         main_rev, head_rev = fetch_refs(
-            branch.remote,
-            main_branch,
-            branch.branch or branch.commit,
+            [main_remote, fork_remote],
+            main_ref, fork_ref,
         )
 
         head_commit_date = get_commit_date(head_rev)
         main_commit_date = get_commit_date(main_rev)
 
-        debug(f"review.py: build_branch: head_rev: {head_rev} ({head_commit_date})", )
+        # list in time-order: main > head > base
         debug(f"review.py: build_branch: main_rev: {main_rev} ({main_commit_date})", )
+        debug(f"review.py: build_branch: head_rev: {head_rev} ({head_commit_date})", )
 
         # find oldest common ancestor of branch and master
         # https://stackoverflow.com/questions/1527234/finding-a-branch-point-with-git
@@ -376,25 +386,9 @@ class Review:
         reviewed_commit: Optional[str],
         staged: bool = False,
     ) -> None:
-        ref = reviewed_commit
-        i = 0
-        cmd = ["git", "-c", "fetch.prune=false", "fetch", "--no-tags", "--force", self.remote, f"{ref}:refs/nixpkgs-review/{i}"]
-        sh(cmd)
-        out = subprocess.check_output(
-            ["git", "rev-list", "--left-right", "--count", f"{ref}...{branch}"],
-            text=True,
-        )
-        debug(f"review.py: review_commit: git rev-list -> {repr(out)}")
-        ahead, behind = map(lambda s: int(s), out.split("\t"))
-        debug(f"review.py: review_commit: branch head {reviewed_commit} is {ahead} ahead of branch {branch} in remote {self.remote}")
-        # TODO better? find oldest common ancestor
-        out = subprocess.check_output(
-            ["git", "rev-parse", f"{ref}~{ahead}"], text=True
-        )
-        debug(f"review.py: review_commit: git rev-parse -> {repr(out)}")
-        branch_rev = out.strip()
-
+        branch_rev = fetch_refs(self.remote, branch)[0]
         self.start_review(self.build_commit(branch_rev, reviewed_commit, staged), path)
+        return
 
 
 def parse_packages_xml(stdout: IO[str]) -> List[Package]:
@@ -445,6 +439,40 @@ def parse_packages_xml(stdout: IO[str]) -> List[Package]:
 
 
 def list_packages(path: str, system: str, check_meta: bool = False) -> List[Package]:
+
+    cache_file_zip = None
+    cache_file_xml = None
+
+    # TODO? group folders in ~/.cache/nixpkgs-review/ by their nix hash
+    # ex:
+    # ~/.cache/nixpkgs-review/79e32b38b4220a42032925fc22e564dc/branch/github.com/r-ryantm/nixpkgs/tree/auto-update/datalad
+    # ~/.cache/nixpkgs-review/79e32b38b4220a42032925fc22e564dc/eval-cache/system-x86_64-linux.meta-True.xml.gz
+
+    if os.environ.get("EVAL_CACHE"):
+        # TODO collect garbage = remove old cache files
+        # max cache size? 200 MB = 100 evals
+        debug(f"review.py: list_packages: path = {path}")
+        path_hash = subprocess.check_output(["nix-hash", path], text=True).strip()
+        debug(f"review.py: list_packages: path_hash = {path_hash}")
+        cache_dir = os.path.join(os.environ.get("HOME"), ".cache/nixpkgs-review/eval-cache", path_hash)
+        debug(f"review.py: list_packages: cache_dir = {cache_dir}")
+        cache_file_xml = os.path.join(cache_dir, f"system-{system}.meta-{check_meta}.xml")
+        cache_file_zip = f"{cache_file_xml}.gz"
+        debug(f"review.py: list_packages: cache_file_xml = {cache_file_xml}")
+        debug(f"review.py: list_packages: cache_file_zip = {cache_file_zip}")
+
+        if os.path.exists(cache_file_zip):
+            print(f"review.py: list_packages: cache hit. reading cache file: {cache_file_zip}")
+            f = gzip.open(cache_file_zip, "r")
+            if is_debug:
+                xml_start = f.read(1000).decode("utf8")
+                debug(f"review.py: list_packages: xml_start:\n{xml_start}")
+            f.seek(0)
+            result = parse_packages_xml(f)
+            f.close()
+            return result
+        print(f"review.py: list_packages: cache miss. writing cache file: {cache_file_zip}")
+
     cmd = [
         "nix-env",
         "--option",
@@ -460,50 +488,36 @@ def list_packages(path: str, system: str, check_meta: bool = False) -> List[Pack
     if check_meta:
         cmd.append("--meta")
 
-    use_cache = False
-    #use_cache = True
-    # with cache, package.position is wrong
-    # example:
-    # Package(pname='gstreamermm', position='/home/user/.cache/nixpkgs-review/rev-a9f5b7dbfe16c81a026946f2c9931479be31171d-42/nixpkgs/pkgs/development/libraries/gstreamer/gstreamermm/default.nix:36')
-    # but store path is ok
-
-    if use_cache:
-
-        import diskcache
-
-        # parse commit hash from path
-        head_rev = path.split("/")[-2].split("-")[1]
-        cache_key = f"{head_rev} {system} check_meta={check_meta}"
-        debug(f"review.py: list_packages: cache_key = {cache_key}")
-        cache_dir = "/home/user/.cache/nixpkgs-review/list_packages/" # TODO
-        debug(f"review.py: list_packages: cache_dir = {cache_dir}")
-
-        cache_size_limit = 200 * 1000 * 1000, # 200MB (default: 1GB)
-
-        cache = diskcache.Cache(cache_dir, size_limit = cache_size_limit)
-        # FIXME sqlite3.InterfaceError: Error binding parameter 1 - probably unsupported type.
-
-        debug(f"review.py: list_packages: cache size = {cache.volume() / 1000 / 1000:.2f} MB")
-        # 2 entries = 6 + 14 = 20 MB
-
-        if cache_key in cache:
-            debug(f"review.py: list_packages: cache hit")
-            result = cache.get(cache_key)
-            cache.close()
-            return result
-
-        debug(f"review.py: list_packages: cache miss")
-
     info("$ " + " ".join(cmd))
-    with tempfile.NamedTemporaryFile(mode="w") as tmp:
-        subprocess.run(cmd, stdout=tmp, check=True)
-        tmp.flush()
-        with open(tmp.name) as f:
-            result = parse_packages_xml(f)
-            if use_cache:
-                cache.set(cache_key, result)
-                cache.close()
-            return result
+
+    result = None
+    if cache_file_zip:
+        os.makedirs(os.path.dirname(cache_file_zip), exist_ok=True)
+        # gzip: 12MB -> 2MB
+        # we could compress even better by storing files in a git repo ...
+        # we cannot use gzip-file for subprocess stdout
+        # https://stackoverflow.com/questions/2853339
+        #with gzip.open(cache_file_zip, "wb") as writer:
+        #    subprocess.run(cmd, stdout=writer, check=True)
+        debug(f"review.py: list_packages: cache miss. writing cache_file_xml: {cache_file_xml}")
+        with open(cache_file_xml, "w") as writer:
+            subprocess.run(cmd, stdout=writer, check=True)
+        with open(cache_file_xml, "r") as reader:
+            result = parse_packages_xml(reader)
+        # compress cache_file_xml to cache_file_zip
+        debug(f"review.py: list_packages: cache miss. writing cache_file_zip: {cache_file_zip}")
+        cmd = ["gzip", cache_file_xml]
+        debug(f"review.py: list_packages: compress: {cmd}")
+        subprocess.run(cmd, check=True)
+    else:
+        with tempfile.NamedTemporaryFile(mode="w") as writer:
+            debug(f"review.py: list_packages: writing temporary file: {writer.name}")
+            subprocess.run(cmd, stdout=writer, check=True)
+            # closing writer would remove tempfile
+            writer.flush()
+            with open(writer.name, "r") as reader:
+                result = parse_packages_xml(reader)
+    return result
 
 
 def package_attrs(
@@ -612,12 +626,25 @@ def filter_packages(
 
 # TODO fetch shallow
 # fetching all commits of nixpkgs takes forever
-def fetch_refs(repo: str, *refs: str) -> List[str]:
+def fetch_refs(repo, *refs: str) -> List[str]:
     debug(f"review.py: fetch_refs: refs = {refs}")
-    cmd = ["git", "-c", "fetch.prune=false", "fetch", "--no-tags", "--force", repo]
-    for i, ref in enumerate(refs):
-        cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
-    sh(cmd)
+    if type(repo) == str:
+        cmd = ["git", "-c", "fetch.prune=false", "fetch", "--no-tags", "--force", repo]
+        for i, ref in enumerate(refs):
+            cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
+        sh(cmd)
+    elif type(repo) == list:
+        # used in build_branch
+        # TODO better. pass a list of (remote, refs) tuples to fetch_refs?
+        assert len(repo) == len(refs)
+        for i, ref in enumerate(refs): # TODO loop remotes
+            this_repo = repo[i]
+            cmd = ["git", "-c", "fetch.prune=false", "fetch", "--no-tags", "--force", this_repo]
+            # TODO loop refs
+            cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
+            sh(cmd)
+    else:
+        raise Exception(f"in repo argument, expected str or List[str], got {repr(repo)}")
     shas = []
     for i, ref in enumerate(refs):
         out = subprocess.check_output(

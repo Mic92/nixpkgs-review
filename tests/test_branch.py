@@ -4,16 +4,17 @@ import pytest
 import shutil
 import subprocess
 
-from nixpkgs_review.cli import branch
+from nixpkgs_review.utils import Branch
 from .conftest import Helpers
 
 # https://pypi.org/project/pytest-snapshot/
-# python3 -m pytest --snapshot-update -- tests/test_branch.py
+# pytest --snapshot-update -- tests/test_branch.py
 def test_branch_parse_args(snapshot):
     arglist = [
         "staging",
         "alice:patch-1",
-        "https://github.com/alice/nixpkgs/commit/a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
+        # TODO implement review from commit
+        #"https://github.com/alice/nixpkgs/commit/a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
         "https://github.com/NixOS/nixpkgs/compare/master..alice:patch-1",
         "https://github.com/NixOS/nixpkgs/compare/master...alice:patch-1",
         "https://github.com/alice/nixpkgs/tree/patch-1",
@@ -26,7 +27,10 @@ def test_branch_parse_args(snapshot):
     ]
     actual = []
     for arg in arglist:
-        actual.append(f"input: {arg}\noutput: {branch.Branch(arg)}")
+        branch = Branch(arg)
+        branch_dict = dict(branch)
+        branch_str = str(branch_dict)
+        actual.append(f"input: {arg}\noutput: {branch_str}")
     actual = "\n\n".join(actual) + "\n"
-    #snapshot.snapshot_dir = 'snapshots'
+    #snapshot.snapshot_dir = 'snapshots' # default
     snapshot.assert_match(actual, 'parse_args.txt')

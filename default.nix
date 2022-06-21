@@ -20,10 +20,6 @@ python3.pkgs.buildPythonApplication rec {
     git
   ];
 
-  propagatedBuildInputs = [
-    python3.pkgs.diskcache
-  ];
-
   checkPhase = ''
     ${if pkgs.lib.versionAtLeast python3.pkgs.black.version "20" then ''
       echo -e "\x1b[32m## run black\x1b[0m"
