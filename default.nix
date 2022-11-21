@@ -10,7 +10,7 @@ python3.pkgs.buildPythonApplication rec {
   checkInputs = [
     mypy
     python3.pkgs.black
-    python3.pkgs.flake8
+    ruff
     glibcLocales
 
     # needed for interactive unittests
@@ -26,8 +26,8 @@ python3.pkgs.buildPythonApplication rec {
     '' else ''
       echo -e "\033[0;31mskip running black (version too old)\x1b[0m"
     ''}
-    echo -e "\x1b[32m## run flake8\x1b[0m"
-    flake8 .
+    echo -e "\x1b[32m## run ruff\x1b[0m"
+    ruff .
     echo -e "\x1b[32m## run mypy\x1b[0m"
     mypy --strict nixpkgs_review
   '';
