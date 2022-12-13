@@ -320,7 +320,7 @@ Note that the result nix-shell may not be able to execute all hooks correctly
 since the architecture/operating system mismatches.
 
 ```console
-$ nixpkgs-review --system aarch64-linux pr 98734
+$ nixpkgs-review pr --system aarch64-linux 98734
 ```
 
 ## Review changes inside sandbox [EXPERIMENTAL]
