@@ -12,5 +12,5 @@ in {
     '';
   };
   # hack to not break evaluation with nixpkgs_review/nix/*.nix
-  inherit (pkgs) lib stdenv bashInteractive;
+  inherit (pkgs) lib mkShell bashInteractive;
 }

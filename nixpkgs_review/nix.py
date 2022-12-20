@@ -275,7 +275,7 @@ let
   paths = [
 """
         )
-        f.write("\n".join(f"        {escape_attr(a)}" for a in attrs))
+        f.write("\n".join(f"    {escape_attr(a)}" for a in attrs))
         f.write(
             """
   ];
@@ -284,14 +284,12 @@ let
     inherit paths;
     ignoreCollisions = true;
   };
-in stdenv.mkDerivation rec {
+in (import ./nixpkgs { }).mkShell {
   name = "review-shell";
   preferLocalBuild = true;
   allowSubstitutes = false;
   dontWrapQtApps = true;
-  buildInputs = if builtins.length paths > 50 then [ env ] else paths;
-  unpackPhase = ":";
-  installPhase = "touch $out";
+  packages = if builtins.length paths > 50 then [ env ] else paths;
 }
 """
         )
