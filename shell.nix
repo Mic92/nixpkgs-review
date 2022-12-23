@@ -4,7 +4,7 @@ with pkgs;
 
 pkgs.mkShell {
   buildInputs = [
-    (import ./. { }).passthru.env
+    (import ./. { }).passthru.python
   ] ++ lib.optional stdenv.isLinux [
     bubblewrap
   ];

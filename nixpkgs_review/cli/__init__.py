@@ -10,6 +10,7 @@ from .comments import show_comments
 from .merge import merge_command
 from .post_result import post_result_command
 from .pr import pr_command
+from .branch import branch_command
 from .rev import rev_command
 from .wip import wip_command
 from ..utils import current_system
@@ -68,6 +69,31 @@ def pr_flags(
     return pr_parser
 
 
+def branch_flags(
+    subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
+) -> argparse.ArgumentParser:
+    branch_parser = subparsers.add_parser("branch", help="review a branch of nixpkgs. can be a fork-branch")
+    checkout_help = (
+        "What to source checkout when building: "
+        "`merge` will merge the branch into the target branch, "
+        "while `commit` will checkout branch as the user has committed it"
+    )
+    branch_parser.add_argument(
+        "-c",
+        "--checkout",
+        default="merge",
+        choices=["merge", "commit"],
+        help=checkout_help,
+    )
+    branch_parser.add_argument(
+        "branches",
+        nargs="+",
+        help="one or more nixpkgs branches",
+    )
+    branch_parser.set_defaults(func=branch_command)
+    return branch_parser
+
+
 def rev_flags(
     subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
 ) -> argparse.ArgumentParser:
@@ -75,7 +101,7 @@ def rev_flags(
         "rev", help="review a change in the local pull request repository"
     )
     rev_parser.add_argument(
-        "-b", "--branch", default="master", help="branch to compare against with"
+        "-b", "--branch", default="master", help="branch to compare against with (default: master)"
     )
     rev_parser.add_argument(
         "commit", help="commit/tag/ref/branch in your local git repository"
@@ -152,6 +178,11 @@ def read_github_token() -> Optional[str]:
 def common_flags() -> List[CommonFlag]:
     return [
         CommonFlag(
+            "-C", # similar: git -C dir/
+            "--workdir",
+            help="Local path to nixpkgs repo (default: current workdir)",
+        ),
+        CommonFlag(
             "--allow-aliases",
             dest="allow_aliases",
             action="store_true",
@@ -183,7 +214,7 @@ def common_flags() -> List[CommonFlag]:
             "-r",
             "--remote",
             default="https://github.com/NixOS/nixpkgs",
-            help="Name of the nixpkgs repo to review",
+            help="URL of the nixpkgs repo to review",
         ),
         CommonFlag(
             "--run",
@@ -220,7 +251,7 @@ def common_flags() -> List[CommonFlag]:
             "--token",
             type=str,
             default=read_github_token(),
-            help="Github access token (optional if request limit exceeds)",
+            help="Github access token (optional if request limit is exceeded)",
         ),
     ]
 
@@ -266,6 +297,7 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
         merge_parser,
         post_result_parser,
         pr_flags(subparsers),
+        branch_flags(subparsers),
         rev_flags(subparsers),
         wip_flags(subparsers),
     ]
@@ -291,4 +323,6 @@ def main(command: str, raw_args: List[str]) -> str:
     args = parse_args(command, raw_args)
     if not check_common_flags(args):
         sys.exit(1)
+    if args.workdir:
+        os.chdir(args.workdir)
     return cast(str, args.func(args))

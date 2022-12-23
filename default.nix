@@ -15,6 +15,7 @@ python3.pkgs.buildPythonApplication rec {
 
     # needed for interactive unittests
     python3.pkgs.pytest
+    python3.pkgs.pytest-snapshot
     pkgs.nixVersions.stable or nix_2_4
     git
   ];
@@ -46,5 +47,5 @@ python3.pkgs.buildPythonApplication rec {
     # workaround because `python setup.py develop` breaks for me
   '';
 
-  passthru.env = buildEnv { inherit name; paths = buildInputs ++ checkInputs; };
+  passthru.python = (python3.withPackages (_pp: checkInputs));
 }
