@@ -140,6 +140,7 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
     blacklist = set(
         [
             "appimage-run-tests",
+            "darwin.builder",
             "nixos-install-tools",
             "tests.nixos-functions.nixos-test",
             "tests.nixos-functions.nixosTest-test",
