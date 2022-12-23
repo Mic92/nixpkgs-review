@@ -175,7 +175,9 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
     return list(attr_by_path.values()) + broken
 
 
-def nix_eval(attrs: Set[str], system: str, allow_aliases: bool) -> List[Attr]:
+def nix_eval(
+    attrs: Set[str], system: str, allow_aliases: bool, allow_ifd: bool
+) -> List[Attr]:
     attr_json = NamedTemporaryFile(mode="w+", delete=False)
     delete = True
     try:
@@ -192,6 +194,9 @@ def nix_eval(attrs: Set[str], system: str, allow_aliases: bool) -> List[Attr]:
             "eval",
             "--json",
             "--impure",
+            "--allow-import-from-derivation"
+            if allow_ifd
+            else "--no-allow-import-from-derivation",
             "--expr",
             f"(import {eval_script} {{ allowAliases = {allowAliases}; attr-json = {attr_json.name}; }})",
         ]
@@ -220,12 +225,13 @@ def nix_build(
     cache_directory: Path,
     system: str,
     allow_aliases: bool,
+    allow_ifd: bool,
 ) -> List[Attr]:
     if not attr_names:
         info("Nothing to be built.")
         return []
 
-    attrs = nix_eval(attr_names, system, allow_aliases)
+    attrs = nix_eval(attr_names, system, allow_aliases, allow_ifd)
     filtered = []
     for attr in attrs:
         if not (attr.broken or attr.blacklisted):
@@ -244,6 +250,9 @@ def nix_build(
         "build",
         "--no-link",
         "--keep-going",
+        "--allow-import-from-derivation"
+        if allow_ifd
+        else "--no-allow-import-from-derivation",
     ]
 
     if platform == "linux":
