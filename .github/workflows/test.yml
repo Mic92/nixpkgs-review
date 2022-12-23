@@ -4,12 +4,19 @@ on:
   workflow_dispatch:
   pull_request:
   push:
+
+env:
+  GITHUB: "${{ secrets.GITHUB_TOKEN }}"
+
 jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - uses: cachix/install-nix-action@v18
+      with:
+        extra_nix_config: |
+          access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
     - run: nix-build -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixpkgs-unstable.tar.gz
     - run: nix-shell -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixpkgs-unstable.tar.gz --run "pytest ./tests"
   build-flake:
@@ -17,6 +24,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: cachix/install-nix-action@v18
+      with:
+        extra_nix_config: |
+          access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
     - name: List flake structure
       run: nix flake show
     - run: nix flake check -vL
