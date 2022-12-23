@@ -93,6 +93,7 @@ class Review:
         skip_packages_regex: List[Pattern[str]] = [],
         checkout: CheckoutOption = CheckoutOption.MERGE,
         allow_aliases: bool = False,
+        allow_ifd: bool = False,
         sandbox: bool = False,
     ) -> None:
         self.builddir = builddir
@@ -109,6 +110,7 @@ class Review:
         self.skip_packages_regex = skip_packages_regex
         self.system = system
         self.allow_aliases = allow_aliases
+        self.allow_ifd = allow_ifd
         self.sandbox = sandbox
 
     def worktree_dir(self) -> str:
@@ -142,7 +144,9 @@ class Review:
         Review a local git commit
         """
         self.git_worktree(base_commit)
-        base_packages = list_packages(str(self.worktree_dir()), self.system)
+        base_packages = list_packages(
+            str(self.worktree_dir()), self.system, allow_ifd=self.allow_ifd
+        )
 
         if reviewed_commit is None:
             self.apply_unstaged(staged)
@@ -150,7 +154,10 @@ class Review:
             self.git_merge(reviewed_commit)
 
         merged_packages = list_packages(
-            str(self.worktree_dir()), self.system, check_meta=True
+            str(self.worktree_dir()),
+            self.system,
+            check_meta=True,
+            allow_ifd=self.allow_ifd,
         )
 
         changed_pkgs, removed_pkgs = differences(base_packages, merged_packages)
@@ -177,9 +184,15 @@ class Review:
             self.skip_packages_regex,
             self.system,
             self.allow_aliases,
+            self.allow_ifd,
         )
         return nix_build(
-            packages, args, self.builddir.path, self.system, self.allow_aliases
+            packages,
+            args,
+            self.builddir.path,
+            self.system,
+            self.allow_aliases,
+            self.allow_ifd,
         )
 
     def build_pr(self, pr_number: int) -> List[Attr]:
@@ -297,7 +310,9 @@ def parse_packages_xml(stdout: IO[str]) -> List[Package]:
     return packages
 
 
-def list_packages(path: str, system: str, check_meta: bool = False) -> List[Package]:
+def list_packages(
+    path: str, system: str, check_meta: bool = False, allow_ifd: bool = False
+) -> List[Package]:
     cmd = [
         "nix-env",
         "--option",
@@ -309,6 +324,9 @@ def list_packages(path: str, system: str, check_meta: bool = False) -> List[Pack
         "--xml",
         "--out-path",
         "--show-trace",
+        "--allow-import-from-derivation"
+        if allow_ifd
+        else "--no-allow-import-from-derivation",
     ]
     if check_meta:
         cmd.append("--meta")
@@ -325,12 +343,13 @@ def package_attrs(
     system: str,
     ignore_nonexisting: bool = True,
     allow_aliases: bool = False,
+    allow_ifd: bool = False,
 ) -> Dict[str, Attr]:
     attrs: Dict[str, Attr] = {}
 
     nonexisting = []
 
-    for attr in nix_eval(package_set, system, allow_aliases):
+    for attr in nix_eval(package_set, system, allow_aliases, allow_ifd):
         if not attr.exists:
             nonexisting.append(attr.name)
         elif not attr.broken:
@@ -349,6 +368,7 @@ def join_packages(
     specified_packages: Set[str],
     system: str,
     allow_aliases: bool,
+    allow_ifd: bool,
 ) -> Set[str]:
     changed_attrs = package_attrs(changed_packages, system)
     specified_attrs = package_attrs(
@@ -356,6 +376,7 @@ def join_packages(
         system,
         ignore_nonexisting=False,
         allow_aliases=allow_aliases,
+        allow_ifd=allow_ifd,
     )
 
     tests: Dict[str, Attr] = {}
@@ -385,6 +406,7 @@ def filter_packages(
     skip_package_regexes: List[Pattern[str]],
     system: str,
     allow_aliases: bool,
+    allow_ifd: bool,
 ) -> Set[str]:
     packages: Set[str] = set()
 
@@ -398,7 +420,7 @@ def filter_packages(
 
     if len(specified_packages) > 0:
         packages = join_packages(
-            changed_packages, specified_packages, system, allow_aliases
+            changed_packages, specified_packages, system, allow_aliases, allow_ifd
         )
 
     for attr in changed_packages:
@@ -470,6 +492,7 @@ def review_local_revision(
             only_packages=set(args.package),
             package_regexes=args.package_regex,
             system=args.system,
+            allow_ifd=args.allow_ifd,
         )
         review.review_commit(builddir.path, args.branch, commit, staged)
         return builddir.path

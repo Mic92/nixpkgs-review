@@ -158,6 +158,13 @@ def common_flags() -> List[CommonFlag]:
             help="Allow aliases while evaluating locally",
         ),
         CommonFlag(
+            "--allow-ifd",
+            "--allow-import-from-derivation",
+            dest="allow_ifd",
+            action="store_true",
+            help="Allow import-from-derivation",
+        ),
+        CommonFlag(
             "--build-args", default="", help="arguments passed to nix when building"
         ),
         CommonFlag(
