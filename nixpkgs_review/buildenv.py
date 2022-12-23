@@ -41,7 +41,7 @@ class Buildenv:
                 f"""{{
           allowUnfree = true;
           allowBroken = true;
-          {"allowAliases = false;" if self.args.allow_aliases else ""}
+          {"allowAliases = false;" if not self.args.allow_aliases else ""}
           ## TODO also build packages marked as insecure
           #allowInsecurePredicate = x: true;
         }}"""
