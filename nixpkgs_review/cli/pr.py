@@ -5,6 +5,7 @@ import sys
 from contextlib import ExitStack
 from typing import List
 
+from ..allow import AllowedFeatures
 from ..builddir import Builddir
 from ..buildenv import Buildenv
 from ..review import CheckoutOption, Review
@@ -43,7 +44,9 @@ def pr_command(args: argparse.Namespace) -> str:
 
     contexts = []
 
-    with Buildenv(args), ExitStack() as stack:
+    allow = AllowedFeatures(args.allow)
+
+    with Buildenv(allow.aliases), ExitStack() as stack:
         for pr in prs:
             builddir = stack.enter_context(Builddir(f"pr-{pr}"))
             try:
@@ -60,10 +63,8 @@ def pr_command(args: argparse.Namespace) -> str:
                     skip_packages=set(args.skip_package),
                     skip_packages_regex=args.skip_package_regex,
                     system=args.system,
+                    allow=allow,
                     checkout=checkout_option,
-                    allow_aliases=args.allow_aliases,
-                    allow_ifd=args.allow_ifd,
-                    allow_url_literals=args.allow_url_literals,
                     sandbox=args.sandbox,
                 )
                 contexts.append((pr, builddir.path, review.build_pr(pr)))

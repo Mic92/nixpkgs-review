@@ -152,22 +152,11 @@ def read_github_token() -> Optional[str]:
 def common_flags() -> List[CommonFlag]:
     return [
         CommonFlag(
-            "--allow-aliases",
-            dest="allow_aliases",
-            action="store_true",
-            help="Allow aliases while evaluating locally",
-        ),
-        CommonFlag(
-            "--allow-ifd",
-            "--allow-import-from-derivation",
-            dest="allow_ifd",
-            action="store_true",
-            help="Allow import-from-derivation",
-        ),
-        CommonFlag(
-            "--allow-url-literals",
-            action="store_true",
-            help="Allow url literals",
+            "--allow",
+            action="append",
+            default=[],
+            choices=["aliases", "ifd", "url-literals"],
+            help="Allow features that are normally disabled, can be passed multiple times",
         ),
         CommonFlag(
             "--build-args", default="", help="arguments passed to nix when building"

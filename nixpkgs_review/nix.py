@@ -9,6 +9,7 @@ from sys import platform
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict, List, Optional, Set, Union
 
+from .allow import AllowedFeatures
 from .utils import ROOT, escape_attr, info, sh, warn
 
 
@@ -179,9 +180,7 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
 def nix_eval(
     attrs: Set[str],
     system: str,
-    allow_aliases: bool,
-    allow_ifd: bool,
-    allow_url_literals: bool,
+    allow: AllowedFeatures,
 ) -> List[Attr]:
     attr_json = NamedTemporaryFile(mode="w+", delete=False)
     delete = True
@@ -189,18 +188,18 @@ def nix_eval(
         json.dump(list(attrs), attr_json)
         eval_script = str(ROOT.joinpath("nix/evalAttrs.nix"))
         attr_json.flush()
-        allowAliases = "true" if allow_aliases else "false"
+        allowAliases = "true" if allow.aliases else "false"
         cmd = [
             "nix",
             "--experimental-features",
-            "nix-command" if allow_url_literals else "nix-command no-url-literals",
+            "nix-command" if allow.url_literals else "nix-command no-url-literals",
             "--system",
             system,
             "eval",
             "--json",
             "--impure",
             "--allow-import-from-derivation"
-            if allow_ifd
+            if allow.ifd
             else "--no-allow-import-from-derivation",
             "--expr",
             f"(import {eval_script} {{ allowAliases = {allowAliases}; attr-json = {attr_json.name}; }})",
@@ -229,15 +228,13 @@ def nix_build(
     args: str,
     cache_directory: Path,
     system: str,
-    allow_aliases: bool,
-    allow_ifd: bool,
-    allow_url_literals: bool,
+    allow: AllowedFeatures,
 ) -> List[Attr]:
     if not attr_names:
         info("Nothing to be built.")
         return []
 
-    attrs = nix_eval(attr_names, system, allow_aliases, allow_ifd, allow_url_literals)
+    attrs = nix_eval(attr_names, system, allow)
     filtered = []
     for attr in attrs:
         if not (attr.broken or attr.blacklisted):
@@ -252,12 +249,12 @@ def nix_build(
     command = [
         "nix",
         "--experimental-features",
-        "nix-command" if allow_url_literals else "nix-command no-url-literals",
+        "nix-command" if allow.url_literals else "nix-command no-url-literals",
         "build",
         "--no-link",
         "--keep-going",
         "--allow-import-from-derivation"
-        if allow_ifd
+        if allow.ifd
         else "--no-allow-import-from-derivation",
     ]
 

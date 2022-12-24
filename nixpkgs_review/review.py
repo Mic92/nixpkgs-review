@@ -9,6 +9,7 @@ from enum import Enum
 from pathlib import Path
 from typing import IO, Dict, List, Optional, Pattern, Set, Tuple
 
+from .allow import AllowedFeatures
 from .builddir import Builddir
 from .github import GithubClient
 from .nix import Attr, nix_build, nix_eval, nix_shell
@@ -85,6 +86,7 @@ class Review:
         run: str,
         remote: str,
         system: str,
+        allow: AllowedFeatures,
         api_token: Optional[str] = None,
         use_ofborg_eval: Optional[bool] = True,
         only_packages: Set[str] = set(),
@@ -92,9 +94,6 @@ class Review:
         skip_packages: Set[str] = set(),
         skip_packages_regex: List[Pattern[str]] = [],
         checkout: CheckoutOption = CheckoutOption.MERGE,
-        allow_aliases: bool = False,
-        allow_ifd: bool = False,
-        allow_url_literals: bool = False,
         sandbox: bool = False,
     ) -> None:
         self.builddir = builddir
@@ -110,9 +109,7 @@ class Review:
         self.skip_packages = skip_packages
         self.skip_packages_regex = skip_packages_regex
         self.system = system
-        self.allow_aliases = allow_aliases
-        self.allow_ifd = allow_ifd
-        self.allow_url_literals = allow_url_literals
+        self.allow = allow
         self.sandbox = sandbox
 
     def worktree_dir(self) -> str:
@@ -149,8 +146,7 @@ class Review:
         base_packages = list_packages(
             str(self.worktree_dir()),
             self.system,
-            allow_ifd=self.allow_ifd,
-            allow_url_literals=self.allow_url_literals,
+            self.allow,
         )
 
         if reviewed_commit is None:
@@ -161,9 +157,8 @@ class Review:
         merged_packages = list_packages(
             str(self.worktree_dir()),
             self.system,
+            self.allow,
             check_meta=True,
-            allow_ifd=self.allow_ifd,
-            allow_url_literals=self.allow_url_literals,
         )
 
         changed_pkgs, removed_pkgs = differences(base_packages, merged_packages)
@@ -189,18 +184,14 @@ class Review:
             self.skip_packages,
             self.skip_packages_regex,
             self.system,
-            self.allow_aliases,
-            self.allow_ifd,
-            self.allow_url_literals,
+            self.allow,
         )
         return nix_build(
             packages,
             args,
             self.builddir.path,
             self.system,
-            self.allow_aliases,
-            self.allow_ifd,
-            self.allow_url_literals,
+            self.allow,
         )
 
     def build_pr(self, pr_number: int) -> List[Attr]:
@@ -321,14 +312,13 @@ def parse_packages_xml(stdout: IO[str]) -> List[Package]:
 def list_packages(
     path: str,
     system: str,
+    allow: AllowedFeatures,
     check_meta: bool = False,
-    allow_ifd: bool = False,
-    allow_url_literals: bool = False,
 ) -> List[Package]:
     cmd = [
         "nix-env",
         "--experimental-features",
-        "" if allow_url_literals else "no-url-literals",
+        "" if allow.url_literals else "no-url-literals",
         "--option",
         "system",
         system,
@@ -339,7 +329,7 @@ def list_packages(
         "--out-path",
         "--show-trace",
         "--allow-import-from-derivation"
-        if allow_ifd
+        if allow.ifd
         else "--no-allow-import-from-derivation",
     ]
     if check_meta:
@@ -355,18 +345,14 @@ def list_packages(
 def package_attrs(
     package_set: Set[str],
     system: str,
+    allow: AllowedFeatures,
     ignore_nonexisting: bool = True,
-    allow_aliases: bool = False,
-    allow_ifd: bool = False,
-    allow_url_literals: bool = False,
 ) -> Dict[str, Attr]:
     attrs: Dict[str, Attr] = {}
 
     nonexisting = []
 
-    for attr in nix_eval(
-        package_set, system, allow_aliases, allow_ifd, allow_url_literals
-    ):
+    for attr in nix_eval(package_set, system, allow):
         if not attr.exists:
             nonexisting.append(attr.name)
         elif not attr.broken:
@@ -384,18 +370,14 @@ def join_packages(
     changed_packages: Set[str],
     specified_packages: Set[str],
     system: str,
-    allow_aliases: bool,
-    allow_ifd: bool,
-    allow_url_literals: bool,
+    allow: AllowedFeatures,
 ) -> Set[str]:
-    changed_attrs = package_attrs(changed_packages, system)
+    changed_attrs = package_attrs(changed_packages, system, allow)
     specified_attrs = package_attrs(
         specified_packages,
         system,
+        allow,
         ignore_nonexisting=False,
-        allow_aliases=allow_aliases,
-        allow_ifd=allow_ifd,
-        allow_url_literals=allow_url_literals,
     )
 
     tests: Dict[str, Attr] = {}
@@ -424,9 +406,7 @@ def filter_packages(
     skip_packages: Set[str],
     skip_package_regexes: List[Pattern[str]],
     system: str,
-    allow_aliases: bool,
-    allow_ifd: bool,
-    allow_url_literals: bool,
+    allow: AllowedFeatures,
 ) -> Set[str]:
     packages: Set[str] = set()
 
@@ -443,9 +423,7 @@ def filter_packages(
             changed_packages,
             specified_packages,
             system,
-            allow_aliases,
-            allow_ifd,
-            allow_url_literals,
+            allow,
         )
 
     for attr in changed_packages:
@@ -504,6 +482,7 @@ def differences(
 def review_local_revision(
     builddir_path: str,
     args: argparse.Namespace,
+    allow: AllowedFeatures,
     commit: Optional[str],
     staged: bool = False,
 ) -> Path:
@@ -517,8 +496,7 @@ def review_local_revision(
             only_packages=set(args.package),
             package_regexes=args.package_regex,
             system=args.system,
-            allow_ifd=args.allow_ifd,
-            allow_url_literals=args.allow_url_literals,
+            allow=allow,
         )
         review.review_commit(builddir.path, args.branch, commit, staged)
         return builddir.path

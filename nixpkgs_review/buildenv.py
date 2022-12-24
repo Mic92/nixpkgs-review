@@ -1,4 +1,4 @@
-import argparse
+from dataclasses import dataclass
 import os
 import sys
 from tempfile import NamedTemporaryFile
@@ -20,9 +20,9 @@ def find_nixpkgs_root() -> Optional[str]:
         prefix.append("..")
 
 
+@dataclass
 class Buildenv:
-    def __init__(self, args: argparse.Namespace):
-        self.args = args
+    allow_aliases: bool
 
     def __enter__(self) -> None:
         self.environ = os.environ.copy()
@@ -41,7 +41,7 @@ class Buildenv:
                 f"""{{
           allowUnfree = true;
           allowBroken = true;
-          {"allowAliases = false;" if not self.args.allow_aliases else ""}
+          {"allowAliases = false;" if not self.allow_aliases else ""}
           ## TODO also build packages marked as insecure
           #allowInsecurePredicate = x: true;
         }}"""
