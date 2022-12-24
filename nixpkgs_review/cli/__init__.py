@@ -165,6 +165,11 @@ def common_flags() -> List[CommonFlag]:
             help="Allow import-from-derivation",
         ),
         CommonFlag(
+            "--allow-url-literals",
+            action="store_true",
+            help="Allow url literals",
+        ),
+        CommonFlag(
             "--build-args", default="", help="arguments passed to nix when building"
         ),
         CommonFlag(

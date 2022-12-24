@@ -177,7 +177,11 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
 
 
 def nix_eval(
-    attrs: Set[str], system: str, allow_aliases: bool, allow_ifd: bool
+    attrs: Set[str],
+    system: str,
+    allow_aliases: bool,
+    allow_ifd: bool,
+    allow_url_literals: bool,
 ) -> List[Attr]:
     attr_json = NamedTemporaryFile(mode="w+", delete=False)
     delete = True
@@ -189,7 +193,7 @@ def nix_eval(
         cmd = [
             "nix",
             "--experimental-features",
-            "nix-command",
+            "nix-command" if allow_url_literals else "nix-command no-url-literals",
             "--system",
             system,
             "eval",
@@ -227,12 +231,13 @@ def nix_build(
     system: str,
     allow_aliases: bool,
     allow_ifd: bool,
+    allow_url_literals: bool,
 ) -> List[Attr]:
     if not attr_names:
         info("Nothing to be built.")
         return []
 
-    attrs = nix_eval(attr_names, system, allow_aliases, allow_ifd)
+    attrs = nix_eval(attr_names, system, allow_aliases, allow_ifd, allow_url_literals)
     filtered = []
     for attr in attrs:
         if not (attr.broken or attr.blacklisted):
@@ -247,7 +252,7 @@ def nix_build(
     command = [
         "nix",
         "--experimental-features",
-        "nix-command",
+        "nix-command" if allow_url_literals else "nix-command no-url-literals",
         "build",
         "--no-link",
         "--keep-going",
