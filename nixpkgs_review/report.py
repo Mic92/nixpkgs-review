@@ -55,6 +55,9 @@ def write_error_logs(attrs: List[Attr], directory: Path) -> None:
     results = LazyDirectory(directory.joinpath("results"))
     failed_results = LazyDirectory(directory.joinpath("failed_results"))
     for attr in attrs:
+        if attr.blacklisted:
+            continue
+
         if attr.path is not None and os.path.exists(attr.path):
             if attr.was_build():
                 symlink_source = results.ensure().joinpath(attr.name)
