@@ -11,7 +11,9 @@ python3.pkgs.buildPythonApplication {
   name = "nixpkgs-review";
   src = ./.;
   format = "pyproject";
-  buildInputs = [ makeWrapper ];
+  nativeBuildInputs = [ installShellFiles python3.pkgs.argcomplete ];
+  propagatedBuildInputs = [ python3.pkgs.argcomplete ];
+
   nativeCheckInputs = [
     mypy
     python3.pkgs.setuptools
@@ -50,6 +52,16 @@ python3.pkgs.buildPythonApplication {
       # we don't have any runtime deps but nix-review shells might inject unwanted dependencies
       "--unset PYTHONPATH"
     ];
+
+  postInstall = ''
+    for cmd in nix-review nixpkgs-review; do
+      installShellCompletion --cmd $cmd \
+        --bash <(register-python-argcomplete $out/bin/$cmd) \
+        --fish <(register-python-argcomplete $out/bin/$cmd -s fish) \
+        --zsh <(register-python-argcomplete $out/bin/$cmd -s zsh)
+    done
+  '';
+
   shellHook = ''
     # workaround because `python setup.py develop` breaks for me
   '';

@@ -7,6 +7,8 @@ from pathlib import Path
 from shutil import which
 from typing import Any, List, Optional, Pattern, cast
 
+import argcomplete  # type: ignore
+
 from ..utils import current_system, nix_nom_tool
 from .approve import approve_command
 from .comments import show_comments
@@ -288,6 +290,8 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
     for parser in parsers:
         for flag in common:
             parser.add_argument(*flag.args, **flag.kwargs)
+
+    argcomplete.autocomplete(main_parser)
 
     if args == []:
         main_parser.print_help()
