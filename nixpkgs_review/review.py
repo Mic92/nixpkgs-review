@@ -317,7 +317,7 @@ def list_packages(
 ) -> List[Package]:
     cmd = [
         "nix-env",
-        "--experimental-features",
+        "--extra-experimental-features",
         "" if allow.url_literals else "no-url-literals",
         "--option",
         "system",

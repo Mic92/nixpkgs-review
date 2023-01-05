@@ -191,7 +191,7 @@ def nix_eval(
         allowAliases = "true" if allow.aliases else "false"
         cmd = [
             "nix",
-            "--experimental-features",
+            "--extra-experimental-features",
             "nix-command" if allow.url_literals else "nix-command no-url-literals",
             "--system",
             system,
@@ -248,7 +248,7 @@ def nix_build(
 
     command = [
         "nix",
-        "--experimental-features",
+        "--extra-experimental-features",
         "nix-command" if allow.url_literals else "nix-command no-url-literals",
         "build",
         "--no-link",

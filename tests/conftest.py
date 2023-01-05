@@ -41,7 +41,7 @@ def real_nixpkgs() -> str:
         [
             "nix",
             "eval",
-            "--experimental-features",
+            "--extra-experimental-features",
             "nix-command flakes",
             "--raw",
             "nixpkgs#path",
