@@ -49,7 +49,7 @@ def current_system() -> str:
     system = subprocess.run(
         [
             "nix",
-            "--experimental-features",
+            "--extra-experimental-features",
             "nix-command",
             "eval",
             "--impure",

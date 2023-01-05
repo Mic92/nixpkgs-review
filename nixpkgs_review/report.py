@@ -74,7 +74,7 @@ def write_error_logs(attrs: List[Attr], directory: Path) -> None:
                 nix_log = subprocess.run(
                     [
                         "nix",
-                        "--experimental-features",
+                        "--extra-experimental-features",
                         "nix-command",
                         "log",
                         path,
