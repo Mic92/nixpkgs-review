@@ -73,12 +73,16 @@ class GithubClient:
         packages_per_system: DefaultDict[str, Set[str]] = defaultdict(set)
         statuses = self.get(pr["statuses_url"])
         for status in statuses:
-            url = status.get("target_url", "")
             if (
                 status["description"] == "^.^!"
+                and status["state"] == "success"
+                and status["context"] == "ofborg-eval"
                 and status["creator"]["login"] == "ofborg[bot]"
-                and url != ""
             ):
+                url = status.get("target_url", "")
+                if url == "":
+                    return packages_per_system
+
                 url = urllib.parse.urlparse(url)
                 raw_gist_url = (
                     f"https://gist.githubusercontent.com/GrahamcOfBorg{url.path}/raw/"
