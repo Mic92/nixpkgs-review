@@ -17,7 +17,7 @@ python3.pkgs.buildPythonApplication rec {
     python3.pkgs.pytest
     pkgs.nixVersions.stable or nix_2_4
     git
-  ];
+  ] ++ lib.optional withSandboxSupport bubblewrap;
 
   checkPhase = ''
     ${if pkgs.lib.versionAtLeast python3.pkgs.black.version "20" then ''
@@ -45,6 +45,4 @@ python3.pkgs.buildPythonApplication rec {
   shellHook = ''
     # workaround because `python setup.py develop` breaks for me
   '';
-
-  passthru.env = buildEnv { inherit name; paths = buildInputs ++ checkInputs; };
 }
