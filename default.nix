@@ -7,7 +7,7 @@ python3.pkgs.buildPythonApplication rec {
   name = "nixpkgs-review";
   src = ./.;
   buildInputs = [ makeWrapper ];
-  checkInputs = [
+  nativeCheckInputs = [
     mypy
     python3.pkgs.black
     ruff
