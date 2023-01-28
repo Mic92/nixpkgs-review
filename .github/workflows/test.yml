@@ -17,8 +17,8 @@ jobs:
       with:
         extra_nix_config: |
           access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-    - run: nix-build -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixpkgs-unstable.tar.gz
-    - run: nix-shell -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixpkgs-unstable.tar.gz --run "pytest ./tests"
+    - run: nix build
+    - run: nix develop -c pytest -s .
   build-flake:
     runs-on: ubuntu-latest
     steps:
