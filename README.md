@@ -152,7 +152,7 @@ nix-shell> nixpkgs-review post-result
 nix-shell> nixpkgs-review comments
 ```
 
-For larger rebuilds, it can come in handy to see which packages still need to be build. This can be achieved with the `--nom` flag. This enables the `nix-output-monitor` (https://git.maralorn.de/nix-output-monitor/about/) which informs about remote builders, down- and uploads and displays a build graph.
+For larger rebuilds, it can come in handy to see which packages still need to be build. This can be achieved with the `--nom` flag. This enables the [nix-output-monitor](https://git.maralorn.de/nix-output-monitor/about/) which informs about remote builders, down- and uploads and displays a build graph.
 
 To use this feature, make sure to install `nix-output-monitor` first.
 
