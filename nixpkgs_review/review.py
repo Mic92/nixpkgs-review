@@ -95,6 +95,7 @@ class Review:
         skip_packages_regex: List[Pattern[str]] = [],
         checkout: CheckoutOption = CheckoutOption.MERGE,
         sandbox: bool = False,
+        nom: bool = False,
     ) -> None:
         self.builddir = builddir
         self.build_args = build_args
@@ -111,6 +112,7 @@ class Review:
         self.system = system
         self.allow = allow
         self.sandbox = sandbox
+        self.nom = nom
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -192,6 +194,7 @@ class Review:
             self.builddir.path,
             self.system,
             self.allow,
+            self.nom,
         )
 
     def build_pr(self, pr_number: int) -> List[Attr]:
@@ -497,6 +500,7 @@ def review_local_revision(
             package_regexes=args.package_regex,
             system=args.system,
             allow=allow,
+            nom=args.nom,
         )
         review.review_commit(builddir.path, args.branch, commit, staged)
         return builddir.path

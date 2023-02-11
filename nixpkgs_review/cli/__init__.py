@@ -1,6 +1,7 @@
 import argparse
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 from typing import Any, List, Optional, Pattern, cast
@@ -223,6 +224,11 @@ def common_flags() -> List[CommonFlag]:
             default=read_github_token(),
             help="Github access token (optional if request limit exceeds)",
         ),
+        CommonFlag(
+            "--nom",
+            action="store_true",
+            help="Use nix-output-monitor (nom) instead of nix. Provides a nice realtime build graph",
+        ),
     ]
 
 
@@ -285,6 +291,13 @@ def check_common_flags(args: argparse.Namespace) -> bool:
     elif args.no_shell:
         print("--no-shell and --run are mutually exclusive", file=sys.stderr)
         return False
+    if args.nom:
+        if not shutil.which("nom"):
+            print(
+                "Cannot find nix-output-monitor. Please install it first if you want to use it",
+                file=sys.stderr,
+            )
+            return False
     return True
 
 

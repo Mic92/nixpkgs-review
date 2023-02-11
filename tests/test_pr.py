@@ -34,6 +34,24 @@ def test_pr_local_eval(helpers: Helpers) -> None:
         assert report["built"] == ["pkg1"]
 
 
+@pytest.mark.skipif(not shutil.which("nom"), reason="`nom` not found in PATH")
+def test_pr_local_eval_nom(helpers: Helpers) -> None:
+    with helpers.nixpkgs() as nixpkgs:
+        with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
+            f.write("foo")
+        subprocess.run(["git", "add", "."])
+        subprocess.run(["git", "commit", "-m", "example-change"])
+        subprocess.run(["git", "checkout", "-b", "pull/1/head"])
+        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/head"])
+
+        path = main(
+            "nixpkgs-review",
+            ["pr", "--remote", str(nixpkgs.remote), "--run", "exit 0", "1", "--nom"],
+        )
+        report = helpers.load_report(path)
+        assert report["built"] == ["pkg1"]
+
+
 @pytest.mark.skipif(not shutil.which("bwrap"), reason="`bwrap` not found in PATH")
 def test_pr_local_eval_with_sandbox(helpers: Helpers) -> None:
     with helpers.nixpkgs() as nixpkgs:

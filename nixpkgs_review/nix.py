@@ -229,6 +229,7 @@ def nix_build(
     cache_directory: Path,
     system: str,
     allow: AllowedFeatures,
+    nom: bool,
 ) -> List[Attr]:
     if not attr_names:
         info("Nothing to be built.")
@@ -246,17 +247,30 @@ def nix_build(
     build = cache_directory.joinpath("build.nix")
     write_shell_expression(build, filtered, system)
 
-    command = [
-        "nix",
-        "--extra-experimental-features",
-        "nix-command" if allow.url_literals else "nix-command no-url-literals",
-        "build",
-        "--no-link",
-        "--keep-going",
-        "--allow-import-from-derivation"
-        if allow.ifd
-        else "--no-allow-import-from-derivation",
-    ]
+    if nom:
+        command = [
+            "nom",
+            "build",
+            "--extra-experimental-features",
+            "nix-command" if allow.url_literals else "nix-command no-url-literals",
+            "--no-link",
+            "--keep-going",
+            "--allow-import-from-derivation"
+            if allow.ifd
+            else "--no-allow-import-from-derivation",
+        ]
+    else:
+        command = [
+            "nix",
+            "--extra-experimental-features",
+            "nix-command" if allow.url_literals else "nix-command no-url-literals",
+            "build",
+            "--no-link",
+            "--keep-going",
+            "--allow-import-from-derivation"
+            if allow.ifd
+            else "--no-allow-import-from-derivation",
+        ]
 
     if platform == "linux":
         command += [

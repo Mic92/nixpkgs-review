@@ -66,6 +66,7 @@ def pr_command(args: argparse.Namespace) -> str:
                     allow=allow,
                     checkout=checkout_option,
                     sandbox=args.sandbox,
+                    nom=args.nom,
                 )
                 contexts.append((pr, builddir.path, review.build_pr(pr)))
             except subprocess.CalledProcessError:
