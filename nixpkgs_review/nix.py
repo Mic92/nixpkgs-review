@@ -45,13 +45,13 @@ def nix_shell(
     attrs: List[str],
     cache_directory: Path,
     system: str,
+    nom_path: str,
     run: Optional[str] = None,
     sandbox: bool = False,
-    nom: bool = False,
 ) -> None:
     shell_cmd = "nix-shell"
-    if nom:
-        shell_cmd = "nom-shell"
+    if nom_path:
+        shell_cmd = f"{nom_path}-shell"
     nix_shell = shutil.which(shell_cmd)
     if not nix_shell:
         raise RuntimeError(f"{shell_cmd} not found in PATH")
@@ -233,7 +233,7 @@ def nix_build(
     cache_directory: Path,
     system: str,
     allow: AllowedFeatures,
-    nom: bool,
+    nom_path: str,
 ) -> List[Attr]:
     if not attr_names:
         info("Nothing to be built.")
@@ -251,12 +251,10 @@ def nix_build(
     build = cache_directory.joinpath("build.nix")
     write_shell_expression(build, filtered, system)
 
-    nix_cmd = "nix"
-    if nom:
-        nix_cmd = "nom"
-
+    if not nom_path:
+        nom_path = "nix"
     command = [
-        nix_cmd,
+        nom_path,
         "build",
         "--extra-experimental-features",
         "nix-command" if allow.url_literals else "nix-command no-url-literals",

@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -9,7 +10,7 @@ HAS_TTY = sys.stdout.isatty()
 ROOT = Path(os.path.dirname(os.path.realpath(__file__)))
 
 
-def color_text(code: int, file: IO[Any] = sys.stdout) -> Callable[[str], None]:
+def color_text(code: int, file: Optional[IO[Any]] = None) -> Callable[[str], None]:
     def wrapper(text: str) -> None:
         if HAS_TTY:
             print(f"\x1b[{code}m{text}\x1b[0m", file=file)
@@ -62,3 +63,11 @@ def current_system() -> str:
         text=True,
     )
     return system.stdout
+
+
+def nix_nom_tool() -> str:
+    "Return `nom` if found in $PATH"
+    if not shutil.which("nom"):
+        return "nix"
+    else:
+        return "nom"

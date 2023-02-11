@@ -87,6 +87,7 @@ class Review:
         remote: str,
         system: str,
         allow: AllowedFeatures,
+        nom_path: str,
         api_token: Optional[str] = None,
         use_ofborg_eval: Optional[bool] = True,
         only_packages: Set[str] = set(),
@@ -95,7 +96,6 @@ class Review:
         skip_packages_regex: List[Pattern[str]] = [],
         checkout: CheckoutOption = CheckoutOption.MERGE,
         sandbox: bool = False,
-        nom: bool = False,
     ) -> None:
         self.builddir = builddir
         self.build_args = build_args
@@ -112,7 +112,7 @@ class Review:
         self.system = system
         self.allow = allow
         self.sandbox = sandbox
-        self.nom = nom
+        self.nom_path = nom_path
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -194,7 +194,7 @@ class Review:
             self.builddir.path,
             self.system,
             self.allow,
-            self.nom,
+            self.nom_path,
         )
 
     def build_pr(self, pr_number: int) -> List[Attr]:
@@ -254,9 +254,9 @@ class Review:
                 report.built_packages(),
                 path,
                 self.system,
+                self.nom_path,
                 self.run,
                 self.sandbox,
-                self.nom,
             )
 
     def review_commit(
@@ -505,7 +505,7 @@ def review_local_revision(
             package_regexes=args.package_regex,
             system=args.system,
             allow=allow,
-            nom=args.nom,
+            nom_path=args.nom_path,
         )
         review.review_commit(builddir.path, args.branch, commit, staged)
         return builddir.path

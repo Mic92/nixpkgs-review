@@ -152,9 +152,9 @@ nix-shell> nixpkgs-review post-result
 nix-shell> nixpkgs-review comments
 ```
 
-For larger rebuilds, it can come in handy to see which packages still need to be build. This can be achieved with the `--nom` flag. This enables the [nix-output-monitor](https://git.maralorn.de/nix-output-monitor/about/) which informs about remote builders, down- and uploads and displays a build graph.
-
-To use this feature, make sure to install `nix-output-monitor` first.
+`nixpkgs-review` will by default use [nix-output-monitor](https://git.maralorn.de/nix-output-monitor/about/) if found in `$PATH`.
+If you have a custom path to `nom`, this can be passed with the `--nom-path` flag.
+Also, if you have `nom` installed but don't want to use it, you can pass an empty string to `--nom-path` to use `nix build` instead of `nom build`.
 
 ## Using nixpkgs-review in scripts or other programs
 

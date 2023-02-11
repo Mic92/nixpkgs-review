@@ -1,7 +1,6 @@
 import argparse
 import os
 import re
-import shutil
 import sys
 from pathlib import Path
 from typing import Any, List, Optional, Pattern, cast
@@ -13,7 +12,7 @@ from .post_result import post_result_command
 from .pr import pr_command
 from .rev import rev_command
 from .wip import wip_command
-from ..utils import current_system
+from ..utils import current_system, nix_nom_tool
 
 
 def regex_type(s: str) -> Pattern[str]:
@@ -225,9 +224,10 @@ def common_flags() -> List[CommonFlag]:
             help="Github access token (optional if request limit exceeds)",
         ),
         CommonFlag(
-            "--nom",
-            action="store_true",
-            help="Use nix-output-monitor (nom) instead of nix. Provides a nice realtime build graph",
+            "--nom-path",
+            type=str,
+            default=nix_nom_tool(),
+            help='Path to nix-output-monitor (nom). Set to "" if you want to disable nom',
         ),
     ]
 
@@ -291,13 +291,6 @@ def check_common_flags(args: argparse.Namespace) -> bool:
     elif args.no_shell:
         print("--no-shell and --run are mutually exclusive", file=sys.stderr)
         return False
-    if args.nom:
-        if not shutil.which("nom"):
-            print(
-                "Cannot find nix-output-monitor. Please install it first if you want to use it",
-                file=sys.stderr,
-            )
-            return False
     return True
 
 
