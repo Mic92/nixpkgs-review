@@ -47,10 +47,14 @@ def nix_shell(
     system: str,
     run: Optional[str] = None,
     sandbox: bool = False,
+    nom: bool = False,
 ) -> None:
-    nix_shell = shutil.which("nix-shell")
+    shell_cmd = "nix-shell"
+    if nom:
+        shell_cmd = "nom-shell"
+    nix_shell = shutil.which(shell_cmd)
     if not nix_shell:
-        raise RuntimeError("nix-shell not found in PATH")
+        raise RuntimeError(f"{shell_cmd} not found in PATH")
 
     shell = cache_directory.joinpath("shell.nix")
     write_shell_expression(shell, attrs, system)

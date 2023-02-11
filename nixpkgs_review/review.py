@@ -251,7 +251,12 @@ class Review:
             sys.exit(0 if report.succeeded() else 1)
         else:
             nix_shell(
-                report.built_packages(), path, self.system, self.run, self.sandbox
+                report.built_packages(),
+                path,
+                self.system,
+                self.run,
+                self.sandbox,
+                self.nom,
             )
 
     def review_commit(
