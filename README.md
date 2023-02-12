@@ -153,8 +153,7 @@ nix-shell> nixpkgs-review comments
 ```
 
 `nixpkgs-review` will by default use [nix-output-monitor](https://git.maralorn.de/nix-output-monitor/about/) if found in `$PATH`.
-If you have a custom path to `nom`, this can be passed with the `--nom-path` flag.
-Also, if you have `nom` installed but don't want to use it, you can pass an empty string to `--nom-path` to use `nix build` instead of `nom build`.
+If you have `nom` installed but don't want to use it, you can pass `nix` to `--nix-flavor` to use `nix build` instead of `nom build`.
 
 ## Using nixpkgs-review in scripts or other programs
 

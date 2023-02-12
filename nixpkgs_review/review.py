@@ -87,7 +87,7 @@ class Review:
         remote: str,
         system: str,
         allow: AllowedFeatures,
-        nom_path: str,
+        nix_flavor: str,
         api_token: Optional[str] = None,
         use_ofborg_eval: Optional[bool] = True,
         only_packages: Set[str] = set(),
@@ -112,7 +112,7 @@ class Review:
         self.system = system
         self.allow = allow
         self.sandbox = sandbox
-        self.nom_path = nom_path
+        self.nix_flavor = nix_flavor
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -194,7 +194,7 @@ class Review:
             self.builddir.path,
             self.system,
             self.allow,
-            self.nom_path,
+            self.nix_flavor,
         )
 
     def build_pr(self, pr_number: int) -> List[Attr]:
@@ -254,7 +254,7 @@ class Review:
                 report.built_packages(),
                 path,
                 self.system,
-                self.nom_path,
+                self.nix_flavor,
                 self.run,
                 self.sandbox,
             )
@@ -505,7 +505,7 @@ def review_local_revision(
             package_regexes=args.package_regex,
             system=args.system,
             allow=allow,
-            nom_path=args.nom_path,
+            nix_flavor=args.nix_flavor,
         )
         review.review_commit(builddir.path, args.branch, commit, staged)
         return builddir.path

@@ -45,38 +45,6 @@ def test_pr_local_eval(helpers: Helpers, capfd) -> None:
         assert "$ nom build" in captured.out
 
 
-@pytest.mark.skipif(not shutil.which("nom"), reason="`nom` not found in PATH")
-def test_pr_local_eval_custom_nom(helpers: Helpers, capfd) -> None:
-    with helpers.nixpkgs() as nixpkgs:
-        with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
-            f.write("foo")
-        subprocess.run(["git", "add", "."])
-        subprocess.run(["git", "commit", "-m", "example-change"])
-        subprocess.run(["git", "checkout", "-b", "pull/1/head"])
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/head"])
-        custom_nom = shutil.which("nom")
-
-        path = main(
-            "nixpkgs-review",
-            [
-                "pr",
-                "--remote",
-                str(nixpkgs.remote),
-                "--run",
-                "exit 0",
-                "1",
-                "--nom-path",
-                custom_nom,
-            ],
-        )
-        report = helpers.load_report(path)
-        assert report["built"] == ["pkg1"]
-        captured = capfd.readouterr()
-        print(captured)
-        # the `custom_nom` has a full path
-        assert f"{custom_nom} build --extra-experimental-features" in captured.out
-
-
 @patch("nixpkgs_review.cli.nix_nom_tool", return_value="nix")
 def test_pr_local_eval_missing_nom(mock_tool, helpers: Helpers, capfd) -> None:
     with helpers.nixpkgs() as nixpkgs:
@@ -123,8 +91,8 @@ def test_pr_local_eval_without_nom(helpers: Helpers, capfd) -> None:
                 "--run",
                 "exit 0",
                 "1",
-                "--nom-path",
-                "",
+                "--nix-flavor",
+                "nix",
             ],
         )
         report = helpers.load_report(path)

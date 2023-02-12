@@ -224,10 +224,11 @@ def common_flags() -> List[CommonFlag]:
             help="Github access token (optional if request limit exceeds)",
         ),
         CommonFlag(
-            "--nom-path",
+            "--nix-flavor",
             type=str,
             default=nix_nom_tool(),
-            help='Path to nix-output-monitor (nom). Set to "" if you want to disable nom',
+            choices=["nix", "nom"],
+            help='Build flavor to use. Use either "nom" or "nix". Will default to "nom" if available',
         ),
     ]
 

@@ -39,8 +39,8 @@ def test_rev_command_without_nom(helpers: Helpers) -> None:
                 str(nixpkgs.remote),
                 "--run",
                 "exit 0",
-                "--nom-path",
-                "",
+                "--nix-flavor",
+                "nix",
             ],
         )
         report = helpers.load_report(path)

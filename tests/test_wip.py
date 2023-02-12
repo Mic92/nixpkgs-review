@@ -8,7 +8,7 @@ from .conftest import Helpers
 
 
 @pytest.mark.skipif(not shutil.which("nom"), reason="`nom` not found in PATH")
-def test_wip_command(helpers: Helpers) -> None:
+def test_wip_command(helpers: Helpers, capfd) -> None:
     with helpers.nixpkgs() as nixpkgs:
         with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
             f.write("foo")
@@ -18,9 +18,11 @@ def test_wip_command(helpers: Helpers) -> None:
         )
         report = helpers.load_report(path)
         assert report["built"] == ["pkg1"]
+        captured = capfd.readouterr()
+        assert "$ nom build" in captured.out
 
 
-def test_wip_command_without_nom(helpers: Helpers) -> None:
+def test_wip_command_without_nom(helpers: Helpers, capfd) -> None:
     with helpers.nixpkgs() as nixpkgs:
         with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
             f.write("foo")
@@ -32,9 +34,11 @@ def test_wip_command_without_nom(helpers: Helpers) -> None:
                 str(nixpkgs.remote),
                 "--run",
                 "exit 0",
-                "--nom-path",
-                "",
+                "--nix-flavor",
+                "nix",
             ],
         )
         report = helpers.load_report(path)
         assert report["built"] == ["pkg1"]
+        captured = capfd.readouterr()
+        assert "$ nix build" in captured.out
