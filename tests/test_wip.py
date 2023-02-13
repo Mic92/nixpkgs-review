@@ -34,7 +34,7 @@ def test_wip_command_without_nom(helpers: Helpers, capfd) -> None:
                 str(nixpkgs.remote),
                 "--run",
                 "exit 0",
-                "--nix-flavor",
+                "--build-graph",
                 "nix",
             ],
         )

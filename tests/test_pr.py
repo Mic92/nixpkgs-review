@@ -91,7 +91,7 @@ def test_pr_local_eval_without_nom(helpers: Helpers, capfd) -> None:
                 "--run",
                 "exit 0",
                 "1",
-                "--nix-flavor",
+                "--build-graph",
                 "nix",
             ],
         )

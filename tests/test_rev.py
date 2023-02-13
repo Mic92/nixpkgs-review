@@ -39,7 +39,7 @@ def test_rev_command_without_nom(helpers: Helpers) -> None:
                 str(nixpkgs.remote),
                 "--run",
                 "exit 0",
-                "--nix-flavor",
+                "--build-graph",
                 "nix",
             ],
         )
