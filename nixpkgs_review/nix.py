@@ -49,7 +49,7 @@ def nix_shell(
     run: Optional[str] = None,
     sandbox: bool = False,
 ) -> None:
-    nix_shell = shutil.which(nix_flavor)
+    nix_shell = f"{shutil.which(nix_flavor)}-shell"
     if not nix_shell:
         raise RuntimeError(f"{nix_flavor} not found in PATH")
 
