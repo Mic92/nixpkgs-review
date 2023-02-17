@@ -228,7 +228,7 @@ def common_flags() -> List[CommonFlag]:
             type=str,
             default=nix_nom_tool(),
             choices=["nix", "nom"],
-            help='Build graph to use. Use either "nom" or "nix". Will default to "nom" if available',
+            help='Build graph to print. Use either "nom" or "nix". Will default to "nom" if available',
         ),
     ]
 
