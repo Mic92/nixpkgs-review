@@ -67,7 +67,7 @@ def current_system() -> str:
 
 def nix_nom_tool() -> str:
     "Return `nom` if found in $PATH"
-    if not shutil.which("nom"):
-        return "nix"
-    else:
+    if shutil.which("nom"):
         return "nom"
+    else:
+        return "nix"
