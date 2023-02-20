@@ -87,6 +87,7 @@ class Review:
         remote: str,
         system: str,
         allow: AllowedFeatures,
+        build_graph: str,
         api_token: Optional[str] = None,
         use_ofborg_eval: Optional[bool] = True,
         only_packages: Set[str] = set(),
@@ -111,6 +112,7 @@ class Review:
         self.system = system
         self.allow = allow
         self.sandbox = sandbox
+        self.build_graph = build_graph
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -192,6 +194,7 @@ class Review:
             self.builddir.path,
             self.system,
             self.allow,
+            self.build_graph,
         )
 
     def build_pr(self, pr_number: int) -> List[Attr]:
@@ -248,7 +251,12 @@ class Review:
             sys.exit(0 if report.succeeded() else 1)
         else:
             nix_shell(
-                report.built_packages(), path, self.system, self.run, self.sandbox
+                report.built_packages(),
+                path,
+                self.system,
+                self.build_graph,
+                self.run,
+                self.sandbox,
             )
 
     def review_commit(
@@ -497,6 +505,7 @@ def review_local_revision(
             package_regexes=args.package_regex,
             system=args.system,
             allow=allow,
+            build_graph=args.build_graph,
         )
         review.review_commit(builddir.path, args.branch, commit, staged)
         return builddir.path

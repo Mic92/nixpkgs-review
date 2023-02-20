@@ -12,7 +12,7 @@ from .post_result import post_result_command
 from .pr import pr_command
 from .rev import rev_command
 from .wip import wip_command
-from ..utils import current_system
+from ..utils import current_system, nix_nom_tool
 
 
 def regex_type(s: str) -> Pattern[str]:
@@ -222,6 +222,13 @@ def common_flags() -> List[CommonFlag]:
             type=str,
             default=read_github_token(),
             help="Github access token (optional if request limit exceeds)",
+        ),
+        CommonFlag(
+            "--build-graph",
+            type=str,
+            default=nix_nom_tool(),
+            choices=["nix", "nom"],
+            help='Build graph to print. Use either "nom" or "nix". Will default to "nom" if available',
         ),
     ]
 

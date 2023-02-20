@@ -5,12 +5,21 @@ import shutil
 import subprocess
 
 from nixpkgs_review.cli import main
+from nixpkgs_review.utils import nix_nom_tool
 
 from .conftest import Helpers
 from unittest.mock import MagicMock, mock_open, patch
 
 
-def test_pr_local_eval(helpers: Helpers) -> None:
+@patch("nixpkgs_review.utils.shutil.which", return_value=None)
+def test_default_to_nix_if_nom_not_found(mock_shutil):
+    return_value = nix_nom_tool()
+    assert return_value == "nix"
+    mock_shutil.assert_called_once()
+
+
+@pytest.mark.skipif(not shutil.which("nom"), reason="`nom` not found in PATH")
+def test_pr_local_eval(helpers: Helpers, capfd) -> None:
     with helpers.nixpkgs() as nixpkgs:
         with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
             f.write("foo")
@@ -32,6 +41,64 @@ def test_pr_local_eval(helpers: Helpers) -> None:
         )
         report = helpers.load_report(path)
         assert report["built"] == ["pkg1"]
+        captured = capfd.readouterr()
+        assert "$ nom build" in captured.out
+
+
+@patch("nixpkgs_review.cli.nix_nom_tool", return_value="nix")
+def test_pr_local_eval_missing_nom(mock_tool, helpers: Helpers, capfd) -> None:
+    with helpers.nixpkgs() as nixpkgs:
+        with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
+            f.write("foo")
+        subprocess.run(["git", "add", "."])
+        subprocess.run(["git", "commit", "-m", "example-change"])
+        subprocess.run(["git", "checkout", "-b", "pull/1/head"])
+        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/head"])
+
+        path = main(
+            "nixpkgs-review",
+            [
+                "pr",
+                "--remote",
+                str(nixpkgs.remote),
+                "--run",
+                "exit 0",
+                "1",
+            ],
+        )
+        report = helpers.load_report(path)
+        assert report["built"] == ["pkg1"]
+        mock_tool.assert_called_once()
+        captured = capfd.readouterr()
+        assert "$ nix build" in captured.out
+
+
+def test_pr_local_eval_without_nom(helpers: Helpers, capfd) -> None:
+    with helpers.nixpkgs() as nixpkgs:
+        with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
+            f.write("foo")
+        subprocess.run(["git", "add", "."])
+        subprocess.run(["git", "commit", "-m", "example-change"])
+        subprocess.run(["git", "checkout", "-b", "pull/1/head"])
+        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/head"])
+
+        path = main(
+            "nixpkgs-review",
+            [
+                "pr",
+                "--remote",
+                str(nixpkgs.remote),
+                "--run",
+                "exit 0",
+                "1",
+                "--build-graph",
+                "nix",
+            ],
+        )
+        report = helpers.load_report(path)
+        assert report["built"] == ["pkg1"]
+        captured = capfd.readouterr()
+        assert "$ nix build" in captured.out
 
 
 @pytest.mark.skipif(not shutil.which("bwrap"), reason="`bwrap` not found in PATH")
