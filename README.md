@@ -136,6 +136,14 @@ pass the `--post-result` flag:
 $ nixpkgs-review pr --post-result 37242
 ```
 
+Instead of posting a PR comment, nixpkgs-review can also print the report to
+the terminal using the `--print-result` flag. This flag will work for the `rev`
+and `wip` command..
+
+```console
+$ nixpkgs-review pr --print-result 37242
+```
+
 Often, after reviewing a diff on a pull request, you may want to say "This diff
 looks good to me, approve/merge it provided that there are no package build
 failures". To do so, run the following subcommands from within the nix-shell provided
