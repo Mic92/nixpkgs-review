@@ -230,6 +230,11 @@ def common_flags() -> List[CommonFlag]:
             choices=["nix", "nom"],
             help='Build graph to print. Use either "nom" or "nix". Will default to "nom" if available',
         ),
+        CommonFlag(
+            "--print-result",
+            action="store_true",
+            help="Print the nixpkgs-review results to stdout",
+        ),
     ]
 
 
