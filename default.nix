@@ -38,7 +38,7 @@ python3.pkgs.buildPythonApplication rec {
     in
     [
       "--prefix PATH : ${lib.makeBinPath binPath}"
-      "--set NIX_SSL_CERT_FILE ${cacert}/etc/ssl/certs/ca-bundle.crt"
+      "--set-default NIX_SSL_CERT_FILE ${cacert}/etc/ssl/certs/ca-bundle.crt"
       # we don't have any runtime deps but nix-review shells might inject unwanted dependencies
       "--unset PYTHONPATH"
     ];
