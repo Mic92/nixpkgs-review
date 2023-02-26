@@ -2,8 +2,8 @@ import argparse
 import os
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
 import tempfile
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -235,6 +235,7 @@ class Review:
         path: Path,
         pr: Optional[int] = None,
         post_result: Optional[bool] = False,
+        print_result: bool = False,
     ) -> None:
         os.environ.pop("NIXPKGS_CONFIG", None)
         os.environ["NIX_PATH"] = path.as_posix()
@@ -246,6 +247,9 @@ class Review:
 
         if pr and post_result:
             self.github_client.comment_issue(pr, report.markdown(pr))
+
+        if print_result:
+            print(report.markdown(pr))
 
         if self.no_shell:
             sys.exit(0 if report.succeeded() else 1)
@@ -265,9 +269,14 @@ class Review:
         branch: str,
         reviewed_commit: Optional[str],
         staged: bool = False,
+        print_result: bool = False,
     ) -> None:
         branch_rev = fetch_refs(self.remote, branch)[0]
-        self.start_review(self.build_commit(branch_rev, reviewed_commit, staged), path)
+        self.start_review(
+            self.build_commit(branch_rev, reviewed_commit, staged),
+            path,
+            print_result=print_result,
+        )
 
 
 def parse_packages_xml(stdout: IO[str]) -> List[Package]:
@@ -493,6 +502,7 @@ def review_local_revision(
     allow: AllowedFeatures,
     commit: Optional[str],
     staged: bool = False,
+    print_result: bool = False,
 ) -> Path:
     with Builddir(builddir_path) as builddir:
         review = Review(
@@ -507,5 +517,5 @@ def review_local_revision(
             allow=allow,
             build_graph=args.build_graph,
         )
-        review.review_commit(builddir.path, args.branch, commit, staged)
+        review.review_commit(builddir.path, args.branch, commit, staged, print_result)
         return builddir.path

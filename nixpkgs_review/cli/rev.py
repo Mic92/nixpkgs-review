@@ -11,4 +11,6 @@ def rev_command(args: argparse.Namespace) -> Path:
     allow = AllowedFeatures(args.allow)
     with Buildenv(allow.aliases):
         commit = verify_commit_hash(args.commit)
-        return review_local_revision(f"rev-{commit}", args, allow, commit)
+        return review_local_revision(
+            f"rev-{commit}", args, allow, commit, print_result=args.print_result
+        )

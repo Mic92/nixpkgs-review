@@ -11,5 +11,10 @@ def wip_command(args: argparse.Namespace) -> Path:
     allow = AllowedFeatures(args.allow)
     with Buildenv(allow.aliases):
         return review_local_revision(
-            "rev-%s-dirty" % verify_commit_hash("HEAD"), args, allow, None, args.staged
+            "rev-%s-dirty" % verify_commit_hash("HEAD"),
+            args,
+            allow,
+            None,
+            args.staged,
+            args.print_result,
         )
