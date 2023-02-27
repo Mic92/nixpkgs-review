@@ -1,5 +1,6 @@
 { pkgs ? import <nixpkgs> { }
 , withSandboxSupport ? false
+, withNom ? false
 }:
 
 with pkgs;
@@ -17,7 +18,8 @@ python3.pkgs.buildPythonApplication rec {
     python3.pkgs.pytest
     pkgs.nixVersions.stable or nix_2_4
     git
-  ] ++ lib.optional withSandboxSupport bubblewrap;
+  ] ++ lib.optional withSandboxSupport bubblewrap
+  ++ lib.optional withNom nix-output-monitor;
 
   checkPhase = ''
     ${if pkgs.lib.versionAtLeast python3.pkgs.black.version "20" then ''
@@ -34,7 +36,8 @@ python3.pkgs.buildPythonApplication rec {
   makeWrapperArgs =
     let
       binPath = [ pkgs.nixVersions.stable or nix_2_4 git ]
-        ++ lib.optional withSandboxSupport bubblewrap;
+        ++ lib.optional withSandboxSupport bubblewrap
+        ++ lib.optional withNom nix-output-monitor;
     in
     [
       "--prefix PATH : ${lib.makeBinPath binPath}"
