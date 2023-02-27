@@ -88,6 +88,8 @@ class Review:
         system: str,
         allow: AllowedFeatures,
         build_graph: str,
+        nixpkgs_config: str,
+        extra_nixpkgs_config: str,
         api_token: Optional[str] = None,
         use_ofborg_eval: Optional[bool] = True,
         only_packages: Set[str] = set(),
@@ -113,6 +115,8 @@ class Review:
         self.allow = allow
         self.sandbox = sandbox
         self.build_graph = build_graph
+        self.nixpkgs_config = nixpkgs_config
+        self.extra_nixpkgs_config = extra_nixpkgs_config
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -145,6 +149,7 @@ class Review:
         Review a local git commit
         """
         self.git_worktree(base_commit)
+
         base_packages = list_packages(
             str(self.worktree_dir()),
             self.system,
@@ -195,6 +200,7 @@ class Review:
             self.system,
             self.allow,
             self.build_graph,
+            self.nixpkgs_config,
         )
 
     def build_pr(self, pr_number: int) -> List[Attr]:
@@ -241,7 +247,7 @@ class Review:
         os.environ["NIX_PATH"] = path.as_posix()
         if pr:
             os.environ["PR"] = str(pr)
-        report = Report(self.system, attr)
+        report = Report(self.system, attr, self.extra_nixpkgs_config)
         report.print_console(pr)
         report.write(path, pr)
 
@@ -259,6 +265,7 @@ class Review:
                 path,
                 self.system,
                 self.build_graph,
+                self.nixpkgs_config,
                 self.run,
                 self.sandbox,
             )
@@ -500,6 +507,7 @@ def review_local_revision(
     builddir_path: str,
     args: argparse.Namespace,
     allow: AllowedFeatures,
+    nixpkgs_config: str,
     commit: Optional[str],
     staged: bool = False,
     print_result: bool = False,
@@ -516,6 +524,8 @@ def review_local_revision(
             system=args.system,
             allow=allow,
             build_graph=args.build_graph,
+            nixpkgs_config=nixpkgs_config,
+            extra_nixpkgs_config=args.extra_nixpkgs_config,
         )
         review.review_commit(builddir.path, args.branch, commit, staged, print_result)
         return builddir.path

@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from typing import Any, List, Optional, Pattern, cast
 
+from ..utils import current_system, nix_nom_tool
 from .approve import approve_command
 from .comments import show_comments
 from .merge import merge_command
@@ -12,7 +13,6 @@ from .post_result import post_result_command
 from .pr import pr_command
 from .rev import rev_command
 from .wip import wip_command
-from ..utils import current_system, nix_nom_tool
 
 
 def regex_type(s: str) -> Pattern[str]:
@@ -234,6 +234,12 @@ def common_flags() -> List[CommonFlag]:
             "--print-result",
             action="store_true",
             help="Print the nixpkgs-review results to stdout",
+        ),
+        CommonFlag(
+            "--extra-nixpkgs-config",
+            type=str,
+            default="{ }",
+            help="Extra nixpkgs config to pass to `import <nixpkgs>`",
         ),
     ]
 

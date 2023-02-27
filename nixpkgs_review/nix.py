@@ -46,6 +46,7 @@ def nix_shell(
     cache_directory: Path,
     system: str,
     build_graph: str,
+    nixpkgs_config: str,
     run: Optional[str] = None,
     sandbox: bool = False,
 ) -> None:
@@ -54,7 +55,7 @@ def nix_shell(
         raise RuntimeError(f"{build_graph} not found in PATH")
 
     shell = cache_directory.joinpath("shell.nix")
-    write_shell_expression(shell, attrs, system)
+    write_shell_expression(shell, attrs, system, nixpkgs_config)
     if sandbox:
         args = _nix_shell_sandbox(nix_shell, shell)
     else:
@@ -189,7 +190,6 @@ def nix_eval(
         json.dump(list(attrs), attr_json)
         eval_script = str(ROOT.joinpath("nix/evalAttrs.nix"))
         attr_json.flush()
-        allowAliases = "true" if allow.aliases else "false"
         cmd = [
             "nix",
             "--extra-experimental-features",
@@ -203,7 +203,7 @@ def nix_eval(
             if allow.ifd
             else "--no-allow-import-from-derivation",
             "--expr",
-            f"(import {eval_script} {{ allowAliases = {allowAliases}; attr-json = {attr_json.name}; }})",
+            f"(import {eval_script} {{ attr-json = {attr_json.name}; }})",
         ]
 
         try:
@@ -231,6 +231,7 @@ def nix_build(
     system: str,
     allow: AllowedFeatures,
     build_graph: str,
+    nixpkgs_config: str,
 ) -> List[Attr]:
     if not attr_names:
         info("Nothing to be built.")
@@ -246,7 +247,7 @@ def nix_build(
         return attrs
 
     build = cache_directory.joinpath("build.nix")
-    write_shell_expression(build, filtered, system)
+    write_shell_expression(build, filtered, system, nixpkgs_config)
 
     command = [
         build_graph,
@@ -280,10 +281,12 @@ def nix_build(
     return attrs
 
 
-def write_shell_expression(filename: Path, attrs: List[str], system: str) -> None:
+def write_shell_expression(
+    filename: Path, attrs: List[str], system: str, nixpkgs_config: str
+) -> None:
     with open(filename, "w+") as f:
         f.write(
-            f"""{{ pkgs ? import ./nixpkgs {{ system = \"{system}\"; }} }}:
+            f"""{{ pkgs ? import ./nixpkgs {{ system = \"{system}\"; config = import {nixpkgs_config}; }} }}:
 with pkgs;
 let
   paths = [
