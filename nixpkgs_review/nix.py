@@ -46,7 +46,7 @@ def nix_shell(
     cache_directory: Path,
     system: str,
     build_graph: str,
-    nixpkgs_config: str,
+    nixpkgs_config: Path,
     run: Optional[str] = None,
     sandbox: bool = False,
 ) -> None:
@@ -231,7 +231,7 @@ def nix_build(
     system: str,
     allow: AllowedFeatures,
     build_graph: str,
-    nixpkgs_config: str,
+    nixpkgs_config: Path,
 ) -> List[Attr]:
     if not attr_names:
         info("Nothing to be built.")
@@ -282,7 +282,7 @@ def nix_build(
 
 
 def write_shell_expression(
-    filename: Path, attrs: List[str], system: str, nixpkgs_config: str
+    filename: Path, attrs: List[str], system: str, nixpkgs_config: Path
 ) -> None:
     with open(filename, "w+") as f:
         f.write(

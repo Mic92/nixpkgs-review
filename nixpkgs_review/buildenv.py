@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, Optional
 
@@ -44,7 +45,7 @@ class Buildenv:
         )
         self.nixpkgs_config.flush()
 
-    def __enter__(self) -> str:
+    def __enter__(self) -> Path:
         self.environ = os.environ.copy()
         self.old_cwd = os.getcwd()
 
@@ -56,7 +57,7 @@ class Buildenv:
             os.chdir(root)
 
         os.environ["NIXPKGS_CONFIG"] = self.nixpkgs_config.name
-        return self.nixpkgs_config.name
+        return Path(self.nixpkgs_config.name)
 
     def __exit__(self, _type: Any, _value: Any, _traceback: Any) -> None:
         if self.old_cwd is not None:
