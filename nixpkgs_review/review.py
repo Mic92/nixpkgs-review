@@ -200,7 +200,15 @@ class Review:
     def build_pr(self, pr_number: int) -> List[Attr]:
         pr = self.github_client.pull_request(pr_number)
 
-        if self.use_ofborg_eval:
+        # keep up to date with `supportedPlatforms`
+        # https://github.com/NixOS/ofborg/blob/cf2c6712bd7342406e799110e7cd465aa250cdca/ofborg/src/outpaths.nix#L12
+        ofborg_platforms = [
+            "aarch64-darwin",
+            "aarch64-linux",
+            "x86_64-darwin",
+            "x86_64-linux",
+        ]
+        if self.use_ofborg_eval and self.system in ofborg_platforms:
             packages_per_system = self.github_client.get_borg_eval_gist(pr)
         else:
             packages_per_system = None
