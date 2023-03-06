@@ -26,18 +26,9 @@ def pr_flags(
     subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
 ) -> argparse.ArgumentParser:
     pr_parser = subparsers.add_parser("pr", help="review a pull request on nixpkgs")
-    eval_default = "local"
-    # keep in sync with: https://github.com/NixOS/ofborg/blob/released/ofborg/src/outpaths.nix#L13-L17
-    if current_system() in [
-        "aarch64-darwin",
-        "aarch64-linux",
-        "x86_64-darwin",
-        "x86_64-linux",
-    ]:
-        eval_default = "ofborg"
     pr_parser.add_argument(
         "--eval",
-        default=eval_default,
+        default="ofborg",
         choices=["ofborg", "local"],
         help="Whether to use ofborg's evaluation result",
     )
