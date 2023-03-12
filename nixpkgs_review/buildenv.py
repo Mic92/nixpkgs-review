@@ -26,7 +26,7 @@ class Buildenv:
             extra_nixpkgs_config.startswith("{") and extra_nixpkgs_config.endswith("}")
         ):
             raise RuntimeError(
-                "--extra-nixpkgs-config should start with `{` and end with `}`"
+                "--extra-nixpkgs-config must start with `{` and end with `}`"
             )
 
         self.nixpkgs_config = NamedTemporaryFile(suffix=".nix")
