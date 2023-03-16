@@ -1,8 +1,9 @@
-{ allowAliases ? false, attr-json }:
+{ attr-json }:
 
 with builtins;
 let
-  pkgs = import <nixpkgs> { config = { checkMeta = true; allowUnfree = true; inherit allowAliases; }; };
+  pkgs = import <nixpkgs> { };
+
   inherit (pkgs) lib;
 
   attrs = fromJSON (readFile attr-json);

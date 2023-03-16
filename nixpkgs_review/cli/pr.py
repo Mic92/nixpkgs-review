@@ -46,7 +46,9 @@ def pr_command(args: argparse.Namespace) -> str:
 
     allow = AllowedFeatures(args.allow)
 
-    with Buildenv(allow.aliases), ExitStack() as stack:
+    with Buildenv(
+        allow.aliases, args.extra_nixpkgs_config
+    ) as nixpkgs_config, ExitStack() as stack:
         for pr in prs:
             builddir = stack.enter_context(Builddir(f"pr-{pr}"))
             try:
@@ -67,6 +69,8 @@ def pr_command(args: argparse.Namespace) -> str:
                     checkout=checkout_option,
                     sandbox=args.sandbox,
                     build_graph=args.build_graph,
+                    nixpkgs_config=nixpkgs_config,
+                    extra_nixpkgs_config=args.extra_nixpkgs_config,
                 )
                 contexts.append((pr, builddir.path, review.build_pr(pr)))
             except subprocess.CalledProcessError:

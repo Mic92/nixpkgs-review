@@ -1,6 +1,6 @@
-from dataclasses import dataclass
 import os
 import sys
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, Optional
 
@@ -20,11 +20,32 @@ def find_nixpkgs_root() -> Optional[str]:
         prefix.append("..")
 
 
-@dataclass
 class Buildenv:
-    allow_aliases: bool
+    def __init__(self, allow_aliases: bool, extra_nixpkgs_config: str) -> None:
+        if not (
+            extra_nixpkgs_config.startswith("{") and extra_nixpkgs_config.endswith("}")
+        ):
+            raise RuntimeError(
+                "--extra-nixpkgs-config must start with `{` and end with `}`"
+            )
 
-    def __enter__(self) -> None:
+        self.nixpkgs_config = NamedTemporaryFile(suffix=".nix")
+        self.nixpkgs_config.write(
+            str.encode(
+                f"""{{
+  allowUnfree = true;
+  allowBroken = true;
+  {"allowAliases = false;" if not allow_aliases else ""}
+  checkMeta = true;
+  ## TODO: also build packages marked as insecure
+  # allowInsecurePredicate = x: true;
+}} // {extra_nixpkgs_config}
+"""
+            )
+        )
+        self.nixpkgs_config.flush()
+
+    def __enter__(self) -> Path:
         self.environ = os.environ.copy()
         self.old_cwd = os.getcwd()
 
@@ -35,20 +56,8 @@ class Buildenv:
         else:
             os.chdir(root)
 
-        self.nixpkgs_config = NamedTemporaryFile()
-        self.nixpkgs_config.write(
-            str.encode(
-                f"""{{
-          allowUnfree = true;
-          allowBroken = true;
-          {"allowAliases = false;" if not self.allow_aliases else ""}
-          ## TODO also build packages marked as insecure
-          #allowInsecurePredicate = x: true;
-        }}"""
-            )
-        )
-        self.nixpkgs_config.flush()
         os.environ["NIXPKGS_CONFIG"] = self.nixpkgs_config.name
+        return Path(self.nixpkgs_config.name)
 
     def __exit__(self, _type: Any, _value: Any, _traceback: Any) -> None:
         if self.old_cwd is not None:

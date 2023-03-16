@@ -1,6 +1,6 @@
+import json
 import os
 import subprocess
-import json
 from pathlib import Path
 from typing import Callable, List, Optional
 
@@ -86,7 +86,9 @@ def write_error_logs(attrs: List[Attr], directory: Path) -> None:
 
 
 class Report:
-    def __init__(self, system: str, attrs: List[Attr]) -> None:
+    def __init__(
+        self, system: str, attrs: List[Attr], extra_nixpkgs_config: str
+    ) -> None:
         self.system = system
         self.attrs = attrs
         self.broken: List[Attr] = []
@@ -95,6 +97,11 @@ class Report:
         self.blacklisted: List[Attr] = []
         self.tests: List[Attr] = []
         self.built: List[Attr] = []
+
+        if extra_nixpkgs_config != "{ }":
+            self.extra_nixpkgs_config: Optional[str] = extra_nixpkgs_config
+        else:
+            self.extra_nixpkgs_config = None
 
         for a in attrs:
             if a.broken:
@@ -134,6 +141,7 @@ class Report:
             {
                 "system": self.system,
                 "pr": pr,
+                "extra-nixpkgs-config": self.extra_nixpkgs_config,
                 "broken": serialize_attrs(self.broken),
                 "non-existant": serialize_attrs(self.non_existant),
                 "blacklisted": serialize_attrs(self.blacklisted),
@@ -149,6 +157,8 @@ class Report:
         cmd = "nixpkgs-review"
         if pr is not None:
             cmd += f" pr {pr}"
+        if self.extra_nixpkgs_config:
+            cmd += f" --extra-nixpkgs-config '{self.extra_nixpkgs_config}'"
 
         msg = f"Result of `{cmd}` run on {self.system} [1](https://github.com/Mic92/nixpkgs-review)\n"
 

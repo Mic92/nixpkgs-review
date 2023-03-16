@@ -163,6 +163,13 @@ nix-shell> nixpkgs-review comments
 `nixpkgs-review` will by default use [nix-output-monitor](https://github.com/maralorn/nix-output-monitor) if found in `$PATH`.
 If you have `nom` installed but don't want to use it, you can pass `nix` to `--build-graph` to use `nix build` instead of `nom build`.
 
+Some pull requests may require configuration for nixpkgs to test out. You can
+use the `--extra-nixpkgs-config` flag to supply extra configuration for nixpkgs.
+
+```console
+$ nixpkgs-review pr 37242 --extra-nixpkgs-config '{ cudaSupport = true; }'
+```
+
 ## Using nixpkgs-review in scripts or other programs
 
 After building, `nixpkgs-review` will normally start a `nix-shell` with the
