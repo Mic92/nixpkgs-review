@@ -84,8 +84,9 @@ class GithubClient:
                     return packages_per_system
 
                 url = urllib.parse.urlparse(url)
+                gist_hash = url.path.split("/")[-1]
                 raw_gist_url = (
-                    f"https://gist.githubusercontent.com/GrahamcOfBorg{url.path}/raw/"
+                    f"https://gist.githubusercontent.com/GrahamcOfBorg/{gist_hash}/raw/"
                 )
                 for line in urllib.request.urlopen(raw_gist_url):
                     if line == b"":
