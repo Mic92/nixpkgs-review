@@ -298,7 +298,7 @@ def parse_packages_xml(stdout: IO[str]) -> List[Package]:
     packages: List[Package] = []
     path = None
     context = ET.iterparse(stdout, events=("start", "end"))
-    for (event, elem) in context:
+    for event, elem in context:
         if elem.tag == "item":
             if event == "start":
                 attrs = elem.attrib
