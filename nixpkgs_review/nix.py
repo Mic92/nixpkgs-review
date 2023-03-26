@@ -57,7 +57,7 @@ def nix_shell(
     shell = cache_directory.joinpath("shell.nix")
     write_shell_expression(shell, attrs, system, nixpkgs_config)
     if sandbox:
-        args = _nix_shell_sandbox(nix_shell, shell)
+        args = _nix_shell_sandbox(nix_shell, shell, nixpkgs_config)
     else:
         args = [nix_shell, str(shell)]
     if run:
@@ -65,7 +65,7 @@ def nix_shell(
     sh(args, cwd=cache_directory, check=False)
 
 
-def _nix_shell_sandbox(nix_shell: str, shell: Path) -> List[str]:
+def _nix_shell_sandbox(nix_shell: str, shell: Path, nixpkgs_config: Path) -> List[str]:
     if platform != "linux":
         raise RuntimeError("Sandbox mode is only available on Linux platforms.")
 
@@ -105,7 +105,7 @@ def _nix_shell_sandbox(nix_shell: str, shell: Path) -> List[str]:
     home = Path.home()
     current_dir = Path().absolute()
     xdg_config_home = Path(os.environ.get("XDG_CONFIG_HOME", home.joinpath(".config")))
-    nixpkgs_config = xdg_config_home.joinpath("nixpkgs")
+    nixpkgs_config_dir = xdg_config_home.joinpath("nixpkgs")
     xauthority = Path(os.environ.get("XAUTHORITY", home.joinpath(".Xauthority")))
     hub_config = xdg_config_home.joinpath("hub")
     gh_config = xdg_config_home.joinpath("gh")
@@ -121,13 +121,15 @@ def _nix_shell_sandbox(nix_shell: str, shell: Path) -> List[str]:
         *bind("/"),
         *bind("/dev", dev=True),
         *tmpfs("/tmp"),
+        # Required for evaluation
+        *bind(nixpkgs_config),
         # /run (also cover sockets for wayland/pulseaudio and pipewires)
         *bind(Path("/run/user").joinpath(uid), dev=True, try_=True),
         # HOME
         *tmpfs(home),
         *bind(current_dir, ro=False),
         *bind(nixpkgs_review_pr, ro=False),
-        *bind(nixpkgs_config, try_=True),
+        *bind(nixpkgs_config_dir, try_=True),
         # For X11 applications
         *bind("/tmp/.X11-unix", try_=True),
         *bind(xauthority, try_=True),
