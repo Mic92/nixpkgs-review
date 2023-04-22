@@ -2,7 +2,11 @@
 
 with builtins;
 let
-  pkgs = import <nixpkgs> { };
+  pkgs = import <nixpkgs> {
+    config = import (getEnv "NIXPKGS_CONFIG") // {
+      allowBroken = false;
+    };
+  };
 
   inherit (pkgs) lib;
 
