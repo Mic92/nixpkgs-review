@@ -8,7 +8,7 @@ assert sys.version_info >= (3, 6, 0), "nixpkgs-review requires Python 3.6+"
 
 setup(
     name="nixpkgs-review",
-    version="2.9.0",
+    version="2.9.2",
     description="Review nixpkgs pull requests",
     author="Jörg Thalheim",
     author_email="joerg@thalheim.io",
