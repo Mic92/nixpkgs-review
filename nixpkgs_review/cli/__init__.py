@@ -3,6 +3,8 @@ import os
 import re
 import sys
 from pathlib import Path
+from shutil import which
+import subprocess
 from typing import Any, List, Optional, Pattern, cast
 
 from ..utils import current_system, nix_nom_tool
@@ -123,20 +125,22 @@ def read_github_token() -> Optional[str]:
     token = os.environ.get("GITHUB_OAUTH_TOKEN", os.environ.get("GITHUB_TOKEN"))
     if token:
         return token
-    paths = [hub_config_path(), Path.home().joinpath(".config", "gh", "hosts.yml")]
-    for path in paths:
-        try:
-            with open(path) as f:
-                for line in f:
-                    # Allow substring match as hub uses yaml. Example string we match:
-                    # " - oauth_token: ghp_abcdefghijklmnopqrstuvwxyzABCDEF1234\n"
-                    token_match = re.search(
-                        r"\s*oauth_token:\s+((?:gh[po]_)?[A-Za-z0-9]+)", line
-                    )
-                    if token_match:
-                        return token_match.group(1)
-        except OSError:
-            pass
+    try:
+        with open(hub_config_path()) as f:
+            for line in f:
+                # Allow substring match as hub uses yaml. Example string we match:
+                # " - oauth_token: ghp_abcdefghijklmnopqrstuvwxyzABCDEF1234\n"
+                token_match = re.search(
+                    r"\s*oauth_token:\s+((?:gh[po]_)?[A-Za-z0-9]+)", line
+                )
+                if token_match:
+                    return token_match.group(1)
+    except OSError:
+        pass
+    if which("gh"):
+        r = subprocess.run(["gh", "auth", "token"], stdout=subprocess.PIPE, text=True)
+        if r.returncode == 0:
+            return r.stdout.strip()
     return None
 
 
