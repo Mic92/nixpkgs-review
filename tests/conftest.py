@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
-import pytest
-import sys
-import os
 import json
-import subprocess
-from pathlib import Path
-from typing import Type, Iterator, List, Union, Dict, Any, cast
+import os
 import shutil
+import subprocess
+import sys
 import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, Iterator, List, Type, Union, cast
 
+import pytest
 
 TEST_ROOT = Path(__file__).parent.resolve()
 sys.path.append(str(TEST_ROOT.parent))

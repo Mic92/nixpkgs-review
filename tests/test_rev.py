@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-import pytest
 import shutil
 import subprocess
+
+import pytest
 
 from nixpkgs_review.cli import main
 

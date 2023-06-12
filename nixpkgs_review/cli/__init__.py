@@ -1,10 +1,10 @@
 import argparse
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from shutil import which
-import subprocess
 from typing import Any, List, Optional, Pattern, cast
 
 from ..utils import current_system, nix_nom_tool

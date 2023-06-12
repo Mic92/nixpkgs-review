@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
-import pytest
 import shutil
 import subprocess
+from unittest.mock import MagicMock, mock_open, patch
+
+import pytest
 
 from nixpkgs_review.cli import main
 from nixpkgs_review.utils import nix_nom_tool
 
 from .conftest import Helpers
-from unittest.mock import MagicMock, mock_open, patch
 
 
 @patch("nixpkgs_review.utils.shutil.which", return_value=None)
