@@ -67,7 +67,7 @@ def write_error_logs(attrs: List[Attr], directory: Path) -> None:
                 symlink_source.unlink()
             symlink_source.symlink_to(attr.path)
 
-        for path in [attr.drv_path, attr.path]:
+        for path in [f"{attr.drv_path}^*", attr.path]:
             if not path:
                 continue
             with open(logs.ensure().joinpath(attr.name + ".log"), "w+") as f:
