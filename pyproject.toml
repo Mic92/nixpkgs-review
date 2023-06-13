@@ -1,7 +1,6 @@
 [tool.ruff]
 line-length = 88
 
-# Enable Pyflakes `E` and `F` codes by default.
 select = ["E", "F", "I"]
 ignore = [ "E501" ]
 
