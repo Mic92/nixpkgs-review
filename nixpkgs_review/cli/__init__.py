@@ -289,6 +289,10 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
         for flag in common:
             parser.add_argument(*flag.args, **flag.kwargs)
 
+    if args == []:
+        main_parser.print_help()
+        exit(0)
+
     return main_parser.parse_args(args)
 
 
