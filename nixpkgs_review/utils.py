@@ -39,10 +39,10 @@ def verify_commit_hash(commit: str) -> str:
 
 
 def escape_attr(attr: str) -> str:
-    index = attr.rfind(".")
-    if index == -1:
-        return attr
-    return f'{attr[:index]}."{attr[index+1:]}"'
+    attr_parts = attr.split(".")
+    first = attr_parts[0]
+    rest = [f'"{item}"' for item in attr_parts[1:]]
+    return ".".join([first, *rest])
 
 
 @functools.lru_cache(maxsize=1)
