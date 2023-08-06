@@ -1,8 +1,40 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nixpkgs-review"
+description = "Review nixpkgs pull requests"
+version = "2.9.3"
+authors = [{ name = "Jörg Thalheim", email = "joerg@thalheim.io" }]
+license = { text = "MIT" }
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Topic :: Utilities",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.6",
+]
+
+[project.urls]
+Homepage = "https://github.com/Mic92/nixpkgs-review"
+
+[project.scripts]
+nixpkgs_review = "nixpkgs_review:main"
+nix_review = "nixpkgs_review:main"
+
+[tool.setuptools.packages]
+find = {}
+
+[tool.setuptools.package-data]
+nixpkgs_review = ["nix/*.nix"]
+
+
 [tool.ruff]
 line-length = 88
 
 select = ["E", "F", "I"]
-ignore = [ "E501" ]
+ignore = ["E501"]
 
 [tool.black]
 line-length = 88
