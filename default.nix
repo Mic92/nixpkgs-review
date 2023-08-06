@@ -4,12 +4,14 @@
 }:
 
 with pkgs;
-python3.pkgs.buildPythonApplication rec {
+python3.pkgs.buildPythonApplication {
   name = "nixpkgs-review";
   src = ./.;
+  format = "pyproject";
   buildInputs = [ makeWrapper ];
   nativeCheckInputs = [
     mypy
+    python3.pkgs.setuptools
     python3.pkgs.black
     ruff
     glibcLocales
