@@ -19,7 +19,9 @@
           default = (self.packages.${system}.nixpkgs-review-sandbox or self.packages.${system}.nixpkgs-review).override { withNom = true; };
         });
       })
-      (nixpkgs.lib.genAttrs bubblewrapPlatforms (system: {
-        nixpkgs-review-sandbox = nixpkgs.legacyPackages.${system}.callPackage ./. { withSandboxSupport = true; };
-      }));
+      ({
+        packages = nixpkgs.lib.genAttrs bubblewrapPlatforms (system: {
+          nixpkgs-review-sandbox = nixpkgs.legacyPackages.${system}.callPackage ./. { withSandboxSupport = true; };
+        });
+      });
 }
