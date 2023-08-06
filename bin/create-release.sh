@@ -28,7 +28,7 @@ if [[ "$unpushed_commits" != "" ]]; then
   echo -e "\nThere are unpushed changes, exiting:\n$unpushed_commits" >&2
   exit 1
 fi
-sed -i -e "s!version = \".*\"!version = \"${version}\"!" pyproject.toml
+sed -i -e "s!^version = \".*\"\$!version = \"${version}\"!" pyproject.toml
 git add pyproject.toml
 nix flake check -vL
 git commit -m "bump version ${version}"
