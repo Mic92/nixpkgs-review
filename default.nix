@@ -4,6 +4,9 @@
 }:
 
 with pkgs;
+let
+  withNom' = withNom && (builtins.tryEval (builtins.elem buildPlatform.system pkgs.ghc.meta.platforms)).value or false;
+in
 python3.pkgs.buildPythonApplication {
   name = "nixpkgs-review";
   src = ./.;
@@ -21,7 +24,7 @@ python3.pkgs.buildPythonApplication {
     pkgs.nixVersions.stable or nix_2_4
     git
   ] ++ lib.optional withSandboxSupport bubblewrap
-  ++ lib.optional withNom nix-output-monitor;
+  ++ lib.optional withNom' nix-output-monitor;
 
   checkPhase = ''
     ${if pkgs.lib.versionAtLeast python3.pkgs.black.version "20" then ''
@@ -39,7 +42,7 @@ python3.pkgs.buildPythonApplication {
     let
       binPath = [ pkgs.nixVersions.stable or nix_2_4 git ]
         ++ lib.optional withSandboxSupport bubblewrap
-        ++ lib.optional withNom nix-output-monitor;
+        ++ lib.optional withNom' nix-output-monitor;
     in
     [
       "--prefix PATH : ${lib.makeBinPath binPath}"
