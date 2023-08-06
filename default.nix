@@ -40,6 +40,10 @@ python3.pkgs.buildPythonApplication {
     ruff .
     echo -e "\x1b[32m## run mypy\x1b[0m"
     mypy --strict nixpkgs_review
+
+    echo -e "\x1b[32m## run nixpkgs-review --help\x1b[0m"
+
+    NIX_STATE_DIR=$TMPDIR/var/nix $out/bin/nixpkgs-review --help
   '';
   makeWrapperArgs =
     let
