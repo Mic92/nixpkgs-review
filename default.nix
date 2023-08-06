@@ -1,5 +1,6 @@
 { pkgs ? import <nixpkgs> { }
 , withSandboxSupport ? false
+, withAutocomplete ? true
 , withNom ? false
 }:
 
@@ -11,7 +12,9 @@ python3.pkgs.buildPythonApplication {
   name = "nixpkgs-review";
   src = ./.;
   format = "pyproject";
-  buildInputs = [ makeWrapper ];
+  nativeBuildInputs = [ installShellFiles ] ++ lib.optional withAutocomplete python3.pkgs.argcomplete;
+  propagatedBuildInputs = [ python3.pkgs.argcomplete ];
+
   nativeCheckInputs = [
     mypy
     python3.pkgs.setuptools
@@ -37,6 +40,10 @@ python3.pkgs.buildPythonApplication {
     ruff .
     echo -e "\x1b[32m## run mypy\x1b[0m"
     mypy --strict nixpkgs_review
+
+    echo -e "\x1b[32m## run nixpkgs-review --help\x1b[0m"
+
+    NIX_STATE_DIR=$TMPDIR/var/nix $out/bin/nixpkgs-review --help
   '';
   makeWrapperArgs =
     let
@@ -50,6 +57,16 @@ python3.pkgs.buildPythonApplication {
       # we don't have any runtime deps but nix-review shells might inject unwanted dependencies
       "--unset PYTHONPATH"
     ];
+
+  postInstall = lib.optionalString withAutocomplete ''
+    for cmd in nix-review nixpkgs-review; do
+      installShellCompletion --cmd $cmd \
+        --bash <(register-python-argcomplete $out/bin/$cmd) \
+        --fish <(register-python-argcomplete $out/bin/$cmd -s fish) \
+        --zsh <(register-python-argcomplete $out/bin/$cmd -s zsh)
+    done
+  '';
+
   shellHook = ''
     # workaround because `python setup.py develop` breaks for me
   '';

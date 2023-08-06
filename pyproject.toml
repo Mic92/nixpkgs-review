@@ -20,8 +20,8 @@ classifiers = [
 Homepage = "https://github.com/Mic92/nixpkgs-review"
 
 [project.scripts]
-nixpkgs_review = "nixpkgs_review:main"
-nix_review = "nixpkgs_review:main"
+nixpkgs-review = "nixpkgs_review:main"
+nix-review = "nixpkgs_review:main"
 
 [tool.setuptools.packages]
 find = {}
