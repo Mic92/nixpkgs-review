@@ -5,9 +5,8 @@
 
   outputs = { self, nixpkgs }:
     let
-      platforms = nixpkgs.legacyPackages.x86_64-linux.python3.meta.platforms;
-      bubblewrapPlatforms = nixpkgs.legacyPackages.x86_64-linux.bubblewrap.meta.platforms;
-      forAllSystems = nixpkgs.lib.genAttrs platforms;
+      linuxPlatforms = [ "x86_64-linux" "aarch64-linux" "i686-linux" "armv7l-linux" "riscv64-linux" ];
+      forAllSystems = nixpkgs.lib.genAttrs (linuxPlatforms ++ [ "x86_64-darwin" "aarch64-darwin" ]);
     in
     nixpkgs.lib.recursiveUpdate
       ({
@@ -20,7 +19,7 @@
         });
       })
       ({
-        packages = nixpkgs.lib.genAttrs bubblewrapPlatforms (system: {
+        packages = nixpkgs.lib.genAttrs linuxPlatforms (system: {
           nixpkgs-review-sandbox = nixpkgs.legacyPackages.${system}.callPackage ./. { withSandboxSupport = true; };
         });
       });
