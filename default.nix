@@ -1,5 +1,6 @@
 { pkgs ? import <nixpkgs> { }
 , withSandboxSupport ? false
+, withAutocomplete ? true
 , withNom ? false
 }:
 
@@ -11,7 +12,7 @@ python3.pkgs.buildPythonApplication {
   name = "nixpkgs-review";
   src = ./.;
   format = "pyproject";
-  nativeBuildInputs = [ installShellFiles python3.pkgs.argcomplete ];
+  nativeBuildInputs = [ installShellFiles ] ++ lib.optional withAutocomplete python3.pkgs.argcomplete;
   propagatedBuildInputs = [ python3.pkgs.argcomplete ];
 
   nativeCheckInputs = [
@@ -53,7 +54,7 @@ python3.pkgs.buildPythonApplication {
       "--unset PYTHONPATH"
     ];
 
-  postInstall = ''
+  postInstall = lib.optionalString withAutocomplete ''
     for cmd in nix-review nixpkgs-review; do
       installShellCompletion --cmd $cmd \
         --bash <(register-python-argcomplete $out/bin/$cmd) \

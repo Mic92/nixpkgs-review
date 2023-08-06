@@ -5,9 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 from shutil import which
+from types import ModuleType
 from typing import Any, List, Optional, Pattern, cast
-
-import argcomplete  # type: ignore
 
 from ..utils import current_system, nix_nom_tool
 from .approve import approve_command
@@ -17,6 +16,12 @@ from .post_result import post_result_command
 from .pr import pr_command
 from .rev import rev_command
 from .wip import wip_command
+
+argcomplete: Optional[ModuleType] = None
+try:
+    import argcomplete
+except ImportError:
+    pass
 
 
 def regex_type(s: str) -> Pattern[str]:
@@ -291,7 +296,8 @@ def parse_args(command: str, args: List[str]) -> argparse.Namespace:
         for flag in common:
             parser.add_argument(*flag.args, **flag.kwargs)
 
-    argcomplete.autocomplete(main_parser)
+    if argcomplete:
+        argcomplete.autocomplete(main_parser)
 
     if args == []:
         main_parser.print_help()
