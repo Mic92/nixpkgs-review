@@ -1,28 +1,25 @@
 {
   description = "nixpkgs-review";
 
-  inputs.flake-utils.url = "github:numtide/flake-utils";
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
-  outputs = { self, nixpkgs, flake-utils }:
-    nixpkgs.lib.foldr nixpkgs.lib.recursiveUpdate { } [
-      (flake-utils.lib.eachDefaultSystem (system: {
-        packages.nixpkgs-review = nixpkgs.legacyPackages.${system}.callPackage ./. { };
-
-        packages.default = self.packages.${system}.nixpkgs-review;
-
-        devShells.default = (
-          self.packages.${system}.nixpkgs-review-sandbox
-            or self.packages.${system}.nixpkgs-review
-        ).override {
-          withNom = true;
-        };
-      }))
-
-      (flake-utils.lib.eachSystem [ "aarch64-linux" "i686-linux" "x86_64-linux" ] (system: {
-        packages.nixpkgs-review-sandbox = nixpkgs.legacyPackages.${system}.callPackage self {
-          withSandboxSupport = true;
-        };
-      }))
-    ];
+  outputs = { self, nixpkgs }:
+    let
+      platforms = nixpkgs.legacyPackages.x86_64-linux.python3.meta.platforms;
+      bubblewrapPlatforms = nixpkgs.legacyPackages.x86_64-linux.bubblewrap.meta.platforms;
+      forAllSystems = nixpkgs.lib.genAttrs platforms;
+    in
+    nixpkgs.lib.recursiveUpdate
+      ({
+        packages = forAllSystems (system: {
+          nixpkgs-review = nixpkgs.legacyPackages.${system}.callPackage ./. { };
+          default = self.packages.${system}.nixpkgs-review;
+        });
+        devShells = forAllSystems (system: {
+          default = (self.packages.${system}.nixpkgs-review-sandbox or self.packages.${system}.nixpkgs-review).override { withNom = true; };
+        });
+      })
+      (nixpkgs.lib.genAttrs bubblewrapPlatforms (system: {
+        nixpkgs-review-sandbox = nixpkgs.legacyPackages.${system}.callPackage ./. { withSandboxSupport = true; };
+      }));
 }
