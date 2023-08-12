@@ -151,7 +151,7 @@ class Review:
         self.git_worktree(base_commit)
 
         base_packages = list_packages(
-            str(self.worktree_dir()),
+            self.builddir.nix_path,
             self.system,
             self.allow,
         )
@@ -162,7 +162,7 @@ class Review:
             self.git_merge(reviewed_commit)
 
         merged_packages = list_packages(
-            str(self.worktree_dir()),
+            self.builddir.nix_path,
             self.system,
             self.allow,
             check_meta=True,
@@ -192,6 +192,7 @@ class Review:
             self.skip_packages_regex,
             self.system,
             self.allow,
+            self.builddir.nix_path,
         )
         return nix_build(
             packages,
@@ -200,6 +201,7 @@ class Review:
             self.system,
             self.allow,
             self.build_graph,
+            self.builddir.nix_path,
             self.nixpkgs_config,
         )
 
@@ -252,7 +254,7 @@ class Review:
         print_result: bool = False,
     ) -> None:
         os.environ.pop("NIXPKGS_CONFIG", None)
-        os.environ["NIX_PATH"] = path.as_posix()
+        os.environ["NIXPKGS_REVIEW_ROOT"] = str(path)
         if pr:
             os.environ["PR"] = str(pr)
         report = Report(self.system, attr, self.extra_nixpkgs_config)
@@ -273,6 +275,7 @@ class Review:
                 path,
                 self.system,
                 self.build_graph,
+                self.builddir.nix_path,
                 self.nixpkgs_config,
                 self.run,
                 self.sandbox,
@@ -342,7 +345,7 @@ def parse_packages_xml(stdout: IO[str]) -> List[Package]:
 
 
 def list_packages(
-    path: str,
+    nix_path: str,
     system: str,
     allow: AllowedFeatures,
     check_meta: bool = False,
@@ -355,7 +358,9 @@ def list_packages(
         "system",
         system,
         "-f",
-        path,
+        "<nixpkgs>",
+        "--nix-path",
+        nix_path,
         "-qaP",
         "--xml",
         "--out-path",
@@ -378,13 +383,14 @@ def package_attrs(
     package_set: Set[str],
     system: str,
     allow: AllowedFeatures,
+    nix_path: str,
     ignore_nonexisting: bool = True,
 ) -> Dict[str, Attr]:
     attrs: Dict[str, Attr] = {}
 
     nonexisting = []
 
-    for attr in nix_eval(package_set, system, allow):
+    for attr in nix_eval(package_set, system, allow, nix_path):
         if not attr.exists:
             nonexisting.append(attr.name)
         elif not attr.broken:
@@ -403,12 +409,14 @@ def join_packages(
     specified_packages: Set[str],
     system: str,
     allow: AllowedFeatures,
+    nix_path: str,
 ) -> Set[str]:
-    changed_attrs = package_attrs(changed_packages, system, allow)
+    changed_attrs = package_attrs(changed_packages, system, allow, nix_path)
     specified_attrs = package_attrs(
         specified_packages,
         system,
         allow,
+        nix_path,
         ignore_nonexisting=False,
     )
 
@@ -439,6 +447,7 @@ def filter_packages(
     skip_package_regexes: List[Pattern[str]],
     system: str,
     allow: AllowedFeatures,
+    nix_path: str,
 ) -> Set[str]:
     packages: Set[str] = set()
 
@@ -456,6 +465,7 @@ def filter_packages(
             specified_packages,
             system,
             allow,
+            nix_path,
         )
 
     for attr in changed_packages:

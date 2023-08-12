@@ -46,6 +46,7 @@ def nix_shell(
     cache_directory: Path,
     system: str,
     build_graph: str,
+    nix_path: str,
     nixpkgs_config: Path,
     run: Optional[str] = None,
     sandbox: bool = False,
@@ -57,15 +58,17 @@ def nix_shell(
     shell = cache_directory.joinpath("shell.nix")
     write_shell_expression(shell, attrs, system, nixpkgs_config)
     if sandbox:
-        args = _nix_shell_sandbox(nix_shell, shell, nixpkgs_config)
+        args = _nix_shell_sandbox(nix_shell, shell, nix_path, nixpkgs_config)
     else:
-        args = [nix_shell, str(shell)]
+        args = [nix_shell, str(shell), "--nix-path", nix_path]
     if run:
         args.extend(["--run", run])
     sh(args, cwd=cache_directory, check=False)
 
 
-def _nix_shell_sandbox(nix_shell: str, shell: Path, nixpkgs_config: Path) -> List[str]:
+def _nix_shell_sandbox(
+    nix_shell: str, shell: Path, nix_path: str, nixpkgs_config: Path
+) -> List[str]:
     if platform != "linux":
         raise RuntimeError("Sandbox mode is only available on Linux platforms.")
 
@@ -137,7 +140,7 @@ def _nix_shell_sandbox(nix_shell: str, shell: Path, nixpkgs_config: Path) -> Lis
         *bind(hub_config, try_=True),
         *bind(gh_config, try_=True),
     ]
-    return [bwrap, *bwrap_args, "--", nix_shell, str(shell)]
+    return [bwrap, *bwrap_args, "--", nix_shell, str(shell), "--nix-path", nix_path]
 
 
 def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
@@ -185,6 +188,7 @@ def nix_eval(
     attrs: Set[str],
     system: str,
     allow: AllowedFeatures,
+    nix_path: str,
 ) -> List[Attr]:
     attr_json = NamedTemporaryFile(mode="w+", delete=False)
     delete = True
@@ -199,6 +203,8 @@ def nix_eval(
             "--system",
             system,
             "eval",
+            "--nix-path",
+            nix_path,
             "--json",
             "--impure",
             "--allow-import-from-derivation"
@@ -233,13 +239,14 @@ def nix_build(
     system: str,
     allow: AllowedFeatures,
     build_graph: str,
+    nix_path: str,
     nixpkgs_config: Path,
 ) -> List[Attr]:
     if not attr_names:
         info("Nothing to be built.")
         return []
 
-    attrs = nix_eval(attr_names, system, allow)
+    attrs = nix_eval(attr_names, system, allow, nix_path)
     filtered = []
     for attr in attrs:
         if not (attr.broken or attr.blacklisted):
@@ -254,6 +261,8 @@ def nix_build(
     command = [
         build_graph,
         "build",
+        "--nix-path",
+        nix_path,
         "--extra-experimental-features",
         "nix-command" if allow.url_literals else "nix-command no-url-literals",
         "--no-link",
