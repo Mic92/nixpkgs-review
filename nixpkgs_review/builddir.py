@@ -66,10 +66,6 @@ class Builddir:
         os.environ["NIX_PATH"] = ":".join(nix_path)
         self.nix_path = " ".join(nix_path)
 
-        self.nix_path = (
-            f"nixpkgs={self.worktree_dir} nixpkgs-overlays={self.overlay.path}"
-        )
-
     def __enter__(self) -> "Builddir":
         return self
 
