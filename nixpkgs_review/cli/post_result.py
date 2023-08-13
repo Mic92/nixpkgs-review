@@ -1,6 +1,5 @@
 import argparse
 import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -17,14 +16,7 @@ def post_result_command(args: argparse.Namespace) -> None:
         sys.exit(1)
     pr = int(pr_env)
 
-    output = subprocess.run(
-        ["nix-instantiate", "--find-file", "nixpkgs"],
-        check=True,
-        stdout=subprocess.PIPE,
-        text=True,
-    ).stdout.strip()
-    nixpkgs_path = Path(output)
-    report = nixpkgs_path.parent.joinpath("report.md")
+    report = Path(os.environ["NIXPKGS_REVIEW_ROOT"]) / "report.md"
     if not report.exists():
         warn(f"Report not found in {report}. Are you in a nixpkgs-review nix-shell?")
         sys.exit(1)
