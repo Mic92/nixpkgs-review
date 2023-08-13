@@ -1,5 +1,4 @@
 import os
-import shutil
 import signal
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -58,7 +57,6 @@ class Builddir:
 
         self.worktree_dir = self.path.joinpath("nixpkgs")
         self.worktree_dir.mkdir()
-        self.worktree_dir = self.worktree_dir
 
         os.environ["NIX_PATH"] = self.nixpkgs_path()
 
@@ -73,7 +71,6 @@ class Builddir:
         os.environ.update(self.environ)
 
         with DisableKeyboardInterrupt():
-            shutil.rmtree(self.worktree_dir)
-            sh(["git", "worktree", "prune"])
+            sh(["git", "worktree", "remove", "-f", str(self.worktree_dir)])
 
         self.overlay.cleanup()
