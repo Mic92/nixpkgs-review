@@ -1,5 +1,4 @@
 import os
-import shutil
 import signal
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -74,7 +73,6 @@ class Builddir:
         os.environ.update(self.environ)
 
         with DisableKeyboardInterrupt():
-            shutil.rmtree(self.worktree_dir)
-            sh(["git", "worktree", "prune"])
+            sh(["git", "worktree", "remove", "-f", str(self.worktree_dir)])
 
         self.overlay.cleanup()
