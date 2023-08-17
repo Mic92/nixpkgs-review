@@ -93,7 +93,7 @@ class Report:
         self.attrs = attrs
         self.broken: List[Attr] = []
         self.failed: List[Attr] = []
-        self.non_existant: List[Attr] = []
+        self.non_existent: List[Attr] = []
         self.blacklisted: List[Attr] = []
         self.tests: List[Attr] = []
         self.built: List[Attr] = []
@@ -109,7 +109,7 @@ class Report:
             elif a.blacklisted:
                 self.blacklisted.append(a)
             elif not a.exists:
-                self.non_existant.append(a)
+                self.non_existent.append(a)
             elif a.name.startswith("nixosTests."):
                 self.tests.append(a)
             elif not a.was_build():
@@ -143,7 +143,7 @@ class Report:
                 "pr": pr,
                 "extra-nixpkgs-config": self.extra_nixpkgs_config,
                 "broken": serialize_attrs(self.broken),
-                "non-existant": serialize_attrs(self.non_existant),
+                "non-existent": serialize_attrs(self.non_existent),
                 "blacklisted": serialize_attrs(self.blacklisted),
                 "failed": serialize_attrs(self.failed),
                 "built": serialize_attrs(self.built),
@@ -164,7 +164,7 @@ class Report:
 
         msg += html_pkgs_section(self.broken, "marked as broken and skipped")
         msg += html_pkgs_section(
-            self.non_existant,
+            self.non_existent,
             "present in ofBorgs evaluation, but not found in the checkout",
         )
         msg += html_pkgs_section(self.blacklisted, "blacklisted")
@@ -181,7 +181,7 @@ class Report:
             link(f"\u001b]8;;{pr_url}\u001b\\{pr_url}\u001b]8;;\u001b\\\n")
         print_number(self.broken, "marked as broken and skipped")
         print_number(
-            self.non_existant,
+            self.non_existent,
             "present in ofBorgs evaluation, but not found in the checkout",
         )
         print_number(self.blacklisted, "blacklisted")
