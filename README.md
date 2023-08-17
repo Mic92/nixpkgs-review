@@ -199,7 +199,7 @@ $ nixpkgs-review pr --run 'jq < report.json' 113814
     "cargo-deny"
   ],
   "failed": [],
-  "non-existant": [],
+  "non-existent": [],
   "pr": 113814,
   "system": "x86_64-linux",
   "tests": []

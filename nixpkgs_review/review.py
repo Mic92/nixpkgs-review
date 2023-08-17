@@ -427,13 +427,13 @@ def join_packages(
         if attr.is_test():
             tests[path] = attr
 
-    nonexistant = specified_attrs.keys() - changed_attrs.keys() - tests.keys()
+    nonexistent = specified_attrs.keys() - changed_attrs.keys() - tests.keys()
 
-    if len(nonexistant) != 0:
+    if len(nonexistent) != 0:
         warn(
             "The following packages specified with `-p` are not rebuilt by the pull request"
         )
-        warn(" ".join(specified_attrs[path].name for path in nonexistant))
+        warn(" ".join(specified_attrs[path].name for path in nonexistent))
         sys.exit(1)
     union_paths = (changed_attrs.keys() & specified_attrs.keys()) | tests.keys()
 

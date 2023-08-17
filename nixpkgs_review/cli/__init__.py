@@ -89,7 +89,7 @@ def wip_flags(
     subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
 ) -> argparse.ArgumentParser:
     wip_parser = subparsers.add_parser(
-        "wip", help="review the uncommited changes in the working tree"
+        "wip", help="review the uncommitted changes in the working tree"
     )
 
     wip_parser.add_argument(
