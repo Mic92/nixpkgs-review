@@ -48,6 +48,7 @@ def nix_shell(
     build_graph: str,
     nix_path: str,
     nixpkgs_config: Path,
+    nixpkgs_overlay: Path,
     run: Optional[str] = None,
     sandbox: bool = False,
 ) -> None:
@@ -58,7 +59,9 @@ def nix_shell(
     shell = cache_directory.joinpath("shell.nix")
     write_shell_expression(shell, attrs, system, nixpkgs_config)
     if sandbox:
-        args = _nix_shell_sandbox(nix_shell, shell, nix_path, nixpkgs_config)
+        args = _nix_shell_sandbox(
+            nix_shell, shell, nix_path, nixpkgs_config, nixpkgs_overlay
+        )
     else:
         args = [nix_shell, str(shell), "--nix-path", nix_path]
     if run:
@@ -67,7 +70,11 @@ def nix_shell(
 
 
 def _nix_shell_sandbox(
-    nix_shell: str, shell: Path, nix_path: str, nixpkgs_config: Path
+    nix_shell: str,
+    shell: Path,
+    nix_path: str,
+    nixpkgs_config: Path,
+    nixpkgs_overlay: Path,
 ) -> List[str]:
     if platform != "linux":
         raise RuntimeError("Sandbox mode is only available on Linux platforms.")
@@ -126,6 +133,7 @@ def _nix_shell_sandbox(
         *tmpfs("/tmp"),
         # Required for evaluation
         *bind(nixpkgs_config),
+        *bind(nixpkgs_overlay),
         # /run (also cover sockets for wayland/pulseaudio and pipewires)
         *bind(Path("/run/user").joinpath(uid), dev=True, try_=True),
         # HOME
