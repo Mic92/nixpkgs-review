@@ -277,6 +277,7 @@ class Review:
                 self.build_graph,
                 self.builddir.nix_path,
                 self.nixpkgs_config,
+                self.builddir.overlay.path,
                 self.run,
                 self.sandbox,
             )
