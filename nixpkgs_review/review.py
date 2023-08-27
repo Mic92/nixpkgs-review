@@ -302,6 +302,10 @@ class Review:
 def parse_packages_xml(stdout: IO[str]) -> list[Package]:
     packages: list[Package] = []
     path = None
+    attrs = None
+    homepage = None
+    description = None
+    position = None
     context = ElementTree.iterparse(stdout, events=("start", "end"))
     for event, elem in context:
         if elem.tag == "item":
