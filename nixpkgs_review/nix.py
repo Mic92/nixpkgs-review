@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from sys import platform
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any
 
 from .allow import AllowedFeatures
 from .utils import ROOT, escape_attr, info, sh, warn
@@ -19,10 +19,10 @@ class Attr:
     exists: bool
     broken: bool
     blacklisted: bool
-    path: Optional[str]
-    drv_path: Optional[str]
-    aliases: List[str] = field(default_factory=lambda: [])
-    _path_verified: Optional[bool] = field(init=False, default=None)
+    path: str | None
+    drv_path: str | None
+    aliases: list[str] = field(default_factory=lambda: [])
+    _path_verified: bool | None = field(init=False, default=None)
 
     def was_build(self) -> bool:
         if self.path is None:
@@ -42,14 +42,14 @@ class Attr:
 
 
 def nix_shell(
-    attrs: List[str],
+    attrs: list[str],
     cache_directory: Path,
     system: str,
     build_graph: str,
     nix_path: str,
     nixpkgs_config: Path,
     nixpkgs_overlay: Path,
-    run: Optional[str] = None,
+    run: str | None = None,
     sandbox: bool = False,
 ) -> None:
     nix_shell = f"{shutil.which(build_graph)}-shell"
@@ -75,7 +75,7 @@ def _nix_shell_sandbox(
     nix_path: str,
     nixpkgs_config: Path,
     nixpkgs_overlay: Path,
-) -> List[str]:
+) -> list[str]:
     if platform != "linux":
         raise RuntimeError("Sandbox mode is only available on Linux platforms.")
 
@@ -88,11 +88,11 @@ def _nix_shell_sandbox(
     warn("Using sandbox mode. Some things may break!")
 
     def bind(
-        path: Union[Path, str],
+        path: Path | str,
         ro: bool = True,
         dev: bool = False,
         try_: bool = False,
-    ) -> List[str]:
+    ) -> list[str]:
         if dev:
             prefix = "--dev-"
         elif ro:
@@ -104,7 +104,7 @@ def _nix_shell_sandbox(
 
         return [prefix + "bind" + suffix, str(path), str(path)]
 
-    def tmpfs(path: Union[Path, str], dir: bool = True) -> List[str]:
+    def tmpfs(path: Path | str, dir: bool = True) -> list[str]:
         dir_cmd = []
         if dir:
             dir_cmd = ["--dir", str(path)]
@@ -151,7 +151,7 @@ def _nix_shell_sandbox(
     return [bwrap, *bwrap_args, "--", nix_shell, str(shell), "--nix-path", nix_path]
 
 
-def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
+def _nix_eval_filter(json: dict[str, Any]) -> list[Attr]:
     # workaround https://github.com/NixOS/ofborg/issues/269
     blacklist = set(
         [
@@ -166,7 +166,7 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
             "tests.writers",
         ]
     )
-    attr_by_path: Dict[str, Attr] = {}
+    attr_by_path: dict[str, Attr] = {}
     broken = []
     for name, props in json.items():
         attr = Attr(
@@ -193,11 +193,11 @@ def _nix_eval_filter(json: Dict[str, Any]) -> List[Attr]:
 
 
 def nix_eval(
-    attrs: Set[str],
+    attrs: set[str],
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
-) -> List[Attr]:
+) -> list[Attr]:
     attr_json = NamedTemporaryFile(mode="w+", delete=False)
     delete = True
     try:
@@ -241,7 +241,7 @@ def nix_eval(
 
 
 def nix_build(
-    attr_names: Set[str],
+    attr_names: set[str],
     args: str,
     cache_directory: Path,
     system: str,
@@ -249,7 +249,7 @@ def nix_build(
     build_graph: str,
     nix_path: str,
     nixpkgs_config: Path,
-) -> List[Attr]:
+) -> list[Attr]:
     if not attr_names:
         info("Nothing to be built.")
         return []
@@ -301,7 +301,7 @@ def nix_build(
 
 
 def write_shell_expression(
-    filename: Path, attrs: List[str], system: str, nixpkgs_config: Path
+    filename: Path, attrs: list[str], system: str, nixpkgs_config: Path
 ) -> None:
     with open(filename, "w+") as f:
         f.write(

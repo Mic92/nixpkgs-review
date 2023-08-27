@@ -2,7 +2,7 @@ import json
 import urllib.parse
 import urllib.request
 from collections import defaultdict
-from typing import Any, DefaultDict, Dict, Optional, Set
+from typing import Any
 
 
 def pr_url(pr: int) -> str:
@@ -10,11 +10,11 @@ def pr_url(pr: int) -> str:
 
 
 class GithubClient:
-    def __init__(self, api_token: Optional[str]) -> None:
+    def __init__(self, api_token: str | None) -> None:
         self.api_token = api_token
 
     def _request(
-        self, path: str, method: str, data: Optional[Dict[str, Any]] = None
+        self, path: str, method: str, data: dict[str, Any] | None = None
     ) -> Any:
         url = urllib.parse.urljoin("https://api.github.com/", path)
         headers = {"Content-Type": "application/json"}
@@ -32,7 +32,7 @@ class GithubClient:
     def get(self, path: str) -> Any:
         return self._request(path, "GET")
 
-    def post(self, path: str, data: Dict[str, str]) -> Any:
+    def post(self, path: str, data: dict[str, str]) -> Any:
         return self._request(path, "POST", data)
 
     def put(self, path: str) -> Any:
@@ -58,19 +58,19 @@ class GithubClient:
         print(f"Merging {pr_url(pr)}")
         return self.put(f"/repos/NixOS/nixpkgs/pulls/{pr}/merge")
 
-    def graphql(self, query: str) -> Dict[str, Any]:
+    def graphql(self, query: str) -> dict[str, Any]:
         resp = self.post("/graphql", data=dict(query=query))
         if "errors" in resp:
             raise RuntimeError(f"Expected data from graphql api, got: {resp}")
-        data: Dict[str, Any] = resp["data"]
+        data: dict[str, Any] = resp["data"]
         return data
 
     def pull_request(self, number: int) -> Any:
         "Get a pull request"
         return self.get(f"repos/NixOS/nixpkgs/pulls/{number}")
 
-    def get_borg_eval_gist(self, pr: Dict[str, Any]) -> Optional[Dict[str, Set[str]]]:
-        packages_per_system: DefaultDict[str, Set[str]] = defaultdict(set)
+    def get_borg_eval_gist(self, pr: dict[str, Any]) -> dict[str, set[str]] | None:
+        packages_per_system: defaultdict[str, set[str]] = defaultdict(set)
         statuses = self.get(pr["statuses_url"])
         for status in statuses:
             if (

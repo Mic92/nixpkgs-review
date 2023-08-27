@@ -1,7 +1,7 @@
 import argparse
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from ..github import GithubClient
 from .utils import ensure_github_token, get_current_pr
@@ -58,7 +58,7 @@ class Comment:
     created_at: datetime
 
     @staticmethod
-    def from_json(data: Dict[str, Any]) -> "Comment":
+    def from_json(data: dict[str, Any]) -> "Comment":
         return Comment(
             author=data["author"]["login"],
             body=data["body"],
@@ -70,11 +70,11 @@ class Comment:
 class ReviewComment(Comment):
     diff_hunk: str
     id: str
-    reply_to: Optional[str]
-    replies: "List[ReviewComment]" = field(default_factory=list)
+    reply_to: str | None
+    replies: "list[ReviewComment]" = field(default_factory=list)
 
     @staticmethod
-    def from_json(data: Dict[str, Any]) -> "ReviewComment":
+    def from_json(data: dict[str, Any]) -> "ReviewComment":
         reply_to = data.get("replyTo")
         reply_to_id = None
         if reply_to is not None:
@@ -94,10 +94,10 @@ class Review:
     author: str
     body: str
     created_at: datetime
-    comments: List[ReviewComment]
+    comments: list[ReviewComment]
 
     @staticmethod
-    def from_json(data: Dict[str, Any], comments: List[ReviewComment]) -> "Review":
+    def from_json(data: dict[str, Any], comments: list[ReviewComment]) -> "Review":
         return Review(
             author=data["author"]["login"],
             body=data["body"],
@@ -114,18 +114,18 @@ def bold(text: str) -> str:
     return f"\033[1m{text}\033[0m"
 
 
-def get_comments(github_token: str, pr_num: int) -> List[Union[Comment, Review]]:
+def get_comments(github_token: str, pr_num: int) -> list[Comment | Review]:
     github_client = GithubClient(github_token)
     query = comments_query(pr_num)
     data = github_client.graphql(query)
     pr = data["repository"]["pullRequest"]
 
-    comments: List[Union[Comment, Review]] = [Comment.from_json(pr)]
+    comments: list[Comment | Review] = [Comment.from_json(pr)]
 
     for comment in pr["comments"]["nodes"]:
         comments.append(Comment.from_json(comment))
 
-    review_comments_by_ids: Dict[str, ReviewComment] = {}
+    review_comments_by_ids: dict[str, ReviewComment] = {}
     for review in pr["reviews"]["nodes"]:
         review_comments = []
         for comment in review["comments"]["nodes"]:

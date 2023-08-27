@@ -3,11 +3,12 @@ import os
 import subprocess
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import IO, Dict, List, Optional, Pattern, Set, Tuple
+from re import Pattern
+from typing import IO
 
 from .allow import AllowedFeatures
 from .builddir import Builddir
@@ -27,12 +28,12 @@ class CheckoutOption(Enum):
     COMMIT = 2
 
 
-def native_packages(packages_per_system: Dict[str, Set[str]], system: str) -> Set[str]:
+def native_packages(packages_per_system: dict[str, set[str]], system: str) -> set[str]:
     return set(packages_per_system[system])
 
 
 def print_packages(
-    names: List[str],
+    names: list[str],
     msg: str,
 ) -> None:
     if len(names) == 0:
@@ -49,14 +50,14 @@ class Package:
     pname: str
     version: str
     attr_path: str
-    store_path: Optional[str]
-    homepage: Optional[str]
-    description: Optional[str]
-    position: Optional[str]
-    old_pkg: "Optional[Package]" = field(init=False)
+    store_path: str | None
+    homepage: str | None
+    description: str | None
+    position: str | None
+    old_pkg: "Package | None" = field(init=False)
 
 
-def print_updates(changed_pkgs: List[Package], removed_pkgs: List[Package]) -> None:
+def print_updates(changed_pkgs: list[Package], removed_pkgs: list[Package]) -> None:
     new = []
     updated = []
     for pkg in changed_pkgs:
@@ -90,12 +91,12 @@ class Review:
         build_graph: str,
         nixpkgs_config: Path,
         extra_nixpkgs_config: str,
-        api_token: Optional[str] = None,
-        use_ofborg_eval: Optional[bool] = True,
-        only_packages: Set[str] = set(),
-        package_regexes: List[Pattern[str]] = [],
-        skip_packages: Set[str] = set(),
-        skip_packages_regex: List[Pattern[str]] = [],
+        api_token: str | None = None,
+        use_ofborg_eval: bool | None = True,
+        only_packages: set[str] = set(),
+        package_regexes: list[Pattern[str]] = [],
+        skip_packages: set[str] = set(),
+        skip_packages_regex: list[Pattern[str]] = [],
         checkout: CheckoutOption = CheckoutOption.MERGE,
         sandbox: bool = False,
     ) -> None:
@@ -143,8 +144,8 @@ class Review:
             sys.exit(1)
 
     def build_commit(
-        self, base_commit: str, reviewed_commit: Optional[str], staged: bool = False
-    ) -> List[Attr]:
+        self, base_commit: str, reviewed_commit: str | None, staged: bool = False
+    ) -> list[Attr]:
         """
         Review a local git commit
         """
@@ -183,7 +184,7 @@ class Review:
         else:
             self.git_worktree(pr_rev)
 
-    def build(self, packages: Set[str], args: str) -> List[Attr]:
+    def build(self, packages: set[str], args: str) -> list[Attr]:
         packages = filter_packages(
             packages,
             self.only_packages,
@@ -205,7 +206,7 @@ class Review:
             self.nixpkgs_config,
         )
 
-    def build_pr(self, pr_number: int) -> List[Attr]:
+    def build_pr(self, pr_number: int) -> list[Attr]:
         pr = self.github_client.pull_request(pr_number)
 
         # keep up to date with `supportedPlatforms`
@@ -247,10 +248,10 @@ class Review:
 
     def start_review(
         self,
-        attr: List[Attr],
+        attr: list[Attr],
         path: Path,
-        pr: Optional[int] = None,
-        post_result: Optional[bool] = False,
+        pr: int | None = None,
+        post_result: bool | None = False,
         print_result: bool = False,
     ) -> None:
         os.environ.pop("NIXPKGS_CONFIG", None)
@@ -286,7 +287,7 @@ class Review:
         self,
         path: Path,
         branch: str,
-        reviewed_commit: Optional[str],
+        reviewed_commit: str | None,
         staged: bool = False,
         print_result: bool = False,
     ) -> None:
@@ -298,10 +299,10 @@ class Review:
         )
 
 
-def parse_packages_xml(stdout: IO[str]) -> List[Package]:
-    packages: List[Package] = []
+def parse_packages_xml(stdout: IO[str]) -> list[Package]:
+    packages: list[Package] = []
     path = None
-    context = ET.iterparse(stdout, events=("start", "end"))
+    context = ElementTree.iterparse(stdout, events=("start", "end"))
     for event, elem in context:
         if elem.tag == "item":
             if event == "start":
@@ -350,7 +351,7 @@ def list_packages(
     system: str,
     allow: AllowedFeatures,
     check_meta: bool = False,
-) -> List[Package]:
+) -> list[Package]:
     cmd = [
         "nix-env",
         "--extra-experimental-features",
@@ -381,13 +382,13 @@ def list_packages(
 
 
 def package_attrs(
-    package_set: Set[str],
+    package_set: set[str],
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
     ignore_nonexisting: bool = True,
-) -> Dict[str, Attr]:
-    attrs: Dict[str, Attr] = {}
+) -> dict[str, Attr]:
+    attrs: dict[str, Attr] = {}
 
     nonexisting = []
 
@@ -406,12 +407,12 @@ def package_attrs(
 
 
 def join_packages(
-    changed_packages: Set[str],
-    specified_packages: Set[str],
+    changed_packages: set[str],
+    specified_packages: set[str],
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
-) -> Set[str]:
+) -> set[str]:
     changed_attrs = package_attrs(changed_packages, system, allow, nix_path)
     specified_attrs = package_attrs(
         specified_packages,
@@ -421,7 +422,7 @@ def join_packages(
         ignore_nonexisting=False,
     )
 
-    tests: Dict[str, Attr] = {}
+    tests: dict[str, Attr] = {}
     for path, attr in specified_attrs.items():
         # ofborg does not include tests and manual evaluation is too expensive
         if attr.is_test():
@@ -441,16 +442,16 @@ def join_packages(
 
 
 def filter_packages(
-    changed_packages: Set[str],
-    specified_packages: Set[str],
-    package_regexes: List[Pattern[str]],
-    skip_packages: Set[str],
-    skip_package_regexes: List[Pattern[str]],
+    changed_packages: set[str],
+    specified_packages: set[str],
+    package_regexes: list[Pattern[str]],
+    skip_packages: set[str],
+    skip_package_regexes: list[Pattern[str]],
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
-) -> Set[str]:
-    packages: Set[str] = set()
+) -> set[str]:
+    packages: set[str] = set()
 
     if (
         len(specified_packages) == 0
@@ -492,7 +493,7 @@ def filter_packages(
     return packages
 
 
-def fetch_refs(repo: str, *refs: str) -> List[str]:
+def fetch_refs(repo: str, *refs: str) -> list[str]:
     cmd = ["git", "-c", "fetch.prune=false", "fetch", "--no-tags", "--force", repo]
     for i, ref in enumerate(refs):
         cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
@@ -507,8 +508,8 @@ def fetch_refs(repo: str, *refs: str) -> List[str]:
 
 
 def differences(
-    old: List[Package], new: List[Package]
-) -> Tuple[List[Package], List[Package]]:
+    old: list[Package], new: list[Package]
+) -> tuple[list[Package], list[Package]]:
     old_attrs = dict((pkg.attr_path, pkg) for pkg in old)
     changed_packages = []
     for new_pkg in new:
@@ -527,7 +528,7 @@ def review_local_revision(
     args: argparse.Namespace,
     allow: AllowedFeatures,
     nixpkgs_config: Path,
-    commit: Optional[str],
+    commit: str | None,
     staged: bool = False,
     print_result: bool = False,
 ) -> Path:

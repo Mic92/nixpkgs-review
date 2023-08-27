@@ -6,10 +6,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Type, Union, cast
+from typing import Any, cast
 
 import pytest
 
@@ -23,7 +24,7 @@ class Nixpkgs:
     remote: Path
 
 
-def run(cmd: List[Union[str, Path]]) -> None:
+def run(cmd: list[str | Path]) -> None:
     subprocess.run(cmd, check=True)
 
 
@@ -71,8 +72,8 @@ def setup_nixpkgs(target: Path) -> Path:
     return target
 
 
-class Chdir(object):
-    def __init__(self, path: Union[Path, str]) -> None:
+class Chdir:
+    def __init__(self, path: Path | str) -> None:
         self.old_dir = os.getcwd()
         self.new_dir = path
 
@@ -111,9 +112,9 @@ class Helpers:
             return f.read()
 
     @staticmethod
-    def load_report(review_dir: str) -> Dict[str, Any]:
+    def load_report(review_dir: str) -> dict[str, Any]:
         with open(os.path.join(review_dir, "report.json")) as f:
-            return cast(Dict[str, Any], json.load(f))
+            return cast(dict[str, Any], json.load(f))
 
     @staticmethod
     @contextmanager
@@ -138,5 +139,5 @@ class Helpers:
 
 # pytest.fixture is untyped
 @pytest.fixture  # type: ignore
-def helpers() -> Type[Helpers]:
+def helpers() -> type[Helpers]:
     return Helpers

@@ -33,7 +33,7 @@ nixpkgs_review = ["nix/*.nix"]
 [tool.ruff]
 line-length = 88
 
-select = ["E", "F", "I"]
+select = ["E", "F", "I", "U", "N"]
 ignore = ["E501"]
 
 [tool.black]
