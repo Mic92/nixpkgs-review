@@ -1,15 +1,15 @@
 import json
 import os
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, List, Optional
 
 from .nix import Attr
 from .utils import info, link, warn
 
 
 def print_number(
-    packages: List[Attr],
+    packages: list[Attr],
     msg: str,
     what: str = "package",
     log: Callable[[str], None] = warn,
@@ -23,7 +23,7 @@ def print_number(
     log("")
 
 
-def html_pkgs_section(packages: List[Attr], msg: str, what: str = "package") -> str:
+def html_pkgs_section(packages: list[Attr], msg: str, what: str = "package") -> str:
     if len(packages) == 0:
         return ""
     plural = "s" if len(packages) > 1 else ""
@@ -50,7 +50,7 @@ class LazyDirectory:
         return self.path
 
 
-def write_error_logs(attrs: List[Attr], directory: Path) -> None:
+def write_error_logs(attrs: list[Attr], directory: Path) -> None:
     logs = LazyDirectory(directory.joinpath("logs"))
     results = LazyDirectory(directory.joinpath("results"))
     failed_results = LazyDirectory(directory.joinpath("failed_results"))
@@ -87,19 +87,19 @@ def write_error_logs(attrs: List[Attr], directory: Path) -> None:
 
 class Report:
     def __init__(
-        self, system: str, attrs: List[Attr], extra_nixpkgs_config: str
+        self, system: str, attrs: list[Attr], extra_nixpkgs_config: str
     ) -> None:
         self.system = system
         self.attrs = attrs
-        self.broken: List[Attr] = []
-        self.failed: List[Attr] = []
-        self.non_existent: List[Attr] = []
-        self.blacklisted: List[Attr] = []
-        self.tests: List[Attr] = []
-        self.built: List[Attr] = []
+        self.broken: list[Attr] = []
+        self.failed: list[Attr] = []
+        self.non_existent: list[Attr] = []
+        self.blacklisted: list[Attr] = []
+        self.tests: list[Attr] = []
+        self.built: list[Attr] = []
 
         if extra_nixpkgs_config != "{ }":
-            self.extra_nixpkgs_config: Optional[str] = extra_nixpkgs_config
+            self.extra_nixpkgs_config: str | None = extra_nixpkgs_config
         else:
             self.extra_nixpkgs_config = None
 
@@ -117,10 +117,10 @@ class Report:
             else:
                 self.built.append(a)
 
-    def built_packages(self) -> List[str]:
+    def built_packages(self) -> list[str]:
         return [a.name for a in self.built]
 
-    def write(self, directory: Path, pr: Optional[int]) -> None:
+    def write(self, directory: Path, pr: int | None) -> None:
         with open(directory.joinpath("report.md"), "w+") as f:
             f.write(self.markdown(pr))
 
@@ -133,8 +133,8 @@ class Report:
         """Whether the report is considered a success or a failure"""
         return len(self.failed) == 0
 
-    def json(self, pr: Optional[int]) -> str:
-        def serialize_attrs(attrs: List[Attr]) -> List[str]:
+    def json(self, pr: int | None) -> str:
+        def serialize_attrs(attrs: list[Attr]) -> list[str]:
             return list(map(lambda a: a.name, attrs))
 
         return json.dumps(
@@ -153,7 +153,7 @@ class Report:
             indent=4,
         )
 
-    def markdown(self, pr: Optional[int]) -> str:
+    def markdown(self, pr: int | None) -> str:
         cmd = "nixpkgs-review"
         if pr is not None:
             cmd += f" pr {pr}"
@@ -174,7 +174,7 @@ class Report:
 
         return msg
 
-    def print_console(self, pr: Optional[int]) -> None:
+    def print_console(self, pr: int | None) -> None:
         if pr is not None:
             pr_url = f"https://github.com/NixOS/nixpkgs/pull/{pr}"
             info("\nLink to currently reviewing PR:")

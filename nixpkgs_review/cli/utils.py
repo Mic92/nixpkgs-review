@@ -1,11 +1,10 @@
 import os
 import sys
-from typing import Optional
 
 from ..utils import warn
 
 
-def ensure_github_token(token: Optional[str]) -> str:
+def ensure_github_token(token: str | None) -> str:
     if not token:
         warn(
             "Posting PR comments requires a Github API token; see https://github.com/Mic92/nixpkgs-review#github-api-token"

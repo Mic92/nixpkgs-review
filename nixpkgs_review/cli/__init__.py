@@ -4,9 +4,10 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from re import Pattern
 from shutil import which
 from types import ModuleType
-from typing import Any, List, Optional, Pattern, cast
+from typing import Any, cast
 
 from ..utils import current_system, nix_nom_tool
 from .approve import approve_command
@@ -17,7 +18,7 @@ from .pr import pr_command
 from .rev import rev_command
 from .wip import wip_command
 
-argcomplete: Optional[ModuleType] = None
+argcomplete: ModuleType | None = None
 try:
     import argcomplete
 except ImportError:
@@ -127,7 +128,7 @@ def hub_config_path() -> Path:
         return config_home.joinpath("hub")
 
 
-def read_github_token() -> Optional[str]:
+def read_github_token() -> str | None:
     # for backwards compatibility we also accept GITHUB_OAUTH_TOKEN.
     token = os.environ.get("GITHUB_OAUTH_TOKEN", os.environ.get("GITHUB_TOKEN"))
     if token:
@@ -151,7 +152,7 @@ def read_github_token() -> Optional[str]:
     return None
 
 
-def common_flags() -> List[CommonFlag]:
+def common_flags() -> list[CommonFlag]:
     return [
         CommonFlag(
             "--allow",
@@ -246,7 +247,7 @@ def common_flags() -> List[CommonFlag]:
     ]
 
 
-def parse_args(command: str, args: List[str]) -> argparse.Namespace:
+def parse_args(command: str, args: list[str]) -> argparse.Namespace:
     main_parser = argparse.ArgumentParser(
         prog=command, formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
@@ -315,7 +316,7 @@ def check_common_flags(args: argparse.Namespace) -> bool:
     return True
 
 
-def main(command: str, raw_args: List[str]) -> str:
+def main(command: str, raw_args: list[str]) -> str:
     args = parse_args(command, raw_args)
     if not check_common_flags(args):
         sys.exit(1)

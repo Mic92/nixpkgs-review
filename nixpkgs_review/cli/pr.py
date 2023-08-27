@@ -3,7 +3,6 @@ import re
 import subprocess
 import sys
 from contextlib import ExitStack
-from typing import List
 
 from ..allow import AllowedFeatures
 from ..builddir import Builddir
@@ -13,8 +12,8 @@ from ..utils import warn
 from .utils import ensure_github_token
 
 
-def parse_pr_numbers(number_args: List[str]) -> List[int]:
-    prs: List[int] = []
+def parse_pr_numbers(number_args: list[str]) -> list[int]:
+    prs: list[int] = []
     for arg in number_args:
         m = re.match(r"(\d+)-(\d+)", arg)
         if m:

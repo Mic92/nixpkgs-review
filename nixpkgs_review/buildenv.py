@@ -2,12 +2,12 @@ import os
 import sys
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any, Optional
+from typing import Any
 
 from .utils import warn
 
 
-def find_nixpkgs_root() -> Optional[str]:
+def find_nixpkgs_root() -> str | None:
     prefix = ["."]
     release_nix = ["nixos", "release.nix"]
     while True:

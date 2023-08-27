@@ -3,14 +3,15 @@ import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import IO, Any, Callable, List, Optional, Union
+from typing import IO, Any
 
 HAS_TTY = sys.stdout.isatty()
 ROOT = Path(os.path.dirname(os.path.realpath(__file__)))
 
 
-def color_text(code: int, file: Optional[IO[Any]] = None) -> Callable[[str], None]:
+def color_text(code: int, file: IO[Any] | None = None) -> Callable[[str], None]:
     def wrapper(text: str) -> None:
         if HAS_TTY:
             print(f"\x1b[{code}m{text}\x1b[0m", file=file)
@@ -26,7 +27,7 @@ link = color_text(34)
 
 
 def sh(
-    command: List[str], cwd: Optional[Union[Path, str]] = None, check: bool = True
+    command: list[str], cwd: Path | str | None = None, check: bool = True
 ) -> "subprocess.CompletedProcess[str]":
     info("$ " + " ".join(command))
     return subprocess.run(command, cwd=cwd, check=check, text=True)
