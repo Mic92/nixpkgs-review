@@ -3,6 +3,7 @@ import os
 import re
 import subprocess
 import sys
+from importlib import metadata
 from pathlib import Path
 from re import Pattern
 from shutil import which
@@ -296,6 +297,16 @@ def parse_args(command: str, args: list[str]) -> argparse.Namespace:
     for parser in parsers:
         for flag in common:
             parser.add_argument(*flag.args, **flag.kwargs)
+
+    try:
+        version = metadata.version("nixpkgs_review")
+    except metadata.PackageNotFoundError:
+        version = "0.0.0"
+    main_parser.add_argument(
+        "--version",
+        action="version",
+        version=f"nixpkgs-review {version}",
+    )
 
     if argcomplete:
         argcomplete.autocomplete(main_parser)
