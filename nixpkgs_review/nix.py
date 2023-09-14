@@ -10,6 +10,7 @@ from tempfile import NamedTemporaryFile
 from typing import Any
 
 from .allow import AllowedFeatures
+from .errors import NixpkgsReviewError
 from .utils import ROOT, escape_attr, info, sh, warn
 
 
@@ -66,7 +67,7 @@ def nix_shell(
         args = [nix_shell, str(shell), "--nix-path", nix_path]
     if run:
         args.extend(["--run", run])
-    sh(args, cwd=cache_directory, check=False)
+    sh(args, cwd=cache_directory)
 
 
 def _nix_shell_sandbox(
@@ -222,16 +223,12 @@ def nix_eval(
             f"(import {eval_script} {{ attr-json = {attr_json.name}; }})",
         ]
 
-        try:
-            nix_eval = subprocess.run(
-                cmd, check=True, stdout=subprocess.PIPE, text=True
-            )
-        except subprocess.CalledProcessError:
-            warn(
+        nix_eval = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
+        if nix_eval.returncode != 0:
+            delete = False
+            raise NixpkgsReviewError(
                 f"{' '.join(cmd)} failed to run, {attr_json.name} was stored inspection"
             )
-            delete = False
-            raise
 
         return _nix_eval_filter(json.loads(nix_eval.stdout))
     finally:
@@ -293,10 +290,7 @@ def nix_build(
         str(build),
     ] + shlex.split(args)
 
-    try:
-        sh(command)
-    except subprocess.CalledProcessError:
-        pass
+    sh(command)
     return attrs
 
 

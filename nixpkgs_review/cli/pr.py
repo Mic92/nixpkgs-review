@@ -1,12 +1,12 @@
 import argparse
 import re
-import subprocess
 import sys
 from contextlib import ExitStack
 
 from ..allow import AllowedFeatures
 from ..builddir import Builddir
 from ..buildenv import Buildenv
+from ..errors import NixpkgsReviewError
 from ..review import CheckoutOption, Review
 from ..utils import warn
 from .utils import ensure_github_token
@@ -45,9 +45,11 @@ def pr_command(args: argparse.Namespace) -> str:
 
     allow = AllowedFeatures(args.allow)
 
+    builddir = None
     with Buildenv(
         allow.aliases, args.extra_nixpkgs_config
     ) as nixpkgs_config, ExitStack() as stack:
+        review = None
         for pr in prs:
             builddir = stack.enter_context(Builddir(f"pr-{pr}"))
             try:
@@ -72,12 +74,14 @@ def pr_command(args: argparse.Namespace) -> str:
                     extra_nixpkgs_config=args.extra_nixpkgs_config,
                 )
                 contexts.append((pr, builddir.path, review.build_pr(pr)))
-            except subprocess.CalledProcessError:
-                warn(f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build")
+            except NixpkgsReviewError as e:
+                warn(f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build: {e}")
+        assert review is not None
 
         for pr, path, attrs in contexts:
             review.start_review(attrs, path, pr, args.post_result, args.print_result)
 
         if len(contexts) != len(prs):
             sys.exit(1)
+    assert builddir is not None
     return str(builddir.path)
