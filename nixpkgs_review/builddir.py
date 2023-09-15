@@ -73,6 +73,10 @@ class Builddir:
         os.environ.update(self.environ)
 
         with DisableKeyboardInterrupt():
-            sh(["git", "worktree", "remove", "-f", str(self.worktree_dir)])
+            res = sh(["git", "worktree", "remove", "-f", str(self.worktree_dir)])
+            if res.returncode != 0:
+                warn(
+                    f"Failed to remove worktree at {self.worktree_dir}. Please remove it manually. Git failed with: {res.returncode}"
+                )
 
         self.overlay.cleanup()

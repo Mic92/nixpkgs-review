@@ -12,6 +12,7 @@ from typing import IO
 
 from .allow import AllowedFeatures
 from .builddir import Builddir
+from .errors import NixpkgsReviewError
 from .github import GithubClient
 from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
@@ -123,7 +124,13 @@ class Review:
         return str(self.builddir.worktree_dir)
 
     def git_merge(self, commit: str) -> None:
-        sh(["git", "merge", "--no-commit", "--no-ff", commit], cwd=self.worktree_dir())
+        res = sh(
+            ["git", "merge", "--no-commit", "--no-ff", commit], cwd=self.worktree_dir()
+        )
+        if res.returncode != 0:
+            raise NixpkgsReviewError(
+                f"Failed to merge {commit} into {self.worktree_dir()}. git merge failed with exit code {res.returncode}"
+            )
 
     def apply_unstaged(self, staged: bool = False) -> None:
         args = ["git", "--no-pager", "diff", "--no-ext-diff"]
@@ -175,7 +182,11 @@ class Review:
         return self.build(changed_attrs, self.build_args)
 
     def git_worktree(self, commit: str) -> None:
-        sh(["git", "worktree", "add", self.worktree_dir(), commit])
+        res = sh(["git", "worktree", "add", self.worktree_dir(), commit])
+        if res.returncode != 0:
+            raise NixpkgsReviewError(
+                f"Failed to add worktree for {commit} in {self.worktree_dir()}. git worktree failed with exit code {res.returncode}"
+            )
 
     def checkout_pr(self, base_rev: str, pr_rev: str) -> None:
         if self.checkout == CheckoutOption.MERGE:
@@ -232,10 +243,13 @@ class Review:
         else:
             run = subprocess.run(
                 ["git", "merge-base", merge_rev, pr_rev],
-                check=True,
                 stdout=subprocess.PIPE,
                 text=True,
             )
+            if run.returncode != 0:
+                raise NixpkgsReviewError(
+                    f"Failed to get the merge base of {merge_rev} with PR {pr_rev}"
+                )
             base_rev = run.stdout.strip()
 
         if packages_per_system is None:
@@ -379,7 +393,12 @@ def list_packages(
         cmd.append("--meta")
     info("$ " + " ".join(cmd))
     with tempfile.NamedTemporaryFile(mode="w") as tmp:
-        subprocess.run(cmd, stdout=tmp, check=True)
+        res = subprocess.run(cmd, stdout=tmp)
+        if res.returncode != 0:
+            raise NixpkgsReviewError(
+                "Failed to list packages: nix-env failed with exit code %d"
+                % res.returncode
+            )
         tmp.flush()
         with open(tmp.name) as f:
             return parse_packages_xml(f)
@@ -501,13 +520,20 @@ def fetch_refs(repo: str, *refs: str) -> list[str]:
     cmd = ["git", "-c", "fetch.prune=false", "fetch", "--no-tags", "--force", repo]
     for i, ref in enumerate(refs):
         cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
-    sh(cmd)
+    res = sh(cmd)
+    if res.returncode != 0:
+        raise NixpkgsReviewError(
+            f"Failed to fetch {refs} from {repo}. git fetch failed with exit code {res.returncode}"
+        )
     shas = []
     for i, ref in enumerate(refs):
-        out = subprocess.check_output(
-            ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"], text=True
-        )
-        shas.append(out.strip())
+        cmd = ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"]
+        out = subprocess.run(cmd, text=True, stdout=subprocess.PIPE)
+        if out.returncode != 0:
+            raise NixpkgsReviewError(
+                f"Failed to fetch {ref} from {repo} with command: {''.join(cmd)}"
+            )
+        shas.append(out.stdout.strip())
     return shas
 
 

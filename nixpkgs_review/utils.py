@@ -27,10 +27,10 @@ link = color_text(34)
 
 
 def sh(
-    command: list[str], cwd: Path | str | None = None, check: bool = True
+    command: list[str], cwd: Path | str | None = None
 ) -> "subprocess.CompletedProcess[str]":
     info("$ " + " ".join(command))
-    return subprocess.run(command, cwd=cwd, check=check, text=True)
+    return subprocess.run(command, cwd=cwd, text=True)
 
 
 def verify_commit_hash(commit: str) -> str:
