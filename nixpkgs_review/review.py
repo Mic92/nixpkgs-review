@@ -92,6 +92,7 @@ class Review:
         build_graph: str,
         nixpkgs_config: Path,
         extra_nixpkgs_config: str,
+        hook: str,
         api_token: str | None = None,
         use_ofborg_eval: bool | None = True,
         only_packages: set[str] = set(),
@@ -119,6 +120,7 @@ class Review:
         self.build_graph = build_graph
         self.nixpkgs_config = nixpkgs_config
         self.extra_nixpkgs_config = extra_nixpkgs_config
+        self.hook = hook
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -281,6 +283,9 @@ class Review:
 
         if print_result:
             print(report.markdown(pr))
+
+        if self.hook:
+            os.system(self.hook)
 
         if self.no_shell:
             sys.exit(0 if report.succeeded() else 1)
@@ -579,6 +584,7 @@ def review_local_revision(
             build_graph=args.build_graph,
             nixpkgs_config=nixpkgs_config,
             extra_nixpkgs_config=args.extra_nixpkgs_config,
+            hook=args.hook,
         )
         review.review_commit(builddir.path, args.branch, commit, staged, print_result)
         return builddir.path

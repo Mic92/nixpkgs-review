@@ -51,6 +51,7 @@ def nix_shell(
     nixpkgs_config: Path,
     nixpkgs_overlay: Path,
     run: str | None = None,
+    hook: str | None = None,
     sandbox: bool = False,
 ) -> None:
     nix_shell = f"{shutil.which(build_graph)}-shell"

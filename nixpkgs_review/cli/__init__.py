@@ -197,6 +197,11 @@ def common_flags() -> list[CommonFlag]:
             help="Passed to nix-shell to run a command instead of an interactive nix-shell",
         ),
         CommonFlag(
+            "--hook",
+            type=str,
+            help="Commands run after review",
+        ),
+        CommonFlag(
             "--sandbox",
             action="store_true",
             help="Wraps nix-shell inside a sandbox (requires `bwrap` in PATH)",
