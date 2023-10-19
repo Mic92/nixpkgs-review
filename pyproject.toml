@@ -72,3 +72,25 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "pytest.*"
 ignore_missing_imports = true
+
+[tool.pylint.FORMAT]
+output-format = "colorized"
+
+[tool.pylint.messages_control]
+disable = [
+    # Disable failure for TODO items in the codebase (code will always have TODOs).
+    "fixme",
+
+    # Annoying.
+    "line-too-long",
+
+    # Too many missing docstrings.
+    "missing-docstring",
+
+    # Not very important, maybe fix in the future.
+    "invalid-name",
+    "too-many-instance-attributes",
+    "too-few-public-methods",
+    "too-many-arguments",
+    "too-many-locals",
+]
