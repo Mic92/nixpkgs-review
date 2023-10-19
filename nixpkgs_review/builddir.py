@@ -30,8 +30,8 @@ def create_cache_directory(name: str) -> Union[Path, "TemporaryDirectory[str]"]:
         if home is None:
             # we are in a temporary directory
             return TemporaryDirectory()
-        else:
-            xdg_cache = Path(home).joinpath(".cache")
+
+        xdg_cache = Path(home).joinpath(".cache")
 
     counter = 0
     while True:
