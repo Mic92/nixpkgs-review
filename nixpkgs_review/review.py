@@ -147,7 +147,7 @@ class Review:
         result = subprocess.run(["git", "apply"], cwd=self.worktree_dir(), input=diff)
 
         if result.returncode != 0:
-            warn("Failed to apply diff in %s" % self.worktree_dir())
+            warn(f"Failed to apply diff in {self.worktree_dir()}")
             sys.exit(1)
 
     def build_commit(
@@ -396,8 +396,7 @@ def list_packages(
         res = subprocess.run(cmd, stdout=tmp)
         if res.returncode != 0:
             raise NixpkgsReviewError(
-                "Failed to list packages: nix-env failed with exit code %d"
-                % res.returncode
+                f"Failed to list packages: nix-env failed with exit code {res.returncode}"
             )
         tmp.flush()
         with open(tmp.name, encoding="utf-8") as f:

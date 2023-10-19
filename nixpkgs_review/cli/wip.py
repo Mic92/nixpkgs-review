@@ -11,7 +11,7 @@ def wip_command(args: argparse.Namespace) -> Path:
     allow = AllowedFeatures(args.allow)
     with Buildenv(allow.aliases, args.extra_nixpkgs_config) as nixpkgs_config:
         return review_local_revision(
-            "rev-%s-dirty" % verify_commit_hash("HEAD"),
+            f"rev-{verify_commit_hash('HEAD')}-dirty",
             args,
             allow,
             nixpkgs_config,
