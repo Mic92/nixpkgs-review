@@ -120,13 +120,13 @@ def hub_config_path() -> Path:
     raw_hub_path = os.environ.get("HUB_CONFIG", None)
     if raw_hub_path:
         return Path(raw_hub_path)
+
+    raw_config_home = os.environ.get("XDG_CONFIG_HOME", None)
+    if raw_config_home is None:
+        config_home = Path.home().joinpath(".config")
     else:
-        raw_config_home = os.environ.get("XDG_CONFIG_HOME", None)
-        if raw_config_home is None:
-            config_home = Path.home().joinpath(".config")
-        else:
-            config_home = Path(raw_config_home)
-        return config_home.joinpath("hub")
+        config_home = Path(raw_config_home)
+    return config_home.joinpath("hub")
 
 
 def read_github_token() -> str | None:
@@ -313,7 +313,7 @@ def parse_args(command: str, args: list[str]) -> argparse.Namespace:
 
     if args == []:
         main_parser.print_help()
-        exit(2)
+        sys.exit(2)
 
     return main_parser.parse_args(args)
 

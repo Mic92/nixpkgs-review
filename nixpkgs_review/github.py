@@ -26,8 +26,8 @@ class GithubClient:
             body = json.dumps(data).encode("ascii")
 
         req = urllib.request.Request(url, headers=headers, method=method, data=body)
-        resp = urllib.request.urlopen(req)
-        return json.loads(resp.read())
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read())
 
     def get(self, path: str) -> Any:
         return self._request(path, "GET")
@@ -42,7 +42,7 @@ class GithubClient:
         "Post a comment on a PR with nixpkgs-review report"
         print(f"Posting result comment on {pr_url(pr)}")
         return self.post(
-            f"/repos/NixOS/nixpkgs/issues/{pr}/comments", data=dict(body=msg)
+            f"/repos/NixOS/nixpkgs/issues/{pr}/comments", data={"body": msg}
         )
 
     def approve_pr(self, pr: int) -> Any:
@@ -50,7 +50,7 @@ class GithubClient:
         print(f"Approving {pr_url(pr)}")
         return self.post(
             f"/repos/NixOS/nixpkgs/pulls/{pr}/reviews",
-            data=dict(event="APPROVE"),
+            data={"event": "APPROVE"},
         )
 
     def merge_pr(self, pr: int) -> Any:
@@ -59,7 +59,7 @@ class GithubClient:
         return self.put(f"/repos/NixOS/nixpkgs/pulls/{pr}/merge")
 
     def graphql(self, query: str) -> dict[str, Any]:
-        resp = self.post("/graphql", data=dict(query=query))
+        resp = self.post("/graphql", data={"query": query})
         if "errors" in resp:
             raise RuntimeError(f"Expected data from graphql api, got: {resp}")
         data: dict[str, Any] = resp["data"]
@@ -88,10 +88,13 @@ class GithubClient:
                 raw_gist_url = (
                     f"https://gist.githubusercontent.com/GrahamcOfBorg/{gist_hash}/raw/"
                 )
-                for line in urllib.request.urlopen(raw_gist_url):
-                    if line == b"":
-                        break
-                    system, attribute = line.decode("utf-8").split()
-                    packages_per_system[system].add(attribute)
+
+                with urllib.request.urlopen(raw_gist_url) as resp:
+                    for line in resp:
+                        if line == b"":
+                            break
+                        system, attribute = line.decode("utf-8").split()
+                        packages_per_system[system].add(attribute)
+
                 return packages_per_system
         return None

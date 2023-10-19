@@ -70,5 +70,5 @@ def nix_nom_tool() -> str:
     "Return `nom` if found in $PATH"
     if shutil.which("nom"):
         return "nom"
-    else:
-        return "nix"
+
+    return "nix"

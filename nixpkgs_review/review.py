@@ -3,12 +3,12 @@ import os
 import subprocess
 import sys
 import tempfile
-import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from re import Pattern
 from typing import IO
+from xml.etree import ElementTree
 
 from .allow import AllowedFeatures
 from .builddir import Builddir
@@ -135,9 +135,9 @@ class Review:
     def apply_unstaged(self, staged: bool = False) -> None:
         args = ["git", "--no-pager", "diff", "--no-ext-diff"]
         args.extend(["--staged"] if staged else [])
-        diff_proc = subprocess.Popen(args, stdout=subprocess.PIPE)
-        assert diff_proc.stdout
-        diff = diff_proc.stdout.read()
+        with subprocess.Popen(args, stdout=subprocess.PIPE) as diff_proc:
+            assert diff_proc.stdout
+            diff = diff_proc.stdout.read()
 
         if not diff:
             info("No diff detected, stopping review...")
