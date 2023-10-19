@@ -55,7 +55,8 @@ def write_error_logs(attrs: list[Attr], directory: Path) -> None:
     results = LazyDirectory(directory.joinpath("results"))
     failed_results = LazyDirectory(directory.joinpath("failed_results"))
     for attr in attrs:
-        if attr.blacklisted:
+        # Broken attrs have no drv_path.
+        if attr.blacklisted or attr.drv_path is None:
             continue
 
         if attr.path is not None and os.path.exists(attr.path):
