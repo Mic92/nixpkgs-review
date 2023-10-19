@@ -40,7 +40,7 @@ python3.pkgs.buildPythonApplication {
     echo -e "\x1b[32m## run ruff\x1b[0m"
     ruff .
     echo -e "\x1b[32m## run mypy\x1b[0m"
-    mypy --strict nixpkgs_review
+    mypy nixpkgs_review
 
     echo -e "\x1b[32m## run nixpkgs-review --help\x1b[0m"
 

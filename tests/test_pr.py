@@ -2,7 +2,7 @@
 
 import shutil
 import subprocess
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, Mock, mock_open, patch
 
 import pytest
 
@@ -13,14 +13,14 @@ from .conftest import Helpers
 
 
 @patch("nixpkgs_review.utils.shutil.which", return_value=None)
-def test_default_to_nix_if_nom_not_found(mock_shutil):
+def test_default_to_nix_if_nom_not_found(mock_shutil: Mock) -> None:
     return_value = nix_nom_tool()
     assert return_value == "nix"
     mock_shutil.assert_called_once()
 
 
 @pytest.mark.skipif(not shutil.which("nom"), reason="`nom` not found in PATH")
-def test_pr_local_eval(helpers: Helpers, capfd) -> None:
+def test_pr_local_eval(helpers: Helpers, capfd: pytest.CaptureFixture) -> None:
     with helpers.nixpkgs() as nixpkgs:
         with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
             f.write("foo")
@@ -47,7 +47,9 @@ def test_pr_local_eval(helpers: Helpers, capfd) -> None:
 
 
 @patch("nixpkgs_review.cli.nix_nom_tool", return_value="nix")
-def test_pr_local_eval_missing_nom(mock_tool, helpers: Helpers, capfd) -> None:
+def test_pr_local_eval_missing_nom(
+    mock_tool: Mock, helpers: Helpers, capfd: pytest.CaptureFixture
+) -> None:
     with helpers.nixpkgs() as nixpkgs:
         with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
             f.write("foo")
@@ -74,7 +76,9 @@ def test_pr_local_eval_missing_nom(mock_tool, helpers: Helpers, capfd) -> None:
         assert "$ nix build" in captured.out
 
 
-def test_pr_local_eval_without_nom(helpers: Helpers, capfd) -> None:
+def test_pr_local_eval_without_nom(
+    helpers: Helpers, capfd: pytest.CaptureFixture
+) -> None:
     with helpers.nixpkgs() as nixpkgs:
         with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
             f.write("foo")

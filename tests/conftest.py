@@ -137,7 +137,6 @@ class Helpers:
                 yield setup_git(nixpkgs_path)
 
 
-# pytest.fixture is untyped
-@pytest.fixture  # type: ignore
+@pytest.fixture
 def helpers() -> type[Helpers]:
     return Helpers
