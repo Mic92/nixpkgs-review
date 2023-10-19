@@ -19,6 +19,7 @@ python3.pkgs.buildPythonApplication {
     mypy
     python3.pkgs.setuptools
     python3.pkgs.black
+    python3.pkgs.pylint
     ruff
     glibcLocales
 
