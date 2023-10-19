@@ -135,7 +135,7 @@ def read_github_token() -> str | None:
     if token:
         return token
     try:
-        with open(hub_config_path()) as f:
+        with open(hub_config_path(), encoding="utf-8") as f:
             for line in f:
                 # Allow substring match as hub uses yaml. Example string we match:
                 # " - oauth_token: ghp_abcdefghijklmnopqrstuvwxyzABCDEF1234\n"

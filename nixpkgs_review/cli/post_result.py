@@ -21,6 +21,6 @@ def post_result_command(args: argparse.Namespace) -> None:
         warn(f"Report not found in {report}. Are you in a nixpkgs-review nix-shell?")
         sys.exit(1)
 
-    with open(report) as f:
+    with open(report, encoding="utf-8") as f:
         report_text = f.read()
     github_client.comment_issue(pr, report_text)

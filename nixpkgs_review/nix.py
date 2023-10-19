@@ -297,7 +297,7 @@ def nix_build(
 def write_shell_expression(
     filename: Path, attrs: list[str], system: str, nixpkgs_config: Path
 ) -> None:
-    with open(filename, "w+") as f:
+    with open(filename, "w+", encoding="utf-8") as f:
         f.write(
             f"""{{ pkgs ? import ./nixpkgs {{ system = \"{system}\"; config = import {nixpkgs_config}; }} }}:
 with pkgs;
