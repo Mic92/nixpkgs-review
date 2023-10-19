@@ -71,7 +71,9 @@ def write_error_logs(attrs: list[Attr], directory: Path) -> None:
         for path in [f"{attr.drv_path}^*", attr.path]:
             if not path:
                 continue
-            with open(logs.ensure().joinpath(attr.name + ".log"), "w+") as f:
+            with open(
+                logs.ensure().joinpath(attr.name + ".log"), "w+", encoding="utf-8"
+            ) as f:
                 nix_log = subprocess.run(
                     [
                         "nix",
@@ -122,10 +124,10 @@ class Report:
         return [a.name for a in self.built]
 
     def write(self, directory: Path, pr: int | None) -> None:
-        with open(directory.joinpath("report.md"), "w+") as f:
+        with open(directory.joinpath("report.md"), "w+", encoding="utf-8") as f:
             f.write(self.markdown(pr))
 
-        with open(directory.joinpath("report.json"), "w+") as f:
+        with open(directory.joinpath("report.json"), "w+", encoding="utf-8") as f:
             f.write(self.json(pr))
 
         write_error_logs(self.attrs, directory)

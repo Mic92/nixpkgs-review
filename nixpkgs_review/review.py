@@ -400,7 +400,7 @@ def list_packages(
                 % res.returncode
             )
         tmp.flush()
-        with open(tmp.name) as f:
+        with open(tmp.name, encoding="utf-8") as f:
             return parse_packages_xml(f)
 
 
