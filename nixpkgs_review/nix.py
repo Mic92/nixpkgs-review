@@ -312,6 +312,7 @@ let
   env = buildEnv {
     name = "env";
     inherit paths;
+    pathsToLink = [ "/bin" ];
     ignoreCollisions = true;
   };
 in (import ./nixpkgs { }).mkShell {
