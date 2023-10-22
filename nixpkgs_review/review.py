@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 import tempfile
-import xml.etree.ElementTree as ElementTree
+import json
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -159,6 +159,7 @@ class Review:
         self.git_worktree(base_commit)
 
         base_packages = list_packages(
+            self.builddir.worktree_dir,
             self.builddir.nix_path,
             self.system,
             self.allow,
@@ -170,6 +171,7 @@ class Review:
             self.git_merge(reviewed_commit)
 
         merged_packages = list_packages(
+            self.builddir.worktree_dir,
             self.builddir.nix_path,
             self.system,
             self.allow,
@@ -365,43 +367,47 @@ def parse_packages_xml(stdout: IO[str]) -> list[Package]:
 
 
 def list_packages(
+    worktree_dir: Path,
     nix_path: str,
     system: str,
     allow: AllowedFeatures,
     check_meta: bool = False,
 ) -> list[Package]:
     cmd = [
-        "nix-env",
-        "--extra-experimental-features",
-        "" if allow.url_literals else "no-url-literals",
-        "--option",
-        "system",
-        system,
-        "-f",
-        "<nixpkgs>",
-        "--nix-path",
-        nix_path,
-        "-qaP",
-        "--xml",
-        "--out-path",
+        "nix-eval-jobs",
+        "--workers", 1,
+        "--force-recurse",
         "--show-trace",
-        "--allow-import-from-derivation"
-        if allow.ifd
-        else "--no-allow-import-from-derivation",
+        "--option" "extra-experimental-features", "" if allow.url_literals else "no-url-literals",
+        "--option", "system", system,
+        worktree_dir,
     ]
-    if check_meta:
-        cmd.append("--meta")
+
+    if allow.ifd:
+        cmd.append("--allow-import-from-derivation")
+    #if check_meta:
+    #    cmd.append("--meta")
     info("$ " + " ".join(cmd))
-    with tempfile.NamedTemporaryFile(mode="w") as tmp:
-        res = subprocess.run(cmd, stdout=tmp)
-        if res.returncode != 0:
-            raise NixpkgsReviewError(
-                "Failed to list packages: nix-env failed with exit code %d"
-                % res.returncode
-            )
-        tmp.flush()
-        with open(tmp.name) as f:
-            return parse_packages_xml(f)
+    with subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        text=True,
+    ) as proc:
+        for line in proc.stdout:
+            print(json.loads(line))
+
+    #for line in subprocess.check_output(cmd, text=True).splitlines():
+    #    print(line)
+    #with tempfile.NamedTemporaryFile(mode="w") as tmp:
+    #    res = subprocess.run(cmd, stdout=tmp)
+    #    if res.returncode != 0:
+    #        raise NixpkgsReviewError(
+    #            "Failed to list packages: nix-env failed with exit code %d"
+    #            % res.returncode
+    #        )
+    #    tmp.flush()
+    #    with open(tmp.name) as f:
+    #        return parse_packages_xml(f)
 
 
 def package_attrs(
