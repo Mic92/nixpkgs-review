@@ -320,7 +320,8 @@ in (import ./nixpkgs { }).mkShell {
   preferLocalBuild = true;
   allowSubstitutes = false;
   dontWrapQtApps = true;
-  packages = if builtins.length paths > 50 then [ env ] else paths;
+  # with a separate buildEnv the impurities such as hooks and propagatedBuildInputs won't be added to the shell
+  packages = [ env ];
 }
 """
         )
