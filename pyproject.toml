@@ -36,28 +36,6 @@ line-length = 88
 select = ["E", "F", "I", "U", "N"]
 ignore = ["E501"]
 
-[tool.black]
-line-length = 88
-target-version = ['py39']
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | _build
-  | buck-out
-  | build
-  | dist
-  # The following are specific to Black, you probably don't want those.
-  | blib2to3
-  | tests/data
-  | profiling
-)/
-'''
-
 [tool.mypy]
 python_version = "3.10"
 strict = true
@@ -66,10 +44,7 @@ no_implicit_optional = true
 disallow_any_generics = false
 
 [[tool.mypy.overrides]]
-module = [
-    "setuptools",
-    "pytest"
-]
+module = "argcomplete"
 ignore_missing_imports = true
 
 [tool.pylint.FORMAT]

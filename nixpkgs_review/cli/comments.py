@@ -46,9 +46,7 @@ def comments_query(pr: int) -> str:
         }
     }
 }
-""" % (
-        pr
-    )
+""" % (pr)
 
 
 @dataclass

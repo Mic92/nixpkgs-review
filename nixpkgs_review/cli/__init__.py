@@ -7,7 +7,6 @@ from importlib import metadata
 from pathlib import Path
 from re import Pattern
 from shutil import which
-from types import ModuleType
 from typing import Any, cast
 
 from ..utils import current_system, nix_nom_tool
@@ -19,11 +18,10 @@ from .pr import pr_command
 from .rev import rev_command
 from .wip import wip_command
 
-argcomplete: ModuleType | None = None
 try:
     import argcomplete
 except ImportError:
-    pass
+    argcomplete = None
 
 
 def regex_type(s: str) -> Pattern[str]:
