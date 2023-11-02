@@ -2,15 +2,15 @@
 
 ![Build Status](https://github.com/Mic92/nixpkgs-review/workflows/Test/badge.svg)
 
-Review pull-requests on https://github.com/NixOS/nixpkgs.
-nixpkgs-review automatically builds packages changed in the pull requests.
+Review pull-requests on https://github.com/NixOS/nixpkgs. nixpkgs-review
+automatically builds packages changed in the pull requests.
 
 NOTE: this project used to be called `nix-review`
 
 ## Features
 
-- [ofborg](https://github.com/NixOS/ofborg) support: reuses evaluation output of CI to skip local evaluation, but
-  also falls back if ofborg is not finished
+- [ofborg](https://github.com/NixOS/ofborg) support: reuses evaluation output of
+  CI to skip local evaluation, but also falls back if ofborg is not finished
 - provides a `nix-shell` with all packages that did not fail to build
 - remote builder support
 - allows to build a subset of packages (great for mass-rebuilds)
@@ -78,8 +78,9 @@ First, change to your local nixpkgs repository directory, i.e.:
 cd ~/git/nixpkgs
 ```
 
-Note that your local checkout git will not be affected by `nixpkgs-review`, since it
-will use [git-worktree](https://git-scm.com/docs/git-worktree) to perform fast checkouts.
+Note that your local checkout git will not be affected by `nixpkgs-review`,
+since it will use [git-worktree](https://git-scm.com/docs/git-worktree) to
+perform fast checkouts.
 
 Then run `nixpkgs-review` by providing the pull request number…
 
@@ -136,9 +137,9 @@ pass the `--post-result` flag:
 $ nixpkgs-review pr --post-result 37242
 ```
 
-Instead of posting a PR comment, nixpkgs-review can also print the report to
-the terminal using the `--print-result` flag. This flag will work for the `rev`
-and `wip` command..
+Instead of posting a PR comment, nixpkgs-review can also print the report to the
+terminal using the `--print-result` flag. This flag will work for the `rev` and
+`wip` command..
 
 ```console
 $ nixpkgs-review pr --print-result 37242
@@ -146,8 +147,8 @@ $ nixpkgs-review pr --print-result 37242
 
 Often, after reviewing a diff on a pull request, you may want to say "This diff
 looks good to me, approve/merge it provided that there are no package build
-failures". To do so, run the following subcommands from within the nix-shell provided
-by nixpkgs-review.
+failures". To do so, run the following subcommands from within the nix-shell
+provided by nixpkgs-review.
 
 ```console
 $ nixpkgs-review pr 37242
@@ -160,8 +161,10 @@ nix-shell> nixpkgs-review post-result
 nix-shell> nixpkgs-review comments
 ```
 
-`nixpkgs-review` will by default use [nix-output-monitor](https://github.com/maralorn/nix-output-monitor) if found in `$PATH`.
-If you have `nom` installed but don't want to use it, you can pass `nix` to `--build-graph` to use `nix build` instead of `nom build`.
+`nixpkgs-review` will by default use
+[nix-output-monitor](https://github.com/maralorn/nix-output-monitor) if found in
+`$PATH`. If you have `nom` installed but don't want to use it, you can pass
+`nix` to `--build-graph` to use `nix build` instead of `nom build`.
 
 Some pull requests may require configuration for nixpkgs to test out. You can
 use the `--extra-nixpkgs-config` flag to supply extra configuration for nixpkgs.
@@ -189,7 +192,7 @@ done
 `nixpkgs-review` also accepts a `--run` flag that allows to run a custom command
 inside the nix-shell instead of an interactive session:
 
-``` console
+```console
 $ nixpkgs-review pr --run 'jq < report.json' 113814
 # ...
 {
@@ -214,13 +217,11 @@ nixpkgs-review accept multiple pull request numbers at once:
 $ nixpkgs-review pr 94524 94494 94522 94493 94520
 ```
 
-This will first evaluate & build all pull requests in serial.
-Then a nix-shell will be opened for each of them after the previous
-shell has been closed.
+This will first evaluate & build all pull requests in serial. Then a nix-shell
+will be opened for each of them after the previous shell has been closed.
 
-Tip: Since it's hard to keep track of the numbers, for each opened
-shell the corresponding pull request URL is shown.
-
+Tip: Since it's hard to keep track of the numbers, for each opened shell the
+corresponding pull request URL is shown.
 
 ## Remote builder
 
@@ -230,9 +231,9 @@ Nix-review will pass all arguments given in `--build-arg` to `nix-build`:
 $ nixpkgs-review pr --build-args="--builders 'ssh://joerg@10.243.29.170'" 37244
 ```
 
-As an alternative, one can also specify remote builder as usual in `/etc/nix/machines`
-or via the `nix.buildMachines` nixos options in `configuration.nix`.
-This allows to parallelize builds across multiple machines.
+As an alternative, one can also specify remote builder as usual in
+`/etc/nix/machines` or via the `nix.buildMachines` nixos options in
+`configuration.nix`. This allows to parallelize builds across multiple machines.
 
 ## GitHub api token
 
@@ -240,26 +241,31 @@ Some commands (i.e., `post-result` or `merge`) require a GitHub API token, and
 even for read-only calls, GitHub returns 403 error messages if your IP hits the
 rate limit for unauthenticated calls.
 
-To use a token, first create a [personal access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/). If you plan to post comments with the reports generated, you need to add the ``repo:public_repo`` scope.
+To use a token, first create a
+[personal access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/).
+If you plan to post comments with the reports generated, you need to add the
+`repo:public_repo` scope.
 
-Then use either the `GITHUB_TOKEN` environment variable or the `--token` parameter of the `pr` subcommand.
+Then use either the `GITHUB_TOKEN` environment variable or the `--token`
+parameter of the `pr` subcommand.
 
 ```console
 $ GITHUB_TOKEN=5ae04810f1e9f17c3297ee4c9e25f3ac1f437c26 nixpkgs-review pr  37244
 ```
 
-Additionally, nixpkgs-review will also read the oauth_token stored by [hub](https://hub.github.com/) and [gh](https://cli.github.com/).
-
+Additionally, nixpkgs-review will also read the oauth_token stored by
+[hub](https://hub.github.com/) and [gh](https://cli.github.com/).
 
 ## Checkout strategy (recommend for r-ryantm + cachix)
 
-By default, `nixpkgs-review pr` will merge the pull request into the pull request's
-target branch (most commonly master). However, at times mass-rebuilding commits
-have been applied in the target branch, but not yet built by hydra. Often those
-are not relevant for the current review, but will significantly increase the
-local build time. For this case, the `--checkout` option can be specified to
-override the default behavior (`merge`). By setting its value to `commit`,
-`nixpkgs-review` will checkout the user's pull request branch without merging it:
+By default, `nixpkgs-review pr` will merge the pull request into the pull
+request's target branch (most commonly master). However, at times
+mass-rebuilding commits have been applied in the target branch, but not yet
+built by hydra. Often those are not relevant for the current review, but will
+significantly increase the local build time. For this case, the `--checkout`
+option can be specified to override the default behavior (`merge`). By setting
+its value to `commit`, `nixpkgs-review` will checkout the user's pull request
+branch without merging it:
 
 ```console
 $ nixpkgs-review pr --checkout commit 44534
@@ -273,8 +279,8 @@ To build only certain packages, use the `--package` (or `-p`) flag.
 $ nixpkgs-review pr -p openjpeg -p ImageMagick 49262
 ```
 
-There is also the `--package-regex` option that takes a regular expression
-to match against the attribute name.
+There is also the `--package-regex` option that takes a regular expression to
+match against the attribute name.
 
 ```console
 # build only linux kernels but not the packages
@@ -288,23 +294,24 @@ $ nixpkgs-review pr -P ImageMagick 49262
 ```
 
 There is also the `--skip-package-regex` option that takes a regular expression
-to match against the attribute name.
-Unlike the `--package-regex` option, a full match is required, which means you probably want to work with `.*` or `\w+`.
+to match against the attribute name. Unlike the `--package-regex` option, a full
+match is required, which means you probably want to work with `.*` or `\w+`.
 
 ```console
 # skip building linux kernels but not the packages
 $ nixpkgs-review pr --skip-package-regex 'linux_.*' 51292
 ```
 
-`-p`, `-P`, `--package-regex` and `--skip-package-regex` can be used together, in which case
-the matching packages will be merged.
+`-p`, `-P`, `--package-regex` and `--skip-package-regex` can be used together,
+in which case the matching packages will be merged.
 
 Full documentation for regex matching syntax can be found
 [here](https://docs.python.org/3/library/re.html#regular-expression-syntax).
 
 ## Running tests
 
-NixOS tests can be run by using the `--package` feature and our `nixosTests` attribute set:
+NixOS tests can be run by using the `--package` feature and our `nixosTests`
+attribute set:
 
 ```console
 $ nixpkgs-review pr -p nixosTests.ferm 47077
@@ -323,19 +330,21 @@ ofborg's result is not (yet) available.
 Both the `rev` and the `wip` subcommand support a `--remote` argument to
 overwrite the upstream repository URL (defaults to
 `https://github.com/NixOS/nixpkgs`). The following example will use
-`mayflower`'s nixpkgs fork to fetch the branch where the changes will be merged into:
+`mayflower`'s nixpkgs fork to fetch the branch where the changes will be merged
+into:
 
 ```console
 $ nixpkgs-review --remote https://github.com/mayflower/nixpkgs wip
 ```
 
-Note that this has been not yet implemented for pull requests, i.e., `pr` subcommand.
+Note that this has been not yet implemented for pull requests, i.e., `pr`
+subcommand.
 
 ## Review changes for other operating systems/architectures
 
-The `--system` flag allows setting a system different from the current one.
-Note that the result nix-shell may not be able to execute all hooks correctly
-since the architecture/operating system mismatches.
+The `--system` flag allows setting a system different from the current one. Note
+that the result nix-shell may not be able to execute all hooks correctly since
+the architecture/operating system mismatches.
 
 ```console
 $ nixpkgs-review pr --system aarch64-linux 98734
@@ -396,10 +405,11 @@ $ mypy nixpkgs_review
 ## Related projects:
 
 - [nox-review](https://github.com/madjar/nox):
-    - works but is as slow as a snail: the checkout process of nox-review is slow
-      since it requires multiple git fetches. Also it cannot make use of
-      ofborg's evaluation
-    - it only builds all packages without providing a `nix-shell` for review
+  - works but is as slow as a snail: the checkout process of nox-review is slow
+    since it requires multiple git fetches. Also it cannot make use of ofborg's
+    evaluation
+  - it only builds all packages without providing a `nix-shell` for review
 - [niff](https://github.com/FRidh/niff):
-    - only provides a list of packages that have changed, but does not build packages
-    - also needs to evaluate changed attributes locally instead of using ofborg
+  - only provides a list of packages that have changed, but does not build
+    packages
+  - also needs to evaluate changed attributes locally instead of using ofborg
