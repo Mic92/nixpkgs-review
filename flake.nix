@@ -1,26 +1,36 @@
 {
   description = "nixpkgs-review";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
 
-  outputs = { self, nixpkgs }:
-    let
-      linuxPlatforms = [ "x86_64-linux" "aarch64-linux" "i686-linux" "armv7l-linux" "riscv64-linux" ];
-      forAllSystems = nixpkgs.lib.genAttrs (linuxPlatforms ++ [ "x86_64-darwin" "aarch64-darwin" ]);
-    in
-    nixpkgs.lib.recursiveUpdate
-      ({
-        packages = forAllSystems (system: {
-          nixpkgs-review = nixpkgs.legacyPackages.${system}.callPackage ./. { };
-          default = self.packages.${system}.nixpkgs-review;
-        });
-        devShells = forAllSystems (system: {
-          default = (self.packages.${system}.nixpkgs-review-sandbox or self.packages.${system}.nixpkgs-review).override { withNom = true; };
-        });
-      })
-      ({
-        packages = nixpkgs.lib.genAttrs linuxPlatforms (system: {
-          nixpkgs-review-sandbox = nixpkgs.legacyPackages.${system}.callPackage ./. { withSandboxSupport = true; };
-        });
-      });
+    treefmt-nix.url = "github:numtide/treefmt-nix";
+    treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+  outputs = inputs @ { flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } ({ lib, ... }: {
+      imports = [ ./treefmt.nix ];
+      systems = [
+        "aarch64-linux"
+        "x86_64-linux"
+        "riscv64-linux"
+
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
+      perSystem = { config, pkgs, self', ... }: {
+        packages = {
+          nixpkgs-review = pkgs.callPackage ./. { };
+          default = config.packages.nixpkgs-review;
+        } // lib.optionalAttrs (pkgs.stdenv.isLinux) {
+          nixpkgs-review-sandbox = pkgs.callPackage ./. { withSandboxSupport = true; };
+        };
+        devShells = {
+          default = (self'.packages.nixpkgs-review-sandbox or self'.packages.nixpkgs-review).override { withNom = true; };
+        };
+      };
+    });
 }
