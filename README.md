@@ -5,8 +5,6 @@
 Review pull-requests on https://github.com/NixOS/nixpkgs. nixpkgs-review
 automatically builds packages changed in the pull requests.
 
-NOTE: this project used to be called `nix-review`
-
 ## Features
 
 - [ofborg](https://github.com/NixOS/ofborg) support: reuses evaluation output of
@@ -25,8 +23,7 @@ NOTE: this project used to be called `nix-review`
 
 ## Installation
 
-`nixpkgs-review` is included in nixpkgs. Older versions of nixpkgs might still
-call it `nix-review`.
+`nixpkgs-review` is included in nixpkgs.
 
 To use it without installing it, use:
 
@@ -225,7 +222,7 @@ corresponding pull request URL is shown.
 
 ## Remote builder
 
-Nix-review will pass all arguments given in `--build-arg` to `nix-build`:
+Nixpkgs-review will pass all arguments given in `--build-arg` to `nix-build`:
 
 ```console
 $ nixpkgs-review pr --build-args="--builders 'ssh://joerg@10.243.29.170'" 37244
