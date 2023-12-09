@@ -300,22 +300,23 @@ def write_shell_expression(
     with open(filename, "w+", encoding="utf-8") as f:
         f.write(
             f"""{{ pkgs ? import ./nixpkgs {{ system = \"{system}\"; config = import {nixpkgs_config}; }} }}:
-with pkgs;
+
 let
-  paths = [
+  paths = with pkgs; [
 """
         )
         f.write("\n".join(f"    {escape_attr(a)}" for a in attrs))
         f.write(
             """
   ];
-  env = buildEnv {
+  hostPkgs = (import ./nixpkgs { });
+  env = hostPkgs.buildEnv {
     name = "env";
     inherit paths;
     pathsToLink = [ "/bin" ];
     ignoreCollisions = true;
   };
-in (import ./nixpkgs { }).mkShell {
+in hostPkgs.mkShell {
   name = "review-shell";
   preferLocalBuild = true;
   allowSubstitutes = false;
