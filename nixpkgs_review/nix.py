@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from sys import platform
 from tempfile import NamedTemporaryFile
-from typing import Any
+from typing import Any, Final
 
 from .allow import AllowedFeatures
 from .errors import NixpkgsReviewError
@@ -42,6 +42,9 @@ class Attr:
         return self.name.startswith("nixosTests")
 
 
+REVIEW_SHELL: Final[str] = str(ROOT.joinpath("nix/review-shell.nix"))
+
+
 def nix_shell(
     attrs: list[str],
     cache_directory: Path,
@@ -57,14 +60,20 @@ def nix_shell(
     if not nix_shell:
         raise RuntimeError(f"{build_graph} not found in PATH")
 
-    shell = cache_directory.joinpath("shell.nix")
-    write_shell_expression(shell, attrs, system, nixpkgs_config)
+    shell_file_args = build_shell_file_args(
+        cache_directory, attrs, system, nixpkgs_config
+    )
     if sandbox:
         args = _nix_shell_sandbox(
-            nix_shell, shell, nix_path, nixpkgs_config, nixpkgs_overlay
+            nix_shell,
+            shell_file_args,
+            cache_directory,
+            nix_path,
+            nixpkgs_config,
+            nixpkgs_overlay,
         )
     else:
-        args = [nix_shell, str(shell), "--nix-path", nix_path]
+        args = [nix_shell, *shell_file_args, "--nix-path", nix_path, REVIEW_SHELL]
     if run:
         args.extend(["--run", run])
     sh(args, cwd=cache_directory)
@@ -72,7 +81,8 @@ def nix_shell(
 
 def _nix_shell_sandbox(
     nix_shell: str,
-    shell: Path,
+    shell_file_args: list[str],
+    cache_directory: Path,
     nix_path: str,
     nixpkgs_config: Path,
     nixpkgs_overlay: Path,
@@ -112,7 +122,7 @@ def _nix_shell_sandbox(
 
         return [*dir_cmd, "--tmpfs", str(path)]
 
-    nixpkgs_review_pr = shell.parent
+    nixpkgs_review_pr = cache_directory
     home = Path.home()
     current_dir = Path().absolute()
     xdg_config_home = Path(os.environ.get("XDG_CONFIG_HOME", home.joinpath(".config")))
@@ -149,7 +159,16 @@ def _nix_shell_sandbox(
         *bind(hub_config, try_=True),
         *bind(gh_config, try_=True),
     ]
-    return [bwrap, *bwrap_args, "--", nix_shell, str(shell), "--nix-path", nix_path]
+    return [
+        bwrap,
+        *bwrap_args,
+        "--",
+        nix_shell,
+        *shell_file_args,
+        REVIEW_SHELL,
+        "--nix-path",
+        nix_path,
+    ]
 
 
 def _nix_eval_filter(json: dict[str, Any]) -> list[Attr]:
@@ -260,12 +279,11 @@ def nix_build(
     if len(filtered) == 0:
         return attrs
 
-    build = cache_directory.joinpath("build.nix")
-    write_shell_expression(build, filtered, system, nixpkgs_config)
-
     command = [
         build_graph,
         "build",
+        "--file",
+        REVIEW_SHELL,
         "--nix-path",
         nix_path,
         "--extra-experimental-features",
@@ -285,41 +303,34 @@ def nix_build(
             "relaxed",
         ]
 
-    command += [
-        "-f",
-        str(build),
-    ] + shlex.split(args)
+    command += build_shell_file_args(
+        cache_directory, filtered, system, nixpkgs_config
+    ) + shlex.split(args)
 
     sh(command)
     return attrs
 
 
-def write_shell_expression(
-    filename: Path, attrs: list[str], system: str, nixpkgs_config: Path
-) -> None:
-    with open(filename, "w+", encoding="utf-8") as f:
-        f.write(
-            f"""{{ pkgs ? import ./nixpkgs {{ system = \"{system}\"; config = import {nixpkgs_config}; }} }}:
-with pkgs;
-let
-  paths = [
-"""
-        )
-        f.write("\n".join(f"    {escape_attr(a)}" for a in attrs))
-        f.write(
-            """
-  ];
-  env = buildEnv {
-    name = "env";
-    inherit paths;
-    ignoreCollisions = true;
-  };
-in (import ./nixpkgs { }).mkShell {
-  name = "review-shell";
-  preferLocalBuild = true;
-  allowSubstitutes = false;
-  dontWrapQtApps = true;
-  packages = if builtins.length paths > 50 then [ env ] else paths;
-}
-"""
-        )
+def build_shell_file_args(
+    cache_dir: Path, attrs: list[str], system: str, nixpkgs_config: Path
+) -> list[str]:
+    attrs_file = cache_dir.joinpath("attrs.nix")
+    with open(attrs_file, "w+", encoding="utf-8") as f:
+        f.write("pkgs: with pkgs; [\n")
+        f.write("\n".join(f"  {escape_attr(a)}" for a in attrs))
+        f.write("\n]")
+
+    return [
+        "--argstr",
+        "system",
+        system,
+        "--argstr",
+        "nixpkgs-path",
+        str(cache_dir.joinpath("nixpkgs/")),
+        "--argstr",
+        "nixpkgs-config-path",
+        str(nixpkgs_config),
+        "--argstr",
+        "attrs-path",
+        str(attrs_file),
+    ]
