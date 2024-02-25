@@ -56,7 +56,7 @@ def nix_shell(
     run: str | None = None,
     sandbox: bool = False,
 ) -> None:
-    nix_shell = f"{shutil.which(build_graph)}-shell"
+    nix_shell = shutil.which(build_graph + "-shell")
     if not nix_shell:
         raise RuntimeError(f"{build_graph} not found in PATH")
 
