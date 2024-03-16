@@ -48,9 +48,9 @@ python3.pkgs.buildPythonApplication {
   postInstall = lib.optionalString withAutocomplete ''
     for cmd in nix-review nixpkgs-review; do
       installShellCompletion --cmd $cmd \
-        --bash <(register-python-argcomplete $out/bin/$cmd) \
-        --fish <(register-python-argcomplete $out/bin/$cmd -s fish) \
-        --zsh <(register-python-argcomplete $out/bin/$cmd -s zsh)
+        --bash <(register-python-argcomplete $cmd) \
+        --fish <(register-python-argcomplete $cmd -s fish) \
+        --zsh <(register-python-argcomplete $cmd -s zsh)
     done
   '';
 
