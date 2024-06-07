@@ -78,8 +78,13 @@ def pr_command(args: argparse.Namespace) -> str:
                 warn(f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build: {e}")
         assert review is not None
 
-        for pr, path, attrs in contexts:
+        all_succeeded = all(
             review.start_review(attrs, path, pr, args.post_result, args.print_result)
+            for pr, path, attrs in contexts
+        )
+
+        if args.no_shell:
+            sys.exit(0 if all_succeeded else 1)
 
         if len(contexts) != len(prs):
             sys.exit(1)
