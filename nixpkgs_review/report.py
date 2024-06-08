@@ -91,7 +91,11 @@ def write_error_logs(attrs: list[Attr], directory: Path) -> None:
 
 class Report:
     def __init__(
-        self, system: str, attrs: list[Attr], extra_nixpkgs_config: str, *,
+        self,
+        system: str,
+        attrs: list[Attr],
+        extra_nixpkgs_config: str,
+        *,
         checkout: Literal["merge", "commit"] = "merge",
     ) -> None:
         self.system = system
