@@ -272,7 +272,7 @@ class Review:
         os.environ["NIXPKGS_REVIEW_ROOT"] = str(path)
         if pr:
             os.environ["PR"] = str(pr)
-        report = Report(self.system, attr, self.extra_nixpkgs_config)
+        report = Report(self.system, attr, self.extra_nixpkgs_config, checkout=self.checkout.name.lower())
         report.print_console(pr)
         report.write(path, pr)
 
