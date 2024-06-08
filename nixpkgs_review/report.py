@@ -3,6 +3,7 @@ import os
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal
 
 from .nix import Attr
 from .utils import info, link, warn
@@ -90,10 +91,12 @@ def write_error_logs(attrs: list[Attr], directory: Path) -> None:
 
 class Report:
     def __init__(
-        self, system: str, attrs: list[Attr], extra_nixpkgs_config: str
+        self, system: str, attrs: list[Attr], extra_nixpkgs_config: str, *,
+        checkout: Literal["merge", "commit"] = "merge",
     ) -> None:
         self.system = system
         self.attrs = attrs
+        self.checkout = checkout
         self.broken: list[Attr] = []
         self.failed: list[Attr] = []
         self.non_existent: list[Attr] = []
@@ -144,6 +147,7 @@ class Report:
             {
                 "system": self.system,
                 "pr": pr,
+                "checkout": self.checkout,
                 "extra-nixpkgs-config": self.extra_nixpkgs_config,
                 "broken": serialize_attrs(self.broken),
                 "non-existent": serialize_attrs(self.non_existent),
@@ -162,6 +166,8 @@ class Report:
             cmd += f" pr {pr}"
         if self.extra_nixpkgs_config:
             cmd += f" --extra-nixpkgs-config '{self.extra_nixpkgs_config}'"
+        if self.checkout != "merge":
+            cmd += f" --checkout {self.checkout}"
 
         msg = f"Result of `{cmd}` run on {self.system} [1](https://github.com/Mic92/nixpkgs-review)\n"
 
