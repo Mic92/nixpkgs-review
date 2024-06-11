@@ -1,5 +1,6 @@
 import functools
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -29,7 +30,7 @@ link = color_text(34)
 def sh(
     command: list[str], cwd: Path | str | None = None
 ) -> "subprocess.CompletedProcess[str]":
-    info("$ " + " ".join(command))
+    info("$ " + shlex.join(command))
     return subprocess.run(command, cwd=cwd, text=True)
 
 
