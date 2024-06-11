@@ -267,7 +267,7 @@ class Review:
         pr: int | None = None,
         post_result: bool | None = False,
         print_result: bool = False,
-    ) -> None:
+    ) -> bool:
         os.environ.pop("NIXPKGS_CONFIG", None)
         os.environ["NIXPKGS_REVIEW_ROOT"] = str(path)
         if pr:
@@ -287,9 +287,7 @@ class Review:
         if print_result:
             print(report.markdown(pr))
 
-        if self.no_shell:
-            sys.exit(0 if report.succeeded() else 1)
-        else:
+        if not self.no_shell:
             nix_shell(
                 report.built_packages(),
                 path,
@@ -301,6 +299,8 @@ class Review:
                 self.run,
                 self.sandbox,
             )
+
+        return report.succeeded()
 
     def review_commit(
         self,
