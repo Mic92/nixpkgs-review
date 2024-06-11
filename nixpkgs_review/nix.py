@@ -39,7 +39,7 @@ class Attr:
         return self._path_verified
 
     def is_test(self) -> bool:
-        return self.name.startswith("nixosTests")
+        return self.name.startswith("nixosTests") or ".passthru.tests." in self.name
 
 
 REVIEW_SHELL: Final[str] = str(ROOT.joinpath("nix/review-shell.nix"))
@@ -217,6 +217,7 @@ def nix_eval(
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
+    include_passthru_tests: bool = False,
 ) -> list[Attr]:
     attr_json = NamedTemporaryFile(mode="w+", delete=False)
     delete = True
@@ -239,7 +240,10 @@ def nix_eval(
             if allow.ifd
             else "--no-allow-import-from-derivation",
             "--expr",
-            f"(import {eval_script} {{ attr-json = {attr_json.name}; }})",
+            f"""(import {eval_script} {{
+              attr-json = {attr_json.name};
+              include-passthru-tests = {str(include_passthru_tests).lower()};
+            }})""",
         ]
 
         nix_eval = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
