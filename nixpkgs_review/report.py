@@ -24,12 +24,16 @@ def print_number(
     log("")
 
 
-def html_pkgs_section(packages: list[Attr], msg: str, what: str = "package") -> str:
+def html_pkgs_section(
+    emoji: str, packages: list[Attr], msg: str, what: str = "package"
+) -> str:
     if len(packages) == 0:
         return ""
     plural = "s" if len(packages) > 1 else ""
     res = "<details>\n"
-    res += f"  <summary>{len(packages)} {what}{plural} {msg}:</summary>\n  <ul>\n"
+    res += (
+        f"  <summary>{emoji} {len(packages)} {what}{plural} {msg}:</summary>\n  <ul>\n"
+    )
     for pkg in packages:
         res += f"    <li>{pkg.name}"
         if len(pkg.aliases) > 0:
@@ -175,15 +179,18 @@ class Report:
 
         msg = f"Result of `{cmd}` run on {self.system} [1](https://github.com/Mic92/nixpkgs-review)\n"
 
-        msg += html_pkgs_section(self.broken, "marked as broken and skipped")
         msg += html_pkgs_section(
+            ":fast_forward:", self.broken, "marked as broken and skipped"
+        )
+        msg += html_pkgs_section(
+            ":fast_forward:",
             self.non_existent,
             "present in ofBorgs evaluation, but not found in the checkout",
         )
-        msg += html_pkgs_section(self.blacklisted, "blacklisted")
-        msg += html_pkgs_section(self.failed, "failed to build")
-        msg += html_pkgs_section(self.tests, "built", what="test")
-        msg += html_pkgs_section(self.built, "built")
+        msg += html_pkgs_section(":fast_forward:", self.blacklisted, "blacklisted")
+        msg += html_pkgs_section(":x:", self.failed, "failed to build")
+        msg += html_pkgs_section(":white_check_mark:", self.tests, "built", what="test")
+        msg += html_pkgs_section(":white_check_mark:", self.built, "built")
 
         return msg
 
