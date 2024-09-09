@@ -33,7 +33,17 @@ class Attr:
             return self._path_verified
 
         res = subprocess.run(
-            ["nix-store", "--verify-path", self.path], stderr=subprocess.DEVNULL
+            [
+                "nix",
+                "--extra-experimental-features",
+                "nix-command",
+                "store",
+                "verify",
+                "--no-contents",
+                "--no-trust",
+                self.path,
+            ],
+            stderr=subprocess.DEVNULL,
         )
         self._path_verified = res.returncode == 0
         return self._path_verified
