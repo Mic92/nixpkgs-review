@@ -223,8 +223,8 @@ Some commands (i.e., `post-result` or `merge`) require a GitHub API token, and
 even for read-only calls, GitHub returns 403 error messages if your IP hits the
 rate limit for unauthenticated calls.
 
-To use a token, first create a
-[personal access token](https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/).
+To use a token, first create a **classic** 
+[personal access token](https://github.com/settings/tokens).
 If you plan to post comments with the reports generated, you need to add the
 `repo:public_repo` scope.
 
