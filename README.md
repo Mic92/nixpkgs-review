@@ -232,7 +232,7 @@ Then use either the `GITHUB_TOKEN` environment variable or the `--token`
 parameter of the `pr` subcommand.
 
 ```console
-$ GITHUB_TOKEN=5ae04810f1e9f17c3297ee4c9e25f3ac1f437c26 nixpkgs-review pr  37244
+$ GITHUB_TOKEN=ghp_WAI7vpi9wVHbxPOA185NwWvaMawDuCnMGc3E nixpkgs-review pr  37244
 ```
 
 Additionally, nixpkgs-review will also read the oauth_token stored by
