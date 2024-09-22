@@ -175,19 +175,38 @@ done
 inside the nix-shell instead of an interactive session:
 
 ```console
-$ nixpkgs-review pr --run 'jq < report.json' 113814
+$ nixpkgs-review pr --run --systems all 'jq < report.json' 340297
 # ...
 {
-  "blacklisted": [],
-  "broken": [],
-  "built": [
-    "cargo-deny"
-  ],
-  "failed": [],
-  "non-existent": [],
-  "pr": 113814,
-  "system": "x86_64-linux",
-  "tests": []
+  "checkout": "merge",
+  "extra-nixpkgs-config": null,
+  "pr": 340297,
+  "result": {
+    "aarch64-linux": {
+      "blacklisted": [],
+      "broken": [],
+      "built": [
+        "forecast"
+      ],
+      "failed": [],
+      "non-existent": [],
+      "tests": []
+    },
+    "x86_64-linux": {
+      "blacklisted": [],
+      "broken": [],
+      "built": [
+        "forecast"
+      ],
+      "failed": [],
+      "non-existent": [],
+      "tests": []
+    }
+  },
+  "systems": [
+    "x86_64-linux",
+    "aarch64-linux"
+  ]
 }
 ```
 
@@ -326,9 +345,17 @@ subcommand.
 
 ## Review changes for other operating systems/architectures
 
-The `--system` flag allows setting a system different from the current one. Note
-that the result nix-shell may not be able to execute all hooks correctly since
-the architecture/operating system mismatches.
+The `--systems` flag allows setting a system different from the current one.
+Note that the result nix-shell may not be able to execute all hooks correctly
+since the architecture/operating system mismatches.
+
+By default, `nixpkgs-review` targets only the current system
+(`--systems current`). You can also explicitly provide one or several systems to
+target (`--systems "x86_64-linux aarch64-darwin"`). The `--systems all` value
+will build for the four major platforms supported by hydra (`--x86_64-linux`,
+`aarch64-linux`, `x86_64-darwin` and `aarch64-darwin`). Ensure that your system
+is capable of building for the specified architectures, either locally or
+through the remote builder protocol.
 
 ```console
 $ nixpkgs-review pr --system aarch64-linux 98734

@@ -2,13 +2,15 @@ import argparse
 import re
 import sys
 from contextlib import ExitStack
+from pathlib import Path
 
 from ..allow import AllowedFeatures
 from ..builddir import Builddir
 from ..buildenv import Buildenv
 from ..errors import NixpkgsReviewError
+from ..nix import Attr
 from ..review import CheckoutOption, Review
-from ..utils import warn
+from ..utils import System, warn
 from .utils import ensure_github_token
 
 
@@ -32,7 +34,7 @@ def parse_pr_numbers(number_args: list[str]) -> list[int]:
 
 
 def pr_command(args: argparse.Namespace) -> str:
-    prs = parse_pr_numbers(args.number)
+    prs: list[int] = parse_pr_numbers(args.number)
     use_ofborg_eval = args.eval == "ofborg"
     checkout_option = (
         CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
@@ -40,8 +42,20 @@ def pr_command(args: argparse.Namespace) -> str:
 
     if args.post_result:
         ensure_github_token(args.token)
+    if args.system:
+        warn("Warning: The `--system` is deprecated. Use `--systems` instead.")
+        args.systems = args.system
 
-    contexts = []
+    contexts: list[
+        tuple[
+            # PR number
+            int,
+            # builddir path
+            Path,
+            # Attrs to build for each system
+            dict[System, list[Attr]],
+        ]
+    ] = []
 
     allow = AllowedFeatures(args.allow)
 
@@ -65,7 +79,7 @@ def pr_command(args: argparse.Namespace) -> str:
                     package_regexes=args.package_regex,
                     skip_packages=set(args.skip_package),
                     skip_packages_regex=args.skip_package_regex,
-                    system=args.system,
+                    systems=args.systems.split(" "),
                     allow=allow,
                     checkout=checkout_option,
                     sandbox=args.sandbox,

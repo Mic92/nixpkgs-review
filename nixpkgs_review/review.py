@@ -16,7 +16,18 @@ from .errors import NixpkgsReviewError
 from .github import GithubClient
 from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
-from .utils import info, sh, warn
+from .utils import System, current_system, info, sh, warn
+
+# keep up to date with `supportedPlatforms`
+# https://github.com/NixOS/ofborg/blob/cf2c6712bd7342406e799110e7cd465aa250cdca/ofborg/src/outpaths.nix#L12
+OFBORG_PLATFORMS: set[str] = set(
+    [
+        "aarch64-darwin",
+        "aarch64-linux",
+        "x86_64-darwin",
+        "x86_64-linux",
+    ]
+)
 
 
 class CheckoutOption(Enum):
@@ -27,10 +38,6 @@ class CheckoutOption(Enum):
     # builds. This option comes at the cost of ignoring the latest changes of
     # the target branch.
     COMMIT = 2
-
-
-def native_packages(packages_per_system: dict[str, set[str]], system: str) -> set[str]:
-    return set(packages_per_system[system])
 
 
 def print_packages(
@@ -87,7 +94,7 @@ class Review:
         no_shell: bool,
         run: str,
         remote: str,
-        system: str,
+        systems: list[System],
         allow: AllowedFeatures,
         build_graph: str,
         nixpkgs_config: Path,
@@ -113,7 +120,20 @@ class Review:
         self.package_regex = package_regexes
         self.skip_packages = skip_packages
         self.skip_packages_regex = skip_packages_regex
-        self.system = system
+        self.local_system = current_system()
+        match len(systems):
+            case 0:
+                raise NixpkgsReviewError("Systems is empty")
+            case 1:
+                system = list(systems)[0]
+                if system == "current":
+                    self.systems = set([current_system()])
+                elif system == "all":
+                    self.systems = OFBORG_PLATFORMS
+                else:
+                    self.systems = set([system])
+            case _:
+                self.systems = set(systems)
         self.allow = allow
         self.sandbox = sandbox
         self.build_graph = build_graph
@@ -152,33 +172,54 @@ class Review:
 
     def build_commit(
         self, base_commit: str, reviewed_commit: str | None, staged: bool = False
-    ) -> list[Attr]:
+    ) -> dict[System, list[Attr]]:
         """
         Review a local git commit
         """
         self.git_worktree(base_commit)
 
-        base_packages = list_packages(
-            self.builddir.nix_path,
-            self.system,
-            self.allow,
-        )
+        # TODO: nix-eval-jobs ?
+        # parallel version: returning a dict[System, list[Package]]
+        # base_packages = list_packages(
+        #     self.builddir.nix_path,
+        #     self.systems,
+        #     self.allow,
+        # )
+        base_packages = {
+            system: list_packages(
+                self.builddir.nix_path,
+                system,
+                self.allow,
+            )
+            for system in self.systems
+        }
 
         if reviewed_commit is None:
             self.apply_unstaged(staged)
         else:
             self.git_merge(reviewed_commit)
 
-        merged_packages = list_packages(
-            self.builddir.nix_path,
-            self.system,
-            self.allow,
-            check_meta=True,
-        )
+        # TODO: nix-eval-jobs ?
+        merged_packages = {
+            system: list_packages(
+                self.builddir.nix_path,
+                system,
+                self.allow,
+                check_meta=True,
+            )
+            for system in self.systems
+        }
 
-        changed_pkgs, removed_pkgs = differences(base_packages, merged_packages)
-        changed_attrs = set(p.attr_path for p in changed_pkgs)
-        print_updates(changed_pkgs, removed_pkgs)
+        changed_attrs = {}
+        for system in self.systems:
+            changed_pkgs, removed_pkgs = differences(
+                base_packages[system], merged_packages[system]
+            )
+            print(f"--------- Impacted packages on '{system}' ---------")
+            print_updates(changed_pkgs, removed_pkgs)
+
+            changed_attrs[system] = set(p.attr_path for p in changed_pkgs)
+
         return self.build(changed_attrs, self.build_args)
 
     def git_worktree(self, commit: str) -> None:
@@ -195,40 +236,39 @@ class Review:
         else:
             self.git_worktree(pr_rev)
 
-    def build(self, packages: set[str], args: str) -> list[Attr]:
-        packages = filter_packages(
-            packages,
-            self.only_packages,
-            self.package_regex,
-            self.skip_packages,
-            self.skip_packages_regex,
-            self.system,
-            self.allow,
-            self.builddir.nix_path,
-        )
+    def build(
+        self, packages_per_system: dict[System, set[str]], args: str
+    ) -> dict[System, list[Attr]]:
+        for system, packages in packages_per_system.items():
+            packages_per_system[system] = filter_packages(
+                packages,
+                self.only_packages,
+                self.package_regex,
+                self.skip_packages,
+                self.skip_packages_regex,
+                system,
+                self.allow,
+                self.builddir.nix_path,
+            )
         return nix_build(
-            packages,
+            packages_per_system,
             args,
             self.builddir.path,
-            self.system,
+            self.systems,
+            self.local_system,
             self.allow,
             self.build_graph,
             self.builddir.nix_path,
             self.nixpkgs_config,
         )
 
-    def build_pr(self, pr_number: int) -> list[Attr]:
+    def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
         pr = self.github_client.pull_request(pr_number)
 
-        # keep up to date with `supportedPlatforms`
-        # https://github.com/NixOS/ofborg/blob/cf2c6712bd7342406e799110e7cd465aa250cdca/ofborg/src/outpaths.nix#L12
-        ofborg_platforms = [
-            "aarch64-darwin",
-            "aarch64-linux",
-            "x86_64-darwin",
-            "x86_64-linux",
-        ]
-        if self.use_ofborg_eval and self.system in ofborg_platforms:
+        packages_per_system: dict[System, set[str]] | None
+        if self.use_ofborg_eval and all(
+            system in OFBORG_PLATFORMS for system in self.systems
+        ):
             packages_per_system = self.github_client.get_borg_eval_gist(pr)
         else:
             packages_per_system = None
@@ -257,12 +297,14 @@ class Review:
 
         self.checkout_pr(base_rev, pr_rev)
 
-        packages = native_packages(packages_per_system, self.system)
-        return self.build(packages, self.build_args)
+        for system in list(packages_per_system.keys()):
+            if system not in self.systems:
+                packages_per_system.pop(system)
+        return self.build(packages_per_system, self.build_args)
 
     def start_review(
         self,
-        attr: list[Attr],
+        attrs_per_system: dict[System, list[Attr]],
         path: Path,
         pr: int | None = None,
         post_result: bool | None = False,
@@ -273,8 +315,7 @@ class Review:
         if pr:
             os.environ["PR"] = str(pr)
         report = Report(
-            self.system,
-            attr,
+            attrs_per_system,
             self.extra_nixpkgs_config,
             checkout=self.checkout.name.lower(),  # type: ignore
         )
@@ -291,7 +332,7 @@ class Review:
             nix_shell(
                 report.built_packages(),
                 path,
-                self.system,
+                self.local_system,
                 self.build_graph,
                 self.builddir.nix_path,
                 self.nixpkgs_config,
@@ -577,7 +618,7 @@ def review_local_revision(
             package_regexes=args.package_regex,
             skip_packages=set(args.skip_package),
             skip_packages_regex=args.skip_package_regex,
-            system=args.system,
+            systems=args.systems.split(" "),
             allow=allow,
             sandbox=args.sandbox,
             build_graph=args.build_graph,

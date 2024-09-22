@@ -9,7 +9,7 @@ from re import Pattern
 from shutil import which
 from typing import Any, cast
 
-from ..utils import current_system, nix_nom_tool
+from ..utils import nix_nom_tool
 from .approve import approve_command
 from .comments import show_comments
 from .merge import merge_command
@@ -214,10 +214,16 @@ def common_flags() -> list[CommonFlag]:
             help="Regular expression that package attributes have not to match (can be passed multiple times)",
         ),
         CommonFlag(
+            "--systems",
+            type=str,
+            default="current",
+            help="Nix 'systems' to evaluate and build packages for",
+        ),
+        CommonFlag(
             "--system",
             type=str,
-            default=current_system(),
-            help="Nix 'system' to evaluate and build packages for",
+            default="",
+            help="[DEPRECATED] use `--systems` instead",
         ),
         CommonFlag(
             "--token",
