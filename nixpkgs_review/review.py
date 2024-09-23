@@ -107,6 +107,7 @@ class Review:
         skip_packages_regex: list[Pattern[str]] = [],
         checkout: CheckoutOption = CheckoutOption.MERGE,
         sandbox: bool = False,
+        n_procs_eval: int = 1,
     ) -> None:
         self.builddir = builddir
         self.build_args = build_args
@@ -139,6 +140,7 @@ class Review:
         self.build_graph = build_graph
         self.nixpkgs_config = nixpkgs_config
         self.extra_nixpkgs_config = extra_nixpkgs_config
+        self.n_procs_eval = n_procs_eval
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -260,6 +262,7 @@ class Review:
             self.build_graph,
             self.builddir.nix_path,
             self.nixpkgs_config,
+            self.n_procs_eval,
         )
 
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
@@ -624,6 +627,7 @@ def review_local_revision(
             build_graph=args.build_graph,
             nixpkgs_config=nixpkgs_config,
             extra_nixpkgs_config=args.extra_nixpkgs_config,
+            n_procs_eval=args.num_procs_eval,
         )
         review.review_commit(builddir.path, args.branch, commit, staged, print_result)
         return builddir.path

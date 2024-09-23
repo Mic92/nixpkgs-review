@@ -1,9 +1,11 @@
 import json
+import multiprocessing as mp
 import os
 import shlex
 import shutil
 import subprocess
 from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
 from sys import platform
 from tempfile import NamedTemporaryFile
@@ -269,6 +271,34 @@ def nix_eval(
             os.unlink(attr_json.name)
 
 
+def nix_eval_thread(
+    system: System,
+    attr_names: set[str],
+    allow: AllowedFeatures,
+    nix_path: str,
+) -> tuple[System, list[Attr]]:
+    return system, nix_eval(attr_names, system, allow, nix_path)
+
+
+def multi_system_eval(
+    attr_names_per_system: dict[System, set[str]],
+    allow: AllowedFeatures,
+    nix_path: str,
+    n_procs: int,
+) -> dict[System, list[Attr]]:
+    nix_eval_partial = partial(
+        nix_eval_thread,
+        allow=allow,
+        nix_path=nix_path,
+    )
+
+    args: list[tuple[System, set[str]]] = list(attr_names_per_system.items())
+    with mp.Pool(n_procs) as pool:
+        results: list[tuple[System, list[Attr]]] = pool.starmap(nix_eval_partial, args)
+
+    return {system: attrs for system, attrs in results}
+
+
 def nix_build(
     attr_names_per_system: dict[System, set[str]],
     args: str,
@@ -279,19 +309,23 @@ def nix_build(
     build_graph: str,
     nix_path: str,
     nixpkgs_config: Path,
+    n_procs_eval: int,
 ) -> dict[System, list[Attr]]:
     if not attr_names_per_system:
         info("Nothing to be built.")
         return {}
 
-    # TODO parallelize evaluation
-    attrs_per_system: dict[System, list[Attr]] = {}
-    filtered_per_system: dict[System, list[str]] = {}
-    for system, attr_names in attr_names_per_system.items():
-        attrs_per_system[system] = nix_eval(attr_names, system, allow, nix_path)
+    attrs_per_system: dict[System, list[Attr]] = multi_system_eval(
+        attr_names_per_system,
+        allow,
+        nix_path,
+        n_procs=n_procs_eval,
+    )
 
+    filtered_per_system: dict[System, list[str]] = {}
+    for system, attrs in attrs_per_system.items():
         filtered_per_system[system] = []
-        for attr in attrs_per_system[system]:
+        for attr in attrs:
             if not (attr.broken or attr.blacklisted):
                 filtered_per_system[system].append(attr.name)
 
