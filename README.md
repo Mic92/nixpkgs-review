@@ -217,26 +217,28 @@ As an alternative, one can also specify remote builder as usual in
 `/etc/nix/machines` or via the `nix.buildMachines` nixos options in
 `configuration.nix`. This allows to parallelize builds across multiple machines.
 
-## GitHub api token
+## GitHub API token
 
 Some commands (i.e., `post-result` or `merge`) require a GitHub API token, and
 even for read-only calls, GitHub returns 403 error messages if your IP hits the
 rate limit for unauthenticated calls.
 
-To use a token, first create a **classic**
-[personal access token](https://github.com/settings/tokens). If you plan to post
-comments with the reports generated, you need to add the `repo:public_repo`
+Nixpkgs-review will automatically read the oauth_token stored by
+[hub](https://hub.github.com/) or [gh](https://cli.github.com/) if they are
+installed.
+
+Otherwise, you'll have to create a "personal access token (classic)" through
+GitHub's website. See [the GitHub documentation][3] for instructions. If you
+plan to post the generated reports, make sure to give it the `public_repo`
 scope.
 
 Then use either the `GITHUB_TOKEN` environment variable or the `--token`
-parameter of the `pr` subcommand.
+parameter of the `pr` subcommand to supply your token to nixpkgs-review.
 
 ```console
-$ GITHUB_TOKEN=ghp_WAI7vpi9wVHbxPOA185NwWvaMawDuCnMGc3E nixpkgs-review pr  37244
+$ GITHUB_TOKEN=ghp_WAI7vpi9wVHbxPOA185NwWvaMawDuCnMGc3E nixpkgs-review pr 37244 --post-result
+$ nixpkgs-review pr 37244 --token ghp_WAI7vpi9wVHbxPOA185NwWvaMawDuCnMGc3E --post-result
 ```
-
-Additionally, nixpkgs-review will also read the oauth_token stored by
-[hub](https://hub.github.com/) and [gh](https://cli.github.com/).
 
 ## Checkout strategy (recommend for r-ryantm + cachix)
 
