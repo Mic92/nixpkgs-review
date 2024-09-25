@@ -124,10 +124,10 @@ class Report:
                 self.blacklisted.append(a)
             elif not a.exists:
                 self.non_existent.append(a)
-            elif a.name.startswith("nixosTests."):
-                self.tests.append(a)
             elif not a.was_build():
                 self.failed.append(a)
+            elif a.is_test():
+                self.tests.append(a)
             else:
                 self.built.append(a)
 
@@ -206,5 +206,5 @@ class Report:
         )
         print_number(self.blacklisted, "blacklisted")
         print_number(self.failed, "failed to build")
-        print_number(self.tests, "built", what="tests", log=print)
+        print_number(self.tests, "built", what="test", log=print)
         print_number(self.built, "built", log=print)

@@ -1,4 +1,6 @@
-{ attr-json }:
+{ attr-json
+, include-passthru-tests
+}:
 
 with builtins;
 let
@@ -27,7 +29,7 @@ let
         })
       ]
     else
-      lib.flip map pkg.outputs or [ "out" ] (output:
+      (lib.flip map pkg.outputs or [ "out" ] (output:
         let
           # some packages are set to null if they aren't compatible with a platform or package set
           maybePath = tryEval "${lib.getOutput output pkg}";
@@ -40,6 +42,19 @@ let
             path = if !broken then maybePath.value else null;
             drvPath = if !broken then pkg.drvPath else null;
           }
+      ))
+      ++ lib.optionals include-passthru-tests (
+        lib.flip lib.mapAttrsToList pkg.passthru.tests or { } (test: drv:
+          let
+            maybePath = tryEval "${drv}";
+            broken = !exists || !maybePath.success;
+          in
+          lib.nameValuePair "${name}.passthru.tests.${test}" {
+            inherit exists broken;
+            path = if !broken then maybePath.value else null;
+            drvPath = if !broken then pkg.drvPath else null;
+          }
+        )
       );
 in
 

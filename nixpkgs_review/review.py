@@ -100,6 +100,7 @@ class Review:
         skip_packages_regex: list[Pattern[str]] = [],
         checkout: CheckoutOption = CheckoutOption.MERGE,
         sandbox: bool = False,
+        build_passthru_tests: bool = False,
     ) -> None:
         self.builddir = builddir
         self.build_args = build_args
@@ -119,6 +120,7 @@ class Review:
         self.build_graph = build_graph
         self.nixpkgs_config = nixpkgs_config
         self.extra_nixpkgs_config = extra_nixpkgs_config
+        self.build_passthru_tests = build_passthru_tests
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -205,6 +207,7 @@ class Review:
             self.system,
             self.allow,
             self.builddir.nix_path,
+            self.build_passthru_tests,
         )
         return nix_build(
             packages,
@@ -414,12 +417,19 @@ def package_attrs(
     allow: AllowedFeatures,
     nix_path: str,
     ignore_nonexisting: bool = True,
+    build_passthru_tests: bool = False,
 ) -> dict[str, Attr]:
     attrs: dict[str, Attr] = {}
 
     nonexisting = []
 
-    for attr in nix_eval(package_set, system, allow, nix_path):
+    for attr in nix_eval(
+        package_set,
+        system,
+        allow,
+        nix_path,
+        build_passthru_tests,
+    ):
         if not attr.exists:
             nonexisting.append(attr.name)
         elif not attr.broken:
@@ -439,14 +449,21 @@ def join_packages(
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
+    build_passthru_tests: bool,
 ) -> set[str]:
-    changed_attrs = package_attrs(changed_packages, system, allow, nix_path)
+    changed_attrs = package_attrs(
+        changed_packages,
+        system,
+        allow,
+        nix_path,
+    )
     specified_attrs = package_attrs(
         specified_packages,
         system,
         allow,
         nix_path,
         ignore_nonexisting=False,
+        build_passthru_tests=build_passthru_tests,
     )
 
     tests: dict[str, Attr] = {}
@@ -477,8 +494,23 @@ def filter_packages(
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
+    build_passthru_tests: bool,
 ) -> set[str]:
     packages: set[str] = set()
+
+    # reduce number of times the passthru.tests are evaluated, by either doing
+    # it here or in join_packages
+    if build_passthru_tests and len(specified_packages) == 0:
+        changed_attrs = package_attrs(
+            changed_packages,
+            system,
+            allow,
+            nix_path,
+            build_passthru_tests=build_passthru_tests,
+        )
+        changed_packages = set(
+            changed_attrs[path].name for path in changed_attrs.keys()
+        )
 
     if (
         len(specified_packages) == 0
@@ -495,6 +527,7 @@ def filter_packages(
             system,
             allow,
             nix_path,
+            build_passthru_tests,
         )
 
     for attr in changed_packages:
@@ -565,6 +598,7 @@ def review_local_revision(
     commit: str | None,
     staged: bool = False,
     print_result: bool = False,
+    build_passthru_tests: bool = False,
 ) -> Path:
     with Builddir(builddir_path) as builddir:
         review = Review(
@@ -583,6 +617,7 @@ def review_local_revision(
             build_graph=args.build_graph,
             nixpkgs_config=nixpkgs_config,
             extra_nixpkgs_config=args.extra_nixpkgs_config,
+            build_passthru_tests=args.tests,
         )
         review.review_commit(builddir.path, args.branch, commit, staged, print_result)
         return builddir.path
