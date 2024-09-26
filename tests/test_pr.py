@@ -40,8 +40,7 @@ def test_pr_local_eval(helpers: Helpers, capfd: pytest.CaptureFixture) -> None:
                 "1",
             ],
         )
-        report = helpers.load_report(path)
-        assert report["built"] == ["pkg1"]
+        helpers.assert_built(pkg_name="pkg1", path=path)
         captured = capfd.readouterr()
         assert "$ nom build" in captured.out
 
@@ -69,8 +68,7 @@ def test_pr_local_eval_missing_nom(
                 "1",
             ],
         )
-        report = helpers.load_report(path)
-        assert report["built"] == ["pkg1"]
+        helpers.assert_built(pkg_name="pkg1", path=path)
         mock_tool.assert_called_once()
         captured = capfd.readouterr()
         assert "$ nix build" in captured.out
@@ -100,8 +98,7 @@ def test_pr_local_eval_without_nom(
                 "nix",
             ],
         )
-        report = helpers.load_report(path)
-        assert report["built"] == ["pkg1"]
+        helpers.assert_built(pkg_name="pkg1", path=path)
         captured = capfd.readouterr()
         assert "$ nix build" in captured.out
 
@@ -128,8 +125,7 @@ def test_pr_local_eval_with_sandbox(helpers: Helpers) -> None:
                 "1",
             ],
         )
-        report = helpers.load_report(path)
-        assert report["built"] == ["pkg1"]
+        helpers.assert_built(pkg_name="pkg1", path=path)
 
 
 @patch("urllib.request.urlopen")
@@ -161,5 +157,4 @@ def test_pr_ofborg_eval(mock_urlopen: MagicMock, helpers: Helpers) -> None:
                 "37200",
             ],
         )
-        report = helpers.load_report(path)
-        assert report["built"] == ["pkg1"]
+        helpers.assert_built(pkg_name="pkg1", path=path)

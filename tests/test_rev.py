@@ -21,8 +21,7 @@ def test_rev_command(helpers: Helpers) -> None:
             "nixpkgs-review",
             ["rev", "HEAD", "--remote", str(nixpkgs.remote), "--run", "exit 0"],
         )
-        report = helpers.load_report(path)
-        assert report["built"] == ["pkg1"]
+        helpers.assert_built(pkg_name="pkg1", path=path)
 
 
 def test_rev_command_without_nom(helpers: Helpers) -> None:
@@ -44,5 +43,4 @@ def test_rev_command_without_nom(helpers: Helpers) -> None:
                 "nix",
             ],
         )
-        report = helpers.load_report(path)
-        assert report["built"] == ["pkg1"]
+        helpers.assert_built(pkg_name="pkg1", path=path)

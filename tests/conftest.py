@@ -14,6 +14,8 @@ from typing import Any, cast
 
 import pytest
 
+from nixpkgs_review.utils import current_system
+
 TEST_ROOT = Path(__file__).parent.resolve()
 sys.path.append(str(TEST_ROOT.parent))
 
@@ -115,6 +117,11 @@ class Helpers:
     def load_report(review_dir: str) -> dict[str, Any]:
         with open(os.path.join(review_dir, "report.json")) as f:
             return cast(dict[str, Any], json.load(f))
+
+    @staticmethod
+    def assert_built(pkg_name: str, path: str) -> None:
+        report = Helpers.load_report(path)
+        assert report["result"][current_system()]["built"] == [pkg_name]
 
     @staticmethod
     @contextmanager
