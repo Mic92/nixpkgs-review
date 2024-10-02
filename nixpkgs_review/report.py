@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from .nix import Attr
-from .utils import System, info, link, warn
+from .utils import System, info, link, skipped, warn
 
 
 def print_number(
@@ -246,12 +246,13 @@ class Report:
 
         for system, report in self.system_reports.items():
             info(f"--------- Report for '{system}' ---------")
-            print_number(report.broken, "marked as broken and skipped")
+            print_number(report.broken, "marked as broken and skipped", log=skipped)
             print_number(
                 report.non_existent,
                 "present in ofBorgs evaluation, but not found in the checkout",
+                log=skipped,
             )
-            print_number(report.blacklisted, "blacklisted")
+            print_number(report.blacklisted, "blacklisted", log=skipped)
             print_number(report.failed, "failed to build")
             print_number(report.tests, "built", what="tests", log=print)
             print_number(report.built, "built", log=print)
