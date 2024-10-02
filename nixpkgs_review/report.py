@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from .nix import Attr
-from .utils import info, link, warn
+from .utils import System, info, link, warn
 
 
 def print_number(
@@ -55,56 +55,55 @@ class LazyDirectory:
         return self.path
 
 
-def write_error_logs(attrs: list[Attr], directory: Path) -> None:
+def write_error_logs(attrs_per_system: dict[str, list[Attr]], directory: Path) -> None:
     logs = LazyDirectory(directory.joinpath("logs"))
     results = LazyDirectory(directory.joinpath("results"))
     failed_results = LazyDirectory(directory.joinpath("failed_results"))
-    for attr in attrs:
-        # Broken attrs have no drv_path.
-        if attr.blacklisted or attr.drv_path is None:
-            continue
-
-        if attr.path is not None and os.path.exists(attr.path):
-            if attr.was_build():
-                symlink_source = results.ensure().joinpath(attr.name)
-            else:
-                symlink_source = failed_results.ensure().joinpath(attr.name)
-            if os.path.lexists(symlink_source):
-                symlink_source.unlink()
-            symlink_source.symlink_to(attr.path)
-
-        for path in [f"{attr.drv_path}^*", attr.path]:
-            if not path:
+    for system, attrs in attrs_per_system.items():
+        for attr in attrs:
+            # Broken attrs have no drv_path.
+            if attr.blacklisted or attr.drv_path is None:
                 continue
-            with open(
-                logs.ensure().joinpath(attr.name + ".log"), "w+", encoding="utf-8"
-            ) as f:
-                nix_log = subprocess.run(
-                    [
-                        "nix",
-                        "--extra-experimental-features",
-                        "nix-command",
-                        "log",
-                        path,
-                    ],
-                    stdout=f,
-                )
-                if nix_log.returncode == 0:
-                    break
+
+            attr_name: str = f"{attr.name}-{system}"
+
+            if attr.path is not None and os.path.exists(attr.path):
+                if attr.was_build():
+                    symlink_source = results.ensure().joinpath(attr_name)
+                else:
+                    symlink_source = failed_results.ensure().joinpath(attr_name)
+                if os.path.lexists(symlink_source):
+                    symlink_source.unlink()
+                symlink_source.symlink_to(attr.path)
+
+            for path in [f"{attr.drv_path}^*", attr.path]:
+                if not path:
+                    continue
+                with open(
+                    logs.ensure().joinpath(attr_name + ".log"),
+                    "w+",
+                    encoding="utf-8",
+                ) as f:
+                    nix_log = subprocess.run(
+                        [
+                            "nix",
+                            "--extra-experimental-features",
+                            "nix-command",
+                            "log",
+                            path,
+                        ],
+                        stdout=f,
+                    )
+                    if nix_log.returncode == 0:
+                        break
 
 
-class Report:
-    def __init__(
-        self,
-        system: str,
-        attrs: list[Attr],
-        extra_nixpkgs_config: str,
-        *,
-        checkout: Literal["merge", "commit"] = "merge",
-    ) -> None:
-        self.system = system
-        self.attrs = attrs
-        self.checkout = checkout
+def _serialize_attrs(attrs: list[Attr]) -> list[str]:
+    return list(map(lambda a: a.name, attrs))
+
+
+class SystemReport:
+    def __init__(self, attrs: list[Attr]) -> None:
         self.broken: list[Attr] = []
         self.failed: list[Attr] = []
         self.non_existent: list[Attr] = []
@@ -112,27 +111,68 @@ class Report:
         self.tests: list[Attr] = []
         self.built: list[Attr] = []
 
+        for attr in attrs:
+            if attr.broken:
+                self.broken.append(attr)
+            elif attr.blacklisted:
+                self.blacklisted.append(attr)
+            elif not attr.exists:
+                self.non_existent.append(attr)
+            elif attr.name.startswith("nixosTests."):
+                self.tests.append(attr)
+            elif not attr.was_build():
+                self.failed.append(attr)
+            else:
+                self.built.append(attr)
+
+    def serialize(self) -> dict[str, list[str]]:
+        return {
+            "broken": _serialize_attrs(self.broken),
+            "non-existent": _serialize_attrs(self.non_existent),
+            "blacklisted": _serialize_attrs(self.blacklisted),
+            "failed": _serialize_attrs(self.failed),
+            "built": _serialize_attrs(self.built),
+            "tests": _serialize_attrs(self.tests),
+        }
+
+
+def order_reports(reports: dict[System, SystemReport]) -> dict[System, SystemReport]:
+    """Ensure that systems are always ordered consistently in reports"""
+    return dict(
+        sorted(
+            reports.items(),
+            key=lambda item: "".join(reversed(item[0].split("-"))),
+            reverse=True,
+        )
+    )
+
+
+class Report:
+    def __init__(
+        self,
+        attrs_per_system: dict[str, list[Attr]],
+        extra_nixpkgs_config: str,
+        *,
+        checkout: Literal["merge", "commit"] = "merge",
+    ) -> None:
+        self.attrs = attrs_per_system
+        self.checkout = checkout
+
         if extra_nixpkgs_config != "{ }":
             self.extra_nixpkgs_config: str | None = extra_nixpkgs_config
         else:
             self.extra_nixpkgs_config = None
 
-        for a in attrs:
-            if a.broken:
-                self.broken.append(a)
-            elif a.blacklisted:
-                self.blacklisted.append(a)
-            elif not a.exists:
-                self.non_existent.append(a)
-            elif a.name.startswith("nixosTests."):
-                self.tests.append(a)
-            elif not a.was_build():
-                self.failed.append(a)
-            else:
-                self.built.append(a)
+        reports: dict[System, SystemReport] = {}
+        for system, attrs in attrs_per_system.items():
+            reports[system] = SystemReport(attrs)
+        self.system_reports: dict[System, SystemReport] = order_reports(reports)
 
-    def built_packages(self) -> list[str]:
-        return [a.name for a in self.built]
+    def built_packages(self) -> dict[System, list[str]]:
+        return {
+            system: [a.name for a in report.built]
+            for system, report in self.system_reports.items()
+        }
 
     def write(self, directory: Path, pr: int | None) -> None:
         with open(directory.joinpath("report.md"), "w+", encoding="utf-8") as f:
@@ -145,30 +185,28 @@ class Report:
 
     def succeeded(self) -> bool:
         """Whether the report is considered a success or a failure"""
-        return len(self.failed) == 0
+        return all((len(report.failed) == 0) for report in self.system_reports.values())
 
     def json(self, pr: int | None) -> str:
-        def serialize_attrs(attrs: list[Attr]) -> list[str]:
-            return list(map(lambda a: a.name, attrs))
-
         return json.dumps(
             {
-                "system": self.system,
+                "systems": list(self.system_reports.keys()),
                 "pr": pr,
                 "checkout": self.checkout,
                 "extra-nixpkgs-config": self.extra_nixpkgs_config,
-                "broken": serialize_attrs(self.broken),
-                "non-existent": serialize_attrs(self.non_existent),
-                "blacklisted": serialize_attrs(self.blacklisted),
-                "failed": serialize_attrs(self.failed),
-                "built": serialize_attrs(self.built),
-                "tests": serialize_attrs(self.tests),
+                "result": {
+                    system: report.serialize()
+                    for system, report in self.system_reports.items()
+                },
             },
             sort_keys=True,
             indent=4,
         )
 
     def markdown(self, pr: int | None) -> str:
+        msg = "## `nixpkgs-review` result\n\n"
+        msg += "Generated using [`nixpkgs-review`](https://github.com/Mic92/nixpkgs-review).\n\n"
+
         cmd = "nixpkgs-review"
         if pr is not None:
             cmd += f" pr {pr}"
@@ -176,21 +214,27 @@ class Report:
             cmd += f" --extra-nixpkgs-config '{self.extra_nixpkgs_config}'"
         if self.checkout != "merge":
             cmd += f" --checkout {self.checkout}"
+        msg += f"Command: `{cmd}`\n"
 
-        msg = f"Result of `{cmd}` run on {self.system} [1](https://github.com/Mic92/nixpkgs-review)\n"
-
-        msg += html_pkgs_section(
-            ":fast_forward:", self.broken, "marked as broken and skipped"
-        )
-        msg += html_pkgs_section(
-            ":fast_forward:",
-            self.non_existent,
-            "present in ofBorgs evaluation, but not found in the checkout",
-        )
-        msg += html_pkgs_section(":fast_forward:", self.blacklisted, "blacklisted")
-        msg += html_pkgs_section(":x:", self.failed, "failed to build")
-        msg += html_pkgs_section(":white_check_mark:", self.tests, "built", what="test")
-        msg += html_pkgs_section(":white_check_mark:", self.built, "built")
+        for system, report in self.system_reports.items():
+            msg += "\n---\n"
+            msg += f"### `{system}`\n"
+            msg += html_pkgs_section(
+                ":fast_forward:", report.broken, "marked as broken and skipped"
+            )
+            msg += html_pkgs_section(
+                ":fast_forward:",
+                report.non_existent,
+                "present in ofBorgs evaluation, but not found in the checkout",
+            )
+            msg += html_pkgs_section(
+                ":fast_forward:", report.blacklisted, "blacklisted"
+            )
+            msg += html_pkgs_section(":x:", report.failed, "failed to build")
+            msg += html_pkgs_section(
+                ":white_check_mark:", report.tests, "built", what="test"
+            )
+            msg += html_pkgs_section(":white_check_mark:", report.built, "built")
 
         return msg
 
@@ -199,12 +243,15 @@ class Report:
             pr_url = f"https://github.com/NixOS/nixpkgs/pull/{pr}"
             info("\nLink to currently reviewing PR:")
             link(f"\u001b]8;;{pr_url}\u001b\\{pr_url}\u001b]8;;\u001b\\\n")
-        print_number(self.broken, "marked as broken and skipped")
-        print_number(
-            self.non_existent,
-            "present in ofBorgs evaluation, but not found in the checkout",
-        )
-        print_number(self.blacklisted, "blacklisted")
-        print_number(self.failed, "failed to build")
-        print_number(self.tests, "built", what="tests", log=print)
-        print_number(self.built, "built", log=print)
+
+        for system, report in self.system_reports.items():
+            info(f"--------- Report for '{system}' ---------")
+            print_number(report.broken, "marked as broken and skipped")
+            print_number(
+                report.non_existent,
+                "present in ofBorgs evaluation, but not found in the checkout",
+            )
+            print_number(report.blacklisted, "blacklisted")
+            print_number(report.failed, "failed to build")
+            print_number(report.tests, "built", what="tests", log=print)
+            print_number(report.built, "built", log=print)

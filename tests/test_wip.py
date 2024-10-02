@@ -18,8 +18,7 @@ def test_wip_command(helpers: Helpers, capfd: pytest.CaptureFixture) -> None:
             "nixpkgs-review",
             ["wip", "--remote", str(nixpkgs.remote), "--run", "exit 0"],
         )
-        report = helpers.load_report(path)
-        assert report["built"] == ["pkg1"]
+        helpers.assert_built(pkg_name="pkg1", path=path)
         captured = capfd.readouterr()
         assert "$ nom build" in captured.out
 
@@ -42,7 +41,6 @@ def test_wip_command_without_nom(
                 "nix",
             ],
         )
-        report = helpers.load_report(path)
-        assert report["built"] == ["pkg1"]
+        helpers.assert_built(pkg_name="pkg1", path=path)
         captured = capfd.readouterr()
         assert "$ nix build" in captured.out

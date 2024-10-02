@@ -1,9 +1,11 @@
 import json
+import multiprocessing as mp
 import os
 import shlex
 import shutil
 import subprocess
 from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
 from sys import platform
 from tempfile import NamedTemporaryFile
@@ -11,7 +13,7 @@ from typing import Any, Final
 
 from .allow import AllowedFeatures
 from .errors import NixpkgsReviewError
-from .utils import ROOT, escape_attr, info, sh, warn
+from .utils import ROOT, System, info, sh, warn
 
 
 @dataclass
@@ -56,9 +58,9 @@ REVIEW_SHELL: Final[str] = str(ROOT.joinpath("nix/review-shell.nix"))
 
 
 def nix_shell(
-    attrs: list[str],
+    attrs_per_system: dict[System, list[str]],
     cache_directory: Path,
-    system: str,
+    local_system: str,
     build_graph: str,
     nix_path: str,
     nixpkgs_config: Path,
@@ -71,7 +73,10 @@ def nix_shell(
         raise RuntimeError(f"{build_graph} not found in PATH")
 
     shell_file_args = build_shell_file_args(
-        cache_directory, attrs, system, nixpkgs_config
+        cache_dir=cache_directory,
+        attrs_per_system=attrs_per_system,
+        local_system=local_system,
+        nixpkgs_config=nixpkgs_config,
     )
     if sandbox:
         args = _nix_shell_sandbox(
@@ -266,28 +271,66 @@ def nix_eval(
             os.unlink(attr_json.name)
 
 
-def nix_build(
+def nix_eval_thread(
+    system: System,
     attr_names: set[str],
+    allow: AllowedFeatures,
+    nix_path: str,
+) -> tuple[System, list[Attr]]:
+    return system, nix_eval(attr_names, system, allow, nix_path)
+
+
+def multi_system_eval(
+    attr_names_per_system: dict[System, set[str]],
+    allow: AllowedFeatures,
+    nix_path: str,
+    n_procs: int,
+) -> dict[System, list[Attr]]:
+    nix_eval_partial = partial(
+        nix_eval_thread,
+        allow=allow,
+        nix_path=nix_path,
+    )
+
+    args: list[tuple[System, set[str]]] = list(attr_names_per_system.items())
+    with mp.Pool(n_procs) as pool:
+        results: list[tuple[System, list[Attr]]] = pool.starmap(nix_eval_partial, args)
+
+    return {system: attrs for system, attrs in results}
+
+
+def nix_build(
+    attr_names_per_system: dict[System, set[str]],
     args: str,
     cache_directory: Path,
-    system: str,
+    systems: set[System],
+    local_system: System,
     allow: AllowedFeatures,
     build_graph: str,
     nix_path: str,
     nixpkgs_config: Path,
-) -> list[Attr]:
-    if not attr_names:
+    n_procs_eval: int,
+) -> dict[System, list[Attr]]:
+    if not attr_names_per_system:
         info("Nothing to be built.")
-        return []
+        return {}
 
-    attrs = nix_eval(attr_names, system, allow, nix_path)
-    filtered = []
-    for attr in attrs:
-        if not (attr.broken or attr.blacklisted):
-            filtered.append(attr.name)
+    attrs_per_system: dict[System, list[Attr]] = multi_system_eval(
+        attr_names_per_system,
+        allow,
+        nix_path,
+        n_procs=n_procs_eval,
+    )
 
-    if len(filtered) == 0:
-        return attrs
+    filtered_per_system: dict[System, list[str]] = {}
+    for system, attrs in attrs_per_system.items():
+        filtered_per_system[system] = []
+        for attr in attrs:
+            if not (attr.broken or attr.blacklisted):
+                filtered_per_system[system].append(attr.name)
+
+    if all(len(filtered) == 0 for filtered in filtered_per_system.values()):
+        return attrs_per_system
 
     command = [
         build_graph,
@@ -314,26 +357,37 @@ def nix_build(
         ]
 
     command += build_shell_file_args(
-        cache_directory, filtered, system, nixpkgs_config
+        cache_dir=cache_directory,
+        attrs_per_system=filtered_per_system,
+        local_system=local_system,
+        nixpkgs_config=nixpkgs_config,
     ) + shlex.split(args)
 
     sh(command)
-    return attrs
+    return attrs_per_system
 
 
 def build_shell_file_args(
-    cache_dir: Path, attrs: list[str], system: str, nixpkgs_config: Path
+    cache_dir: Path,
+    attrs_per_system: dict[System, list[str]],
+    local_system: str,
+    nixpkgs_config: Path,
 ) -> list[str]:
     attrs_file = cache_dir.joinpath("attrs.nix")
     with open(attrs_file, "w+", encoding="utf-8") as f:
-        f.write("pkgs: with pkgs; [\n")
-        f.write("\n".join(f"  {escape_attr(a)}" for a in attrs))
-        f.write("\n]")
+        f.write("{\n")
+        for system, attrs in attrs_per_system.items():
+            f.write(f"  {system} = [\n")
+            for attr in attrs:
+                f.write(f'    "{attr}"\n')
+            f.write("  ];\n")
+        f.write("}")
+        print(f.read())
 
     return [
         "--argstr",
-        "system",
-        system,
+        "local-system",
+        local_system,
         "--argstr",
         "nixpkgs-path",
         str(cache_dir.joinpath("nixpkgs/")),
