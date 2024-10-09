@@ -1,12 +1,15 @@
-{ pkgs ? import <nixpkgs> { }
-, withSandboxSupport ? false
-, withAutocomplete ? true
-, withNom ? false
+{
+  pkgs ? import <nixpkgs> { },
+  withSandboxSupport ? false,
+  withAutocomplete ? true,
+  withNom ? false,
 }:
 
 with pkgs;
 let
-  withNom' = withNom && (builtins.tryEval (builtins.elem buildPlatform.system pkgs.ghc.meta.platforms)).value or false;
+  withNom' =
+    withNom
+    && (builtins.tryEval (builtins.elem buildPlatform.system pkgs.ghc.meta.platforms)).value or false;
 in
 python3.pkgs.buildPythonApplication {
   name = "nixpkgs-review";
@@ -24,8 +27,7 @@ python3.pkgs.buildPythonApplication {
     python3.pkgs.pytest
     pkgs.nixVersions.stable or nix_2_4
     git
-  ] ++ lib.optional withSandboxSupport bubblewrap
-  ++ lib.optional withNom' nix-output-monitor;
+  ] ++ lib.optional withSandboxSupport bubblewrap ++ lib.optional withNom' nix-output-monitor;
 
   checkPhase = ''
     echo -e "\x1b[32m## run nixpkgs-review --help\x1b[0m"
@@ -34,9 +36,10 @@ python3.pkgs.buildPythonApplication {
   '';
   makeWrapperArgs =
     let
-      binPath = [ pkgs.nixVersions.stable or nix_2_4 git ]
-        ++ lib.optional withSandboxSupport bubblewrap
-        ++ lib.optional withNom' nix-output-monitor;
+      binPath = [
+        pkgs.nixVersions.stable or nix_2_4
+        git
+      ] ++ lib.optional withSandboxSupport bubblewrap ++ lib.optional withNom' nix-output-monitor;
     in
     [
       "--prefix PATH : ${lib.makeBinPath binPath}"
