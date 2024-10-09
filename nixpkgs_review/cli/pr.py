@@ -86,7 +86,7 @@ def pr_command(args: argparse.Namespace) -> str:
                     build_graph=args.build_graph,
                     nixpkgs_config=nixpkgs_config,
                     extra_nixpkgs_config=args.extra_nixpkgs_config,
-                    n_procs_eval=args.num_procs_eval,
+                    num_parallel_evals=args.num_parallel_evals,
                 )
                 contexts.append((pr, builddir.path, review.build_pr(pr)))
             except NixpkgsReviewError as e:

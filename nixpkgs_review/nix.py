@@ -274,10 +274,10 @@ def multi_system_eval(
     attr_names_per_system: dict[System, set[str]],
     allow: AllowedFeatures,
     nix_path: str,
-    n_procs: int,
+    n_threads: int,
 ) -> dict[System, list[Attr]]:
     results: dict[System, list[Attr]] = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=n_procs) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
         future_to_system = {
             executor.submit(
                 nix_eval,
@@ -305,7 +305,7 @@ def nix_build(
     build_graph: str,
     nix_path: str,
     nixpkgs_config: Path,
-    n_procs_eval: int,
+    n_threads: int,
 ) -> dict[System, list[Attr]]:
     if not attr_names_per_system:
         info("Nothing to be built.")
@@ -315,7 +315,7 @@ def nix_build(
         attr_names_per_system,
         allow,
         nix_path,
-        n_procs=n_procs_eval,
+        n_threads=n_threads,
     )
 
     filtered_per_system: dict[System, list[str]] = {}

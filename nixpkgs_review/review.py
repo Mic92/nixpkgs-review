@@ -108,7 +108,7 @@ class Review:
         skip_packages_regex: list[Pattern[str]] = [],
         checkout: CheckoutOption = CheckoutOption.MERGE,
         sandbox: bool = False,
-        n_procs_eval: int = 1,
+        num_parallel_evals: int = 1,
     ) -> None:
         self.builddir = builddir
         self.build_args = build_args
@@ -141,7 +141,7 @@ class Review:
         self.build_graph = build_graph
         self.nixpkgs_config = nixpkgs_config
         self.extra_nixpkgs_config = extra_nixpkgs_config
-        self.n_procs_eval = n_procs_eval
+        self.num_parallel_evals = num_parallel_evals
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -186,7 +186,7 @@ class Review:
             self.builddir.nix_path,
             self.systems,
             self.allow,
-            n_procs=self.n_procs_eval,
+            n_threads=self.num_parallel_evals,
         )
 
         if reviewed_commit is None:
@@ -199,7 +199,7 @@ class Review:
             self.builddir.nix_path,
             self.systems,
             self.allow,
-            n_procs=self.n_procs_eval,
+            n_threads=self.num_parallel_evals,
             check_meta=True,
         )
 
@@ -259,7 +259,7 @@ class Review:
             self.build_graph,
             self.builddir.nix_path,
             self.nixpkgs_config,
-            self.n_procs_eval,
+            self.num_parallel_evals,
         )
 
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
@@ -453,11 +453,11 @@ def list_packages(
     nix_path: str,
     systems: set[System],
     allow: AllowedFeatures,
-    n_procs: int,
+    n_threads: int,
     check_meta: bool = False,
 ) -> dict[System, list[Package]]:
     results: dict[System, list[Package]] = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=n_procs) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
         future_to_system = {
             executor.submit(
                 _list_packages_system,
@@ -650,7 +650,7 @@ def review_local_revision(
             build_graph=args.build_graph,
             nixpkgs_config=nixpkgs_config,
             extra_nixpkgs_config=args.extra_nixpkgs_config,
-            n_procs_eval=args.num_procs_eval,
+            num_parallel_evals=args.num_parallel_evals,
         )
         review.review_commit(builddir.path, args.branch, commit, staged, print_result)
         return builddir.path
