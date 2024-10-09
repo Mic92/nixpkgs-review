@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from .nix import Attr
-from .utils import System, info, link, skipped, warn
+from .utils import System, info, link, skipped, system_order_key, warn
 
 
 def print_number(
@@ -141,7 +141,7 @@ def order_reports(reports: dict[System, SystemReport]) -> dict[System, SystemRep
     return dict(
         sorted(
             reports.items(),
-            key=lambda item: "".join(reversed(item[0].split("-"))),
+            key=lambda item: system_order_key(system=item[0]),
             reverse=True,
         )
     )
