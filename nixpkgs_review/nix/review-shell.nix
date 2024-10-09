@@ -1,16 +1,16 @@
-{ local-system
-, nixpkgs-config-path
-, # Path to Nix file containing the Nixpkgs config
-  attrs-path
-, # Path to Nix file containing a list of attributes to build
-  nixpkgs-path
-, # Path to this review's nixpkgs
+{
+  local-system,
+  nixpkgs-config-path,
+  # Path to Nix file containing the Nixpkgs config
+  attrs-path,
+  # Path to Nix file containing a list of attributes to build
+  nixpkgs-path,
+  # Path to this review's nixpkgs
   local-pkgs ? import nixpkgs-path {
     system = local-system;
     config = import nixpkgs-config-path;
-  }
-, lib ? local-pkgs.lib
-,
+  },
+  lib ? local-pkgs.lib,
 }:
 
 let
