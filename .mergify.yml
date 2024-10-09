@@ -3,11 +3,8 @@ queue_rules:
     merge_conditions:
       - check-success=build-flake
       - check-success=tests
-defaults:
-  actions:
-    queue:
-      allow_merging_configuration_change: true
-      method: rebase
+    batch_size: 5
+    merge_method: rebase
 pull_request_rules:
   - name: merge using the merge queue
     conditions:
