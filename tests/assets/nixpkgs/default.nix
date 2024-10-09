@@ -1,7 +1,7 @@
 { config ? { }, system ? null } @ args:
 let
   pkgs =
-    import @NIXPKGS@ (args // { inherit config;
+    import "@NIXPKGS@" (args // { inherit config;
     });
     in {
     pkg1 = pkgs.stdenv.mkDerivation {

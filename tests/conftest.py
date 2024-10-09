@@ -66,7 +66,7 @@ def setup_nixpkgs(target: Path) -> Path:
     default_nix = target.joinpath("default.nix")
 
     with open(default_nix) as r:
-        text = r.read().replace("@NIXPKGS@", real_nixpkgs())
+        text = r.read().replace('"@NIXPKGS@"', real_nixpkgs())
 
     with open(default_nix, "w") as w:
         w.write(text)
