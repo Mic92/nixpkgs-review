@@ -32,6 +32,6 @@ sed -i -e "s!^version = \".*\"\$!version = \"${version}\"!" pyproject.toml
 git add pyproject.toml
 nix flake check -vL
 git commit -m "bump version ${version}"
-git tag -e "${version}"
+git tag "${version}"
 
 echo "now run 'git push --tags origin master'"
