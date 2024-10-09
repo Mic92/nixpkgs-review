@@ -1,11 +1,10 @@
+import concurrent.futures
 import json
-import multiprocessing as mp
 import os
 import shlex
 import shutil
 import subprocess
 from dataclasses import dataclass, field
-from functools import partial
 from pathlib import Path
 from sys import platform
 from tempfile import NamedTemporaryFile
@@ -271,32 +270,29 @@ def nix_eval(
             os.unlink(attr_json.name)
 
 
-def nix_eval_thread(
-    system: System,
-    attr_names: set[str],
-    allow: AllowedFeatures,
-    nix_path: str,
-) -> tuple[System, list[Attr]]:
-    return system, nix_eval(attr_names, system, allow, nix_path)
-
-
 def multi_system_eval(
     attr_names_per_system: dict[System, set[str]],
     allow: AllowedFeatures,
     nix_path: str,
-    n_procs: int,
+    n_threads: int,
 ) -> dict[System, list[Attr]]:
-    nix_eval_partial = partial(
-        nix_eval_thread,
-        allow=allow,
-        nix_path=nix_path,
-    )
+    results: dict[System, list[Attr]] = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
+        future_to_system = {
+            executor.submit(
+                nix_eval,
+                attrs=attrs,
+                system=system,
+                allow=allow,
+                nix_path=nix_path,
+            ): system
+            for system, attrs in attr_names_per_system.items()
+        }
+        for future in concurrent.futures.as_completed(future_to_system):
+            system = future_to_system[future]
+            results[system] = future.result()
 
-    args: list[tuple[System, set[str]]] = list(attr_names_per_system.items())
-    with mp.Pool(n_procs) as pool:
-        results: list[tuple[System, list[Attr]]] = pool.starmap(nix_eval_partial, args)
-
-    return {system: attrs for system, attrs in results}
+    return results
 
 
 def nix_build(
@@ -309,7 +305,7 @@ def nix_build(
     build_graph: str,
     nix_path: str,
     nixpkgs_config: Path,
-    n_procs_eval: int,
+    n_threads: int,
 ) -> dict[System, list[Attr]]:
     if not attr_names_per_system:
         info("Nothing to be built.")
@@ -319,7 +315,7 @@ def nix_build(
         attr_names_per_system,
         allow,
         nix_path,
-        n_procs=n_procs_eval,
+        n_threads=n_threads,
     )
 
     filtered_per_system: dict[System, list[str]] = {}

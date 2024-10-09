@@ -250,10 +250,10 @@ def common_flags() -> list[CommonFlag]:
             help="Extra nixpkgs config to pass to `import <nixpkgs>`",
         ),
         CommonFlag(
-            "--num-procs-eval",
+            "--num-parallel-evals",
             type=int,
             default=1,
-            help="Number of parallel `nix-env` processes to run simultaneously (warning, can imply heavy RAM usage)",
+            help="Number of parallel `nix-env`/`nix eval` processes to run simultaneously (warning, can imply heavy RAM usage)",
         ),
     ]
 
