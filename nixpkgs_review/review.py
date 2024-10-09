@@ -16,7 +16,7 @@ from .errors import NixpkgsReviewError
 from .github import GithubClient
 from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
-from .utils import System, current_system, info, sh, warn
+from .utils import System, current_system, info, sh, system_order_key, warn
 
 # keep up to date with `supportedPlatforms`
 # https://github.com/NixOS/ofborg/blob/cf2c6712bd7342406e799110e7cd465aa250cdca/ofborg/src/outpaths.nix#L12
@@ -212,8 +212,14 @@ class Review:
             for system in self.systems
         }
 
-        changed_attrs = {}
-        for system in self.systems:
+        # Systems ordered correctly (x86_64-linux, aarch64-linux, x86_64-darwin, aarch64-darwin)
+        sorted_systems: list[System] = sorted(
+            list(self.systems),
+            key=system_order_key,
+            reverse=True,
+        )
+        changed_attrs: dict[System, set[str]] = {}
+        for system in sorted_systems:
             changed_pkgs, removed_pkgs = differences(
                 base_packages[system], merged_packages[system]
             )

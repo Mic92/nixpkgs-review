@@ -76,3 +76,20 @@ def nix_nom_tool() -> str:
         return "nom"
 
     return "nix"
+
+
+def system_order_key(system: System) -> str:
+    """
+    For a consistent UI, we keep the platforms sorted as such:
+    - x86_64-linux
+    - aarch64-linux
+    - x86_64-darwin
+    - aarch64-darwin
+
+    This helper turns a system name to an alias which can then be sorted in the anti-alphabetical order.
+    (i.e. should be used in `sort` with `reverse=True`)
+
+    Example:
+    `aarch64-linux` -> `linuxaarch64`
+    """
+    return "".join(reversed(system.split("-")))
