@@ -1,7 +1,4 @@
-{
-  inputs,
-  ...
-}:
+{ inputs, ... }:
 {
   imports = [
     inputs.treefmt-nix.flakeModule
@@ -14,23 +11,22 @@
         # Used to find the project root
         projectRootFile = "flake.lock";
 
-        programs = {
-          deno.enable =
-            pkgs.lib.meta.availableOn pkgs.stdenv.hostPlatform pkgs.deno && !pkgs.deno.meta.broken;
-          ruff = {
-            format = true;
-            check = true;
-          };
-          mypy.enable = true;
-          nixfmt.enable = pkgs.lib.meta.availableOn pkgs.stdenv.buildPlatform pkgs.nixfmt-rfc-style.compiler;
-          deadnix.enable = true;
-          mypy.directories = {
-            "." = {
-              directory = ".";
-              extraPythonPackages = [
-                pkgs.python3Packages.pytest
-              ];
-            };
+        programs.deno.enable =
+          pkgs.lib.meta.availableOn pkgs.stdenv.hostPlatform pkgs.deno && !pkgs.deno.meta.broken;
+        programs.ruff.format = true;
+        programs.ruff.check = true;
+        programs.actionlint.enable = true;
+        programs.shellcheck.enable = pkgs.lib.meta.availableOn pkgs.stdenv.buildPlatform pkgs.shellcheck.compiler;
+        programs.mypy.enable = true;
+        programs.nixfmt.enable = pkgs.lib.meta.availableOn pkgs.stdenv.buildPlatform pkgs.nixfmt-rfc-style.compiler;
+        programs.deadnix.enable = true;
+
+        programs.mypy.directories = {
+          "." = {
+            directory = ".";
+            extraPythonPackages = [
+              pkgs.python3.pkgs.pytest
+            ];
           };
         };
       };
