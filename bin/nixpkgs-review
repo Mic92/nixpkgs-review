@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 # this script requires at least python 3.6!
-import sys
 import os
-if sys.version_info < (3, 6):
-    sys.stderr.write("this script requires at least python 3.6")
-    sys.exit(1)
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
+import sys
+
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+)
 
 from nixpkgs_review import main  # NOQA
 

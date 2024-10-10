@@ -6,6 +6,12 @@
 
   perSystem =
     { pkgs, ... }:
+    let
+      extraPythonFiles = [
+        "bin/nix-review"
+        "bin/nixpkgs-review"
+      ];
+    in
     {
       treefmt = {
         # Used to find the project root
@@ -24,6 +30,14 @@
         programs.deadnix.enable = true;
 
         settings.formatter.shfmt.includes = [ "*.envrc" ];
+
+        settings.formatter.ruff-check.includes = extraPythonFiles;
+        settings.formatter.ruff-format.includes = extraPythonFiles;
+
+        settings.global.excludes = [
+          "tests/assets/*"
+          "pyproject.toml"
+        ];
 
         programs.mypy.directories = {
           "." = {
