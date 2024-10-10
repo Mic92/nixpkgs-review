@@ -18,9 +18,12 @@
         programs.actionlint.enable = true;
         programs.yamlfmt.enable = true;
         programs.shellcheck.enable = pkgs.lib.meta.availableOn pkgs.stdenv.buildPlatform pkgs.shellcheck.compiler;
+        programs.shfmt.enable = true;
         programs.mypy.enable = true;
         programs.nixfmt.enable = pkgs.lib.meta.availableOn pkgs.stdenv.buildPlatform pkgs.nixfmt-rfc-style.compiler;
         programs.deadnix.enable = true;
+
+        settings.formatter.shfmt.includes = [ "*.envrc" ];
 
         programs.mypy.directories = {
           "." = {
