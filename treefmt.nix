@@ -16,6 +16,7 @@
         programs.ruff.format = true;
         programs.ruff.check = true;
         programs.actionlint.enable = true;
+        programs.yamlfmt.enable = true;
         programs.shellcheck.enable = pkgs.lib.meta.availableOn pkgs.stdenv.buildPlatform pkgs.shellcheck.compiler;
         programs.mypy.enable = true;
         programs.nixfmt.enable = pkgs.lib.meta.availableOn pkgs.stdenv.buildPlatform pkgs.nixfmt-rfc-style.compiler;
