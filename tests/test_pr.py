@@ -26,8 +26,8 @@ def test_pr_local_eval(helpers: Helpers, capfd: pytest.CaptureFixture) -> None:
             f.write("foo")
         subprocess.run(["git", "add", "."])
         subprocess.run(["git", "commit", "-m", "example-change"])
-        subprocess.run(["git", "checkout", "-b", "pull/1/head"])
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/head"])
+        subprocess.run(["git", "checkout", "-b", "pull/1/merge"])
+        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"])
 
         path = main(
             "nixpkgs-review",
@@ -54,8 +54,8 @@ def test_pr_local_eval_missing_nom(
             f.write("foo")
         subprocess.run(["git", "add", "."])
         subprocess.run(["git", "commit", "-m", "example-change"])
-        subprocess.run(["git", "checkout", "-b", "pull/1/head"])
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/head"])
+        subprocess.run(["git", "checkout", "-b", "pull/1/merge"])
+        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"])
 
         path = main(
             "nixpkgs-review",
@@ -82,8 +82,8 @@ def test_pr_local_eval_without_nom(
             f.write("foo")
         subprocess.run(["git", "add", "."])
         subprocess.run(["git", "commit", "-m", "example-change"])
-        subprocess.run(["git", "checkout", "-b", "pull/1/head"])
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/head"])
+        subprocess.run(["git", "checkout", "-b", "pull/1/merge"])
+        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"])
 
         path = main(
             "nixpkgs-review",
@@ -110,8 +110,8 @@ def test_pr_local_eval_with_sandbox(helpers: Helpers) -> None:
             f.write("foo")
         subprocess.run(["git", "add", "."])
         subprocess.run(["git", "commit", "-m", "example-change"])
-        subprocess.run(["git", "checkout", "-b", "pull/1/head"])
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/head"])
+        subprocess.run(["git", "checkout", "-b", "pull/1/merge"])
+        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"])
 
         path = main(
             "nixpkgs-review",
@@ -135,8 +135,8 @@ def test_pr_ofborg_eval(mock_urlopen: MagicMock, helpers: Helpers) -> None:
             f.write("foo")
         subprocess.run(["git", "add", "."])
         subprocess.run(["git", "commit", "-m", "example-change"])
-        subprocess.run(["git", "checkout", "-b", "pull/37200/head"])
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/37200/head"])
+        subprocess.run(["git", "checkout", "-b", "pull/37200/merge"])
+        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/37200/merge"])
 
         mock_urlopen.side_effect = [
             mock_open(read_data=helpers.read_asset("github-pull-37200.json"))(),
