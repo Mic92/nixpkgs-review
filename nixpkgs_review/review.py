@@ -155,6 +155,13 @@ class Review:
                 f"Failed to merge {commit} into {self.worktree_dir()}. git merge failed with exit code {res.returncode}"
             )
 
+    def git_checkout(self, commit: str) -> None:
+        res = sh(["git", "checkout", commit], cwd=self.worktree_dir())
+        if res.returncode != 0:
+            raise NixpkgsReviewError(
+                f"Failed to checkout {commit} in {self.worktree_dir()}. git checkout failed with exit code {res.returncode}"
+            )
+
     def apply_unstaged(self, staged: bool = False) -> None:
         args = ["git", "--no-pager", "diff", "--no-ext-diff"]
         args.extend(["--staged"] if staged else [])
@@ -191,6 +198,8 @@ class Review:
 
         if reviewed_commit is None:
             self.apply_unstaged(staged)
+        elif self.checkout == CheckoutOption.MERGE:
+            self.git_checkout(reviewed_commit)
         else:
             self.git_merge(reviewed_commit)
 
@@ -227,13 +236,6 @@ class Review:
             raise NixpkgsReviewError(
                 f"Failed to add worktree for {commit} in {self.worktree_dir()}. git worktree failed with exit code {res.returncode}"
             )
-
-    def checkout_pr(self, base_rev: str, pr_rev: str) -> None:
-        if self.checkout == CheckoutOption.MERGE:
-            self.git_worktree(base_rev)
-            self.git_merge(pr_rev)
-        else:
-            self.git_worktree(pr_rev)
 
     def build(
         self, packages_per_system: dict[System, set[str]], args: str
@@ -272,15 +274,19 @@ class Review:
             packages_per_system = self.github_client.get_borg_eval_gist(pr)
         else:
             packages_per_system = None
-        merge_rev, pr_rev = fetch_refs(
-            self.remote,
-            pr["base"]["ref"],
-            f"pull/{pr['number']}/head",
-        )
 
         if self.checkout == CheckoutOption.MERGE:
-            base_rev = merge_rev
+            base_rev, pr_rev = fetch_refs(
+                self.remote,
+                pr["base"]["ref"],
+                f"pull/{pr['number']}/merge",
+            )
         else:
+            merge_rev, pr_rev = fetch_refs(
+                self.remote,
+                pr["base"]["ref"],
+                f"pull/{pr['number']}/head",
+            )
             run = subprocess.run(
                 ["git", "merge-base", merge_rev, pr_rev],
                 stdout=subprocess.PIPE,
@@ -295,7 +301,7 @@ class Review:
         if packages_per_system is None:
             return self.build_commit(base_rev, pr_rev)
 
-        self.checkout_pr(base_rev, pr_rev)
+        self.git_worktree(pr_rev)
 
         for system in list(packages_per_system.keys()):
             if system not in self.systems:
@@ -589,6 +595,15 @@ def filter_packages(
 
 def fetch_refs(repo: str, *refs: str) -> list[str]:
     cmd = ["git", "-c", "fetch.prune=false", "fetch", "--no-tags", "--force", repo]
+    shallow = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        text=True,
+        stdout=subprocess.PIPE,
+    )
+    if shallow.returncode != 0:
+        raise NixpkgsReviewError(f"Failed to detect if {repo} is shallow repository")
+    if shallow.stdout.strip() == "true":
+        cmd.append("--depth=1")
     for i, ref in enumerate(refs):
         cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
     res = sh(cmd)
