@@ -97,6 +97,7 @@ class Review:
         builddir: Builddir,
         build_args: str,
         no_shell: bool,
+        check_single_file_outputs: bool,
         run: str,
         remote: str,
         systems: list[System],
@@ -129,6 +130,7 @@ class Review:
         self.builddir = builddir
         self.build_args = build_args
         self.no_shell = no_shell
+        self.check_single_file_outputs = (check_single_file_outputs,)
         self.run = run
         self.remote = remote
         self.github_client = GithubClient(api_token)
@@ -405,6 +407,7 @@ class Review:
             attr_names_per_system=packages_per_system,
             args=args,
             cache_directory=self.builddir.path,
+            check_single_file_outputs=self.check_single_file_outputs,
             local_system=self.local_system,
             allow=self.allow,
             build_graph=self.build_graph,
@@ -541,6 +544,7 @@ class Review:
             nix_shell(
                 attrs_per_system=report.built_packages(),
                 cache_directory=path,
+                check_single_file_outputs=self.check_single_file_outputs,
                 local_system=self.local_system,
                 build_graph=self.build_graph,
                 nix_path=self.builddir.nix_path,
@@ -897,6 +901,7 @@ def review_local_revision(
             builddir=builddir,
             build_args=args.build_args,
             no_shell=args.no_shell,
+            check_single_file_outputs=args.check_single_file_outputs,
             run=args.run,
             remote=args.remote,
             only_packages=set(args.package),
