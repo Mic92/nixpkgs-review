@@ -351,11 +351,20 @@ since the architecture/operating system mismatches.
 
 By default, `nixpkgs-review` targets only the current system
 (`--systems current`). You can also explicitly provide one or several systems to
-target (`--systems "x86_64-linux aarch64-darwin"`). The `--systems all` value
-will build for the four major platforms supported by hydra (`--x86_64-linux`,
-`aarch64-linux`, `x86_64-darwin` and `aarch64-darwin`). Ensure that your system
-is capable of building for the specified architectures, either locally or
-through the remote builder protocol.
+target (`--systems "x86_64-linux aarch64-darwin"`). We also provide aliases for
+the flag:
+
+| Alias                                                | Transforms to                                             |
+| ---------------------------------------------------- | --------------------------------------------------------- |
+| `current`                                            | Your current system                                       |
+| `all`                                                | `aarch64-darwin aarch64-linux x86_64-darwin x86_64-linux` |
+| `linux`                                              | `aarch64-linux x86_64-linux`                              |
+| `darwin`, `macos`                                    | `aarch64-darwin x86_64-darwin`                            |
+| `x64`, `x86`, `x86_64`, `x86-64`, `x64_86`, `x64-86` | `x86_64-darwin x86_64-linux`                              |
+| `aarch64`, `arm64`                                   | `aarch64-darwin aarch64-linux`                            |
+
+Ensure that your system is capable of building for the specified architectures,
+either locally or through the remote builder protocol.
 
 ```console
 $ nixpkgs-review pr --system aarch64-linux 98734
