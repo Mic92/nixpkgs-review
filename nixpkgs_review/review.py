@@ -21,14 +21,11 @@ from .utils import System, current_system, info, sh, system_order_key, warn
 
 # keep up to date with `supportedPlatforms`
 # https://github.com/NixOS/ofborg/blob/cf2c6712bd7342406e799110e7cd465aa250cdca/ofborg/src/outpaths.nix#L12
-OFBORG_PLATFORMS: set[str] = set(
-    [
-        "aarch64-darwin",
-        "aarch64-linux",
-        "x86_64-darwin",
-        "x86_64-linux",
-    ]
-)
+OFBORG_PLATFORMS_LINUX: set[str] = {"aarch64-linux", "x86_64-linux"}
+OFBORG_PLATFORMS_DARWIN: set[str] = {"aarch64-darwin", "x86_64-darwin"}
+OFBORG_PLATFORMS_AARCH64: set[str] = {"aarch64-darwin", "aarch64-darwin"}
+OFBORG_PLATFORMS_X64: set[str] = {"x86_64-darwin", "x86_64-darwin"}
+OFBORG_PLATFORMS: set[str] = OFBORG_PLATFORMS_LINUX.union(OFBORG_PLATFORMS_DARWIN)
 
 
 class CheckoutOption(Enum):
@@ -127,13 +124,9 @@ class Review:
             case 0:
                 raise NixpkgsReviewError("Systems is empty")
             case 1:
-                system = list(systems)[0]
-                if system == "current":
-                    self.systems = set([current_system()])
-                elif system == "all":
-                    self.systems = OFBORG_PLATFORMS
-                else:
-                    self.systems = set([system])
+                self.systems = self._process_aliases_for_systems(
+                    list(systems)[0].lower()
+                )
             case _:
                 self.systems = set(systems)
         self.allow = allow
@@ -142,6 +135,23 @@ class Review:
         self.nixpkgs_config = nixpkgs_config
         self.extra_nixpkgs_config = extra_nixpkgs_config
         self.num_parallel_evals = num_parallel_evals
+
+    def _process_aliases_for_systems(self, system: str) -> set[str]:
+        match system:
+            case "current":
+                return set([current_system()])
+            case "all":
+                return OFBORG_PLATFORMS
+            case "linux":
+                return OFBORG_PLATFORMS_LINUX
+            case "darwin" | "macos":
+                return OFBORG_PLATFORMS_DARWIN
+            case "x64" | "x86" | "x86_64" | "x86-64" | "x64_86" | "x64-86":
+                return OFBORG_PLATFORMS_X64
+            case "aarch64" | "arm64":
+                return OFBORG_PLATFORMS_AARCH64
+            case _:
+                return set([system])
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
