@@ -198,6 +198,8 @@ class Review:
         """
         self.git_worktree(base_commit)
 
+        print("Local evaluation for computing rebuilds")
+
         # TODO: nix-eval-jobs ?
         base_packages: dict[System, list[Package]] = list_packages(
             self.builddir.nix_path,
@@ -277,9 +279,20 @@ class Review:
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
         pr = self.github_client.pull_request(pr_number)
 
-        packages_per_system: dict[System, set[str]] | None
+        packages_per_system: dict[System, set[str]] | None = None
         if self.use_ofborg_eval and all(system in PLATFORMS for system in self.systems):
-            packages_per_system = self.github_client.get_borg_eval_gist(pr)
+            # Attempt to fetch the GitHub actions evaluation result
+            print("-> Attempting to fetch eval results from GitHub actions")
+            packages_per_system = self.github_client.get_github_action_eval_result(pr)
+
+            # If unsuccessfull, fallback to ofborg
+            if packages_per_system is None:
+                print("-> Unsuccessfull: Trying out legacy ofborg")
+                packages_per_system = self.github_client.get_borg_eval_gist(pr)
+
+            if packages_per_system is not None:
+                print("-> Successfully fetched rebuilds: no local evaluation needed")
+
         else:
             packages_per_system = None
 

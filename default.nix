@@ -11,21 +11,26 @@ let
     withNom
     && (builtins.tryEval (builtins.elem buildPlatform.system pkgs.ghc.meta.platforms)).value or false;
 in
-python3.pkgs.buildPythonApplication {
+python3Packages.buildPythonApplication {
   name = "nixpkgs-review";
   src = ./.;
   format = "pyproject";
-  nativeBuildInputs = [ installShellFiles ] ++ lib.optional withAutocomplete python3.pkgs.argcomplete;
-  propagatedBuildInputs = [ python3.pkgs.argcomplete ];
+  nativeBuildInputs = [
+    installShellFiles
+  ] ++ lib.optional withAutocomplete python3Packages.argcomplete;
+  dependencies = with python3Packages; [
+    argcomplete
+    requests
+  ];
 
   nativeCheckInputs =
     [
-      python3.pkgs.setuptools
-      python3.pkgs.pylint
+      python3Packages.setuptools
+      python3Packages.pylint
       glibcLocales
 
       # needed for interactive unittests
-      python3.pkgs.pytest
+      python3Packages.pytest
       pkgs.nixVersions.stable or nix_2_4
       git
     ]
