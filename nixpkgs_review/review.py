@@ -21,11 +21,11 @@ from .utils import System, current_system, info, sh, system_order_key, warn
 
 # keep up to date with `supportedPlatforms`
 # https://github.com/NixOS/ofborg/blob/cf2c6712bd7342406e799110e7cd465aa250cdca/ofborg/src/outpaths.nix#L12
-OFBORG_PLATFORMS_LINUX: set[str] = {"aarch64-linux", "x86_64-linux"}
-OFBORG_PLATFORMS_DARWIN: set[str] = {"aarch64-darwin", "x86_64-darwin"}
-OFBORG_PLATFORMS_AARCH64: set[str] = {"aarch64-darwin", "aarch64-darwin"}
-OFBORG_PLATFORMS_X64: set[str] = {"x86_64-darwin", "x86_64-darwin"}
-OFBORG_PLATFORMS: set[str] = OFBORG_PLATFORMS_LINUX.union(OFBORG_PLATFORMS_DARWIN)
+PLATFORMS_LINUX: set[str] = {"aarch64-linux", "x86_64-linux"}
+PLATFORMS_DARWIN: set[str] = {"aarch64-darwin", "x86_64-darwin"}
+PLATFORMS_AARCH64: set[str] = {"aarch64-darwin", "aarch64-darwin"}
+PLATFORMS_X64: set[str] = {"x86_64-darwin", "x86_64-darwin"}
+PLATFORMS: set[str] = PLATFORMS_LINUX.union(PLATFORMS_DARWIN)
 
 
 class CheckoutOption(Enum):
@@ -141,15 +141,15 @@ class Review:
             case "current":
                 return set([current_system()])
             case "all":
-                return OFBORG_PLATFORMS
+                return PLATFORMS
             case "linux":
-                return OFBORG_PLATFORMS_LINUX
+                return PLATFORMS_LINUX
             case "darwin" | "macos":
-                return OFBORG_PLATFORMS_DARWIN
+                return PLATFORMS_DARWIN
             case "x64" | "x86" | "x86_64" | "x86-64" | "x64_86" | "x64-86":
-                return OFBORG_PLATFORMS_X64
+                return PLATFORMS_X64
             case "aarch64" | "arm64":
-                return OFBORG_PLATFORMS_AARCH64
+                return PLATFORMS_AARCH64
             case _:
                 return set([system])
 
@@ -278,9 +278,7 @@ class Review:
         pr = self.github_client.pull_request(pr_number)
 
         packages_per_system: dict[System, set[str]] | None
-        if self.use_ofborg_eval and all(
-            system in OFBORG_PLATFORMS for system in self.systems
-        ):
+        if self.use_ofborg_eval and all(system in PLATFORMS for system in self.systems):
             packages_per_system = self.github_client.get_borg_eval_gist(pr)
         else:
             packages_per_system = None
