@@ -60,9 +60,10 @@ def pr_command(args: argparse.Namespace) -> str:
     allow = AllowedFeatures(args.allow)
 
     builddir = None
-    with Buildenv(
-        allow.aliases, args.extra_nixpkgs_config
-    ) as nixpkgs_config, ExitStack() as stack:
+    with (
+        Buildenv(allow.aliases, args.extra_nixpkgs_config) as nixpkgs_config,
+        ExitStack() as stack,
+    ):
         review = None
         for pr in prs:
             builddir = stack.enter_context(Builddir(f"pr-{pr}"))

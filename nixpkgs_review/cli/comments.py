@@ -1,4 +1,5 @@
 import argparse
+import string
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -8,10 +9,10 @@ from .utils import ensure_github_token, get_current_pr
 
 
 def comments_query(pr: int) -> str:
-    return """
+    return string.Template("""
 {
     repository(owner: "NixOS", name: "nixpkgs") {
-        pullRequest(number: %d) {
+        pullRequest(number: $pr) {
             author { login }
             body
             createdAt
@@ -46,7 +47,7 @@ def comments_query(pr: int) -> str:
         }
     }
 }
-""" % (pr)
+""").substitute(pr=pr)
 
 
 @dataclass
