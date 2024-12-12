@@ -1,0 +1,138 @@
+{
+  "total_count": 7,
+  "artifacts": [
+    {
+      "id": 2321218831,
+      "node_id": "MDg6QXJ0aWZhY3QyMzIxMjE4ODMx",
+      "name": "paths",
+      "size_in_bytes": 521492,
+      "url": "https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/2321218831",
+      "archive_download_url": "https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/2321218831/zip",
+      "expired": false,
+      "created_at": "2024-12-14T15:00:05Z",
+      "updated_at": "2024-12-14T15:00:05Z",
+      "expires_at": "2025-03-14T14:58:40Z",
+      "workflow_run": {
+        "id": 12330828258,
+        "repository_id": 4542716,
+        "head_repository_id": 495348462,
+        "head_branch": "equinox",
+        "head_sha": "8409ac0f68974193d3705e3283e73d85c3688e60"
+      }
+    },
+    {
+      "id": 2321223435,
+      "node_id": "MDg6QXJ0aWZhY3QyMzIxMjIzNDM1",
+      "name": "intermediate-x86_64-darwin",
+      "size_in_bytes": 3058155,
+      "url": "https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/2321223435",
+      "archive_download_url": "https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/2321223435/zip",
+      "expired": false,
+      "created_at": "2024-12-14T15:03:47Z",
+      "updated_at": "2024-12-14T15:03:47Z",
+      "expires_at": "2025-03-14T14:58:40Z",
+      "workflow_run": {
+        "id": 12330828258,
+        "repository_id": 4542716,
+        "head_repository_id": 495348462,
+        "head_branch": "equinox",
+        "head_sha": "8409ac0f68974193d3705e3283e73d85c3688e60"
+      }
+    },
+    {
+      "id": 2321223453,
+      "node_id": "MDg6QXJ0aWZhY3QyMzIxMjIzNDUz",
+      "name": "intermediate-aarch64-darwin",
+      "size_in_bytes": 3053797,
+      "url": "https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/2321223453",
+      "archive_download_url": "https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/2321223453/zip",
+      "expired": false,
+      "created_at": "2024-12-14T15:03:48Z",
+      "updated_at": "2024-12-14T15:03:48Z",
+      "expires_at": "2025-03-14T14:58:40Z",
+      "workflow_run": {
+        "id": 12330828258,
+        "repository_id": 4542716,
+        "head_repository_id": 495348462,
+        "head_branch": "equinox",
+        "head_sha": "8409ac0f68974193d3705e3283e73d85c3688e60"
+      }
+    },
+    {
+      "id": 2321223692,
+      "node_id": "MDg6QXJ0aWZhY3QyMzIxMjIzNjky",
+      "name": "intermediate-aarch64-linux",
+      "size_in_bytes": 3640673,
+      "url": "https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/2321223692",
+      "archive_download_url": "https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/2321223692/zip",
+      "expired": false,
+      "created_at": "2024-12-14T15:03:59Z",
+      "updated_at": "2024-12-14T15:03:59Z",
+      "expires_at": "2025-03-14T14:58:40Z",
+      "workflow_run": {
+        "id": 12330828258,
+        "repository_id": 4542716,
+        "head_repository_id": 495348462,
+        "head_branch": "equinox",
+        "head_sha": "8409ac0f68974193d3705e3283e73d85c3688e60"
+      }
+    },
+    {
+      "id": 2321225411,
+      "node_id": "MDg6QXJ0aWZhY3QyMzIxMjI1NDEx",
+      "name": "intermediate-x86_64-linux",
+      "size_in_bytes": 3730877,
+      "url": "https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/2321225411",
+      "archive_download_url": "https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/2321225411/zip",
+      "expired": false,
+      "created_at": "2024-12-14T15:05:13Z",
+      "updated_at": "2024-12-14T15:05:13Z",
+      "expires_at": "2025-03-14T14:58:40Z",
+      "workflow_run": {
+        "id": 12330828258,
+        "repository_id": 4542716,
+        "head_repository_id": 495348462,
+        "head_branch": "equinox",
+        "head_sha": "8409ac0f68974193d3705e3283e73d85c3688e60"
+      }
+    },
+    {
+      "id": 2321227061,
+      "node_id": "MDg6QXJ0aWZhY3QyMzIxMjI3MDYx",
+      "name": "result",
+      "size_in_bytes": 11396380,
+      "url": "https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/2321227061",
+      "archive_download_url": "https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/2321227061/zip",
+      "expired": false,
+      "created_at": "2024-12-14T15:06:14Z",
+      "updated_at": "2024-12-14T15:06:14Z",
+      "expires_at": "2025-03-14T14:58:40Z",
+      "workflow_run": {
+        "id": 12330828258,
+        "repository_id": 4542716,
+        "head_repository_id": 495348462,
+        "head_branch": "equinox",
+        "head_sha": "8409ac0f68974193d3705e3283e73d85c3688e60"
+      }
+    },
+    {
+      "id": 2321227177,
+      "node_id": "MDg6QXJ0aWZhY3QyMzIxMjI3MTc3",
+      "name": "comparison",
+      "size_in_bytes": 787,
+      "url": "https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/2321227177",
+      "archive_download_url": "https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/2321227177/zip",
+      "expired": false,
+      "created_at": "2024-12-14T15:06:20Z",
+      "updated_at": "2024-12-14T15:06:20Z",
+      "expires_at": "2025-03-14T14:58:40Z",
+      "workflow_run": {
+        "id": 12330828258,
+        "repository_id": 4542716,
+        "head_repository_id": 495348462,
+        "head_branch": "equinox",
+        "head_sha": "8409ac0f68974193d3705e3283e73d85c3688e60"
+      }
+    }
+  ]
+}
