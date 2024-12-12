@@ -18,16 +18,19 @@ python3.pkgs.buildPythonApplication {
   nativeBuildInputs = [ installShellFiles ] ++ lib.optional withAutocomplete python3.pkgs.argcomplete;
   propagatedBuildInputs = [ python3.pkgs.argcomplete ];
 
-  nativeCheckInputs = [
-    python3.pkgs.setuptools
-    python3.pkgs.pylint
-    glibcLocales
+  nativeCheckInputs =
+    [
+      python3.pkgs.setuptools
+      python3.pkgs.pylint
+      glibcLocales
 
-    # needed for interactive unittests
-    python3.pkgs.pytest
-    pkgs.nixVersions.stable or nix_2_4
-    git
-  ] ++ lib.optional withSandboxSupport bubblewrap ++ lib.optional withNom' nix-output-monitor;
+      # needed for interactive unittests
+      python3.pkgs.pytest
+      pkgs.nixVersions.stable or nix_2_4
+      git
+    ]
+    ++ lib.optional withSandboxSupport bubblewrap
+    ++ lib.optional withNom' nix-output-monitor;
 
   checkPhase = ''
     echo -e "\x1b[32m## run nixpkgs-review --help\x1b[0m"
@@ -36,10 +39,13 @@ python3.pkgs.buildPythonApplication {
   '';
   makeWrapperArgs =
     let
-      binPath = [
-        pkgs.nixVersions.stable or nix_2_4
-        git
-      ] ++ lib.optional withSandboxSupport bubblewrap ++ lib.optional withNom' nix-output-monitor;
+      binPath =
+        [
+          pkgs.nixVersions.stable or nix_2_4
+          git
+        ]
+        ++ lib.optional withSandboxSupport bubblewrap
+        ++ lib.optional withNom' nix-output-monitor;
     in
     [
       "--prefix PATH : ${lib.makeBinPath binPath}"
