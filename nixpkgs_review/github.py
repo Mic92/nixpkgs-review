@@ -1,19 +1,38 @@
 import json
 import shutil
 import tempfile
+import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
 from collections import defaultdict
-from typing import Any
-
-import requests
+from http.client import HTTPMessage
+from pathlib import Path
+from typing import IO, Any
 
 from .utils import System
+
+http.client.HTTPConnection.debuglevel = 1
 
 
 def pr_url(pr: int) -> str:
     return f"https://github.com/NixOS/nixpkgs/pull/{pr}"
+
+
+class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: IO[bytes],
+        code: int,
+        msg: str,
+        headers: HTTPMessage,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        return None
+
+
+no_redirect_opener = urllib.request.build_opener(NoRedirectHandler)
 
 
 class GithubClient:
@@ -95,25 +114,34 @@ class GithubClient:
         """
         download_url: str = f"https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/{workflow_id}/zip"
 
-        with requests.get(
-            url=download_url,
-            headers=self.headers,
-            stream=True,
-        ) as resp:
-            with tempfile.TemporaryDirectory() as temp_dir:
+        req = urllib.request.Request(download_url, headers=self.headers)
+        try:
+            with no_redirect_opener.open(req) as resp:
+                pass
+        except urllib.error.HTTPError as e:
+            if e.code == 302:
+                new_url = e.headers["Location"]
+                # Handle the new URL as needed
+            else:
+                raise
+        else:
+            raise RuntimeError(f"Expected 302, got {resp.status}")
+
+        req = urllib.request.Request(new_url)
+        with urllib.request.urlopen(req) as new_resp:
+            with tempfile.TemporaryDirectory() as _temp_dir:
+                temp_dir = Path(_temp_dir)
                 # download zip file to disk
-                with tempfile.NamedTemporaryFile(delete_on_close=False) as f:
-                    f.write(resp.content)
-                    f.close()
+                artifact_zip = temp_dir / "artifact.zip"
+                with artifact_zip.open("wb") as f:
+                    shutil.copyfileobj(new_resp, f)
 
-                    # Extract zip archive to temporary directory
-                    with zipfile.ZipFile(f.name, "r") as zip_ref:
-                        zip_ref.extractall(temp_dir)
+                # Extract zip archive to temporary directory
+                with zipfile.ZipFile(artifact_zip, "r") as zip_ref:
+                    zip_ref.extract(json_filename, temp_dir)
 
-                with open(os.path.join(temp_dir, json_filename)) as f:
-                    return json.loads(f.read())
-
-        return None
+                with (temp_dir / json_filename).open() as json_file:
+                    return json.load(json_file)
 
     def get_github_action_eval_result(
         self, pr: dict[str, Any]
