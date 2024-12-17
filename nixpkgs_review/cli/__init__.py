@@ -21,7 +21,7 @@ from .wip import wip_command
 try:
     import argcomplete
 except ImportError:
-    argcomplete = None
+    argcomplete = None  # type: ignore[assignment]
 
 
 def regex_type(s: str) -> Pattern[str]:
