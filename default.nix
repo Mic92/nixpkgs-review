@@ -18,10 +18,7 @@ python3Packages.buildPythonApplication {
   nativeBuildInputs = [
     installShellFiles
   ] ++ lib.optional withAutocomplete python3Packages.argcomplete;
-  dependencies = with python3Packages; [
-    argcomplete
-    requests
-  ];
+  dependencies = with python3Packages; [ argcomplete ];
 
   nativeCheckInputs =
     [
