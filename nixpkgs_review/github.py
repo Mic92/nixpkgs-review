@@ -12,8 +12,6 @@ from typing import IO, Any
 
 from .utils import System
 
-http.client.HTTPConnection.debuglevel = 1
-
 
 def pr_url(pr: int) -> str:
     return f"https://github.com/NixOS/nixpkgs/pull/{pr}"
@@ -163,20 +161,24 @@ class GithubClient:
             return None
 
         for workflow_run in workflow_runs:
-            if workflow_run["name"] == "Eval":
-                artifacts: list[Any] = self.get(
-                    workflow_run["artifacts_url"],
-                )["artifacts"]
+            if workflow_run["name"] != "Eval":
+                continue
+            artifacts: list[Any] = self.get(
+                workflow_run["artifacts_url"],
+            )["artifacts"]
 
-                for artifact in artifacts:
-                    if artifact["name"] == "comparison":
-                        changed_paths: Any = self.get_json_from_artifact(
-                            workflow_id=artifact["id"],
-                            json_filename="changed-paths.json",
-                        )
-                        if changed_paths is not None:
-                            if "rebuildsByPlatform" in changed_paths:
-                                return changed_paths["rebuildsByPlatform"]  # type: ignore
+            for artifact in artifacts:
+                if artifact["name"] != "comparison":
+                    continue
+                changed_paths: Any = self.get_json_from_artifact(
+                    workflow_id=artifact["id"],
+                    json_filename="changed-paths.json",
+                )
+                if changed_paths is None:
+                    continue
+                if (path := changed_paths.get("rebuildsByPlatform")) is not None:
+                    assert isinstance(path, dict)
+                    return path
         return None
 
     def get_borg_eval_gist(self, pr: dict[str, Any]) -> dict[System, set[str]] | None:
