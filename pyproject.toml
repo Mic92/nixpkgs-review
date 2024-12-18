@@ -34,8 +34,53 @@ nixpkgs_review = ["nix/*.nix"]
 target-version = "py312"
 line-length = 88
 
-lint.select = ["E", "F", "I", "U", "N"]
-lint.ignore = ["E501"]
+lint.select = ["ALL"]
+lint.ignore = [
+  # pydocstyle
+  "D",
+  # todo comments
+  "TD",
+  # fixmes
+  "FIX",
+
+  # Missing type annotation for `self` in method
+  "ANN101",
+  # Dynamically typed expressions (typing.Any)
+  "ANN401",
+  # Trailing comma missing
+  "COM812",
+  # Unnecessary `dict` call (rewrite as a literal)
+  "C408",
+  # Found commented-out code
+  "ERA001",
+  # Boolean-typed positional argument in function definition
+  "FBT001",
+  # Logging statement uses f-string
+  "G004",
+  # disabled on ruff's recommendation as causes problems with the formatter
+  "ISC001",
+  # Use of `assert` detected
+  "S101",
+  # `subprocess` call: check for execution of untrusted input
+  "S603",
+  # Starting a process with a partial executable path
+  "S607",
+  # Boolean default positional argument in function definition
+  "FBT002",
+
+
+  # Too many statements
+  "PLR0915",
+  # Too many arguments in function definition
+  "PLR0913",
+  "PLR0912", # Too many branches
+  # $X is too complex
+  "C901",
+
+  "E501",    # line too long
+  "T201",    # `print` found
+  "PLR2004", # Magic value used in comparison
+]
 
 [tool.pytest.ini_options]
 addopts = "-n auto"
