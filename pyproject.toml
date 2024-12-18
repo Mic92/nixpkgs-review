@@ -74,6 +74,7 @@ lint.ignore = [
   # Too many arguments in function definition
   "PLR0913",
   "PLR0912", # Too many branches
+  "PLR0911", # Too many return statements
   # $X is too complex
   "C901",
 
@@ -91,6 +92,7 @@ strict = true
 no_implicit_optional = true
 # Missing type parameters for generic type "CaptureFixture"  [type-arg]
 disallow_any_generics = false
+enable_incomplete_feature = ["NewGenericSyntax"]
 
 [[tool.mypy.overrides]]
 module = "argcomplete"

@@ -1,10 +1,10 @@
 import argparse
 from pathlib import Path
 
-from ..allow import AllowedFeatures
-from ..buildenv import Buildenv
-from ..review import review_local_revision
-from ..utils import verify_commit_hash
+from nixpkgs_review.allow import AllowedFeatures
+from nixpkgs_review.buildenv import Buildenv
+from nixpkgs_review.review import review_local_revision
+from nixpkgs_review.utils import verify_commit_hash
 
 
 def rev_command(args: argparse.Namespace) -> Path:

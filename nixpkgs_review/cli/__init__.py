@@ -9,7 +9,8 @@ from re import Pattern
 from shutil import which
 from typing import Any, cast
 
-from ..utils import nix_nom_tool
+from nixpkgs_review.utils import nix_nom_tool
+
 from .approve import approve_command
 from .comments import show_comments
 from .merge import merge_command
@@ -28,7 +29,8 @@ def regex_type(s: str) -> Pattern[str]:
     try:
         return re.compile(s)
     except re.error as e:
-        raise argparse.ArgumentTypeError(f"'{s}' is not a valid regex: {e}")
+        msg = f"'{s}' is not a valid regex: {e}"
+        raise argparse.ArgumentTypeError(msg) from e
 
 
 def pr_flags(
@@ -43,8 +45,8 @@ def pr_flags(
     )
     checkout_help = (
         "What to source checkout when building: "
-        + "`merge` will merge the pull request into the target branch, "
-        + "while `commit` will checkout pull request as the user has committed it"
+        "`merge` will merge the pull request into the target branch, "
+        "while `commit` will checkout pull request as the user has committed it"
     )
 
     pr_parser.add_argument(
@@ -133,7 +135,7 @@ def read_github_token() -> str | None:
     if token:
         return token
     try:
-        with open(hub_config_path(), encoding="utf-8") as f:
+        with hub_config_path().open() as f:
             for line in f:
                 # Allow substring match as hub uses yaml. Example string we match:
                 # " - oauth_token: ghp_abcdefghijklmnopqrstuvwxyzABCDEF1234\n"
@@ -145,7 +147,9 @@ def read_github_token() -> str | None:
     except OSError:
         pass
     if which("gh"):
-        r = subprocess.run(["gh", "auth", "token"], stdout=subprocess.PIPE, text=True)
+        r = subprocess.run(
+            ["gh", "auth", "token"], stdout=subprocess.PIPE, text=True, check=False
+        )
         if r.returncode == 0:
             return r.stdout.strip()
     return None

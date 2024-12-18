@@ -1,23 +1,23 @@
+import contextlib
 import os
 import sys
+import types
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any
 
 from .utils import warn
 
 
-def find_nixpkgs_root() -> str | None:
+def find_nixpkgs_root() -> Path | None:
     prefix = ["."]
-    release_nix = ["nixos", "release.nix"]
     while True:
-        root_path = os.path.join(*prefix)
-        release_nix_path = os.path.join(root_path, *release_nix)
-        if os.path.exists(release_nix_path):
+        root_path = Path(*prefix)
+        release_nix_path = root_path / "nixos" / "release.nix"
+        if release_nix_path.exists():
             return root_path
-        if os.path.abspath(root_path) == "/":
+        if root_path == root_path.parent:
             return None
-        prefix.append("..")
+        root_path = root_path.parent
 
 
 class Buildenv:
@@ -25,11 +25,10 @@ class Buildenv:
         if not (
             extra_nixpkgs_config.startswith("{") and extra_nixpkgs_config.endswith("}")
         ):
-            raise RuntimeError(
-                "--extra-nixpkgs-config must start with `{` and end with `}`"
-            )
+            msg = "--extra-nixpkgs-config must start with `{` and end with `}`"
+            raise RuntimeError(msg)
 
-        self.nixpkgs_config = NamedTemporaryFile(suffix=".nix")
+        self.nixpkgs_config = NamedTemporaryFile(suffix=".nix")  # noqa: SIM115
         self.nixpkgs_config.write(
             str.encode(
                 f"""{{
@@ -47,7 +46,7 @@ class Buildenv:
 
     def __enter__(self) -> Path:
         self.environ = os.environ.copy()
-        self.old_cwd = os.getcwd()
+        self.old_cwd = Path.cwd()
 
         root = find_nixpkgs_root()
         if root is None:
@@ -59,12 +58,15 @@ class Buildenv:
         os.environ["NIXPKGS_CONFIG"] = self.nixpkgs_config.name
         return Path(self.nixpkgs_config.name)
 
-    def __exit__(self, _type: Any, _value: Any, _traceback: Any) -> None:
+    def __exit__(
+        self,
+        _type: type[BaseException] | None,
+        _value: BaseException | None,
+        _traceback: types.TracebackType | None,
+    ) -> None:
         if self.old_cwd is not None:
-            try:
+            with contextlib.suppress(OSError):
                 os.chdir(self.old_cwd)
-            except OSError:  # could be deleted
-                pass
 
         if self.environ is not None:
             os.environ.clear()

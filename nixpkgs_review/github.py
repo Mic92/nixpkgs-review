@@ -8,7 +8,7 @@ import zipfile
 from collections import defaultdict
 from http.client import HTTPMessage
 from pathlib import Path
-from typing import IO, Any
+from typing import IO, Any, override
 
 from .utils import System
 
@@ -18,6 +18,7 @@ def pr_url(pr: int) -> str:
 
 
 class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    @override
     def redirect_request(
         self,
         req: urllib.request.Request,
@@ -55,13 +56,13 @@ class GithubClient:
         if data:
             body = json.dumps(data).encode("ascii")
 
-        req = urllib.request.Request(
+        req = urllib.request.Request(  # noqa: S310
             url,
             headers=self.headers,
             method=method,
             data=body,
         )
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req) as resp:  # noqa: S310
             return json.loads(resp.read())
 
     def get(self, path: str) -> Any:
@@ -96,7 +97,8 @@ class GithubClient:
     def graphql(self, query: str) -> dict[str, Any]:
         resp = self.post("/graphql", data={"query": query})
         if "errors" in resp:
-            raise RuntimeError(f"Expected data from graphql api, got: {resp}")
+            msg = f"Expected data from graphql api, got: {resp}"
+            raise RuntimeError(msg)
         data: dict[str, Any] = resp["data"]
         return data
 
@@ -112,7 +114,7 @@ class GithubClient:
         """
         download_url: str = f"https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/{workflow_id}/zip"
 
-        req = urllib.request.Request(download_url, headers=self.headers)
+        req = urllib.request.Request(download_url, headers=self.headers)  # noqa: S310
         try:
             with no_redirect_opener.open(req) as resp:
                 pass
@@ -123,23 +125,30 @@ class GithubClient:
             else:
                 raise
         else:
-            raise RuntimeError(f"Expected 302, got {resp.status}")
+            msg = f"Expected 302, got {resp.status}"
+            raise RuntimeError(msg)
 
-        req = urllib.request.Request(new_url)
-        with urllib.request.urlopen(req) as new_resp:
-            with tempfile.TemporaryDirectory() as _temp_dir:
-                temp_dir = Path(_temp_dir)
-                # download zip file to disk
-                artifact_zip = temp_dir / "artifact.zip"
-                with artifact_zip.open("wb") as f:
-                    shutil.copyfileobj(new_resp, f)
+        if not new_url.startswith(("http:", "https:")):
+            msg = "URL must start with 'http:' or 'https:'"
+            raise ValueError(msg)
 
-                # Extract zip archive to temporary directory
-                with zipfile.ZipFile(artifact_zip, "r") as zip_ref:
-                    zip_ref.extract(json_filename, temp_dir)
+        req = urllib.request.Request(new_url)  # noqa: S310
+        with (
+            urllib.request.urlopen(req) as new_resp,  # noqa: S310
+            tempfile.TemporaryDirectory() as _temp_dir,
+        ):
+            temp_dir = Path(_temp_dir)
+            # download zip file to disk
+            artifact_zip = temp_dir / "artifact.zip"
+            with artifact_zip.open("wb") as f:
+                shutil.copyfileobj(new_resp, f)
 
-                with (temp_dir / json_filename).open() as json_file:
-                    return json.load(json_file)
+            # Extract zip archive to temporary directory
+            with zipfile.ZipFile(artifact_zip, "r") as zip_ref:
+                zip_ref.extract(json_filename, temp_dir)
+
+            with (temp_dir / json_filename).open() as json_file:
+                return json.load(json_file)
 
     def get_github_action_eval_result(
         self, pr: dict[str, Any]
@@ -201,7 +210,7 @@ class GithubClient:
                     f"https://gist.githubusercontent.com/GrahamcOfBorg/{gist_hash}/raw/"
                 )
 
-                with urllib.request.urlopen(raw_gist_url) as resp:
+                with urllib.request.urlopen(raw_gist_url) as resp:  # noqa: S310
                     for line in resp:
                         if line == b"":
                             break

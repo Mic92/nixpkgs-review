@@ -21,9 +21,9 @@ class Attr:
     exists: bool
     broken: bool
     blacklisted: bool
-    path: str | None
+    path: Path | None
     drv_path: str | None
-    aliases: list[str] = field(default_factory=lambda: [])
+    aliases: list[str] = field(default_factory=list)
     _path_verified: bool | None = field(init=False, default=None)
 
     def was_build(self) -> bool:
@@ -45,6 +45,7 @@ class Attr:
                 self.path,
             ],
             stderr=subprocess.DEVNULL,
+            check=False,
         )
         self._path_verified = res.returncode == 0
         return self._path_verified
@@ -69,7 +70,8 @@ def nix_shell(
 ) -> None:
     nix_shell = shutil.which(build_graph + "-shell")
     if not nix_shell:
-        raise RuntimeError(f"{build_graph} not found in PATH")
+        msg = f"{build_graph} not found in PATH"
+        raise RuntimeError(msg)
 
     shell_file_args = build_shell_file_args(
         cache_dir=cache_directory,
@@ -102,13 +104,13 @@ def _nix_shell_sandbox(
     nixpkgs_overlay: Path,
 ) -> list[str]:
     if platform != "linux":
-        raise RuntimeError("Sandbox mode is only available on Linux platforms.")
+        msg = "Sandbox mode is only available on Linux platforms."
+        raise RuntimeError(msg)
 
     bwrap = shutil.which("bwrap")
     if not bwrap:
-        raise RuntimeError(
-            "bwrap not found in PATH. Install it to use '--sandbox' flag."
-        )
+        msg = "bwrap not found in PATH. Install it to use '--sandbox' flag."
+        raise RuntimeError(msg)
 
     warn("Using sandbox mode. Some things may break!")
 
@@ -129,9 +131,9 @@ def _nix_shell_sandbox(
 
         return [prefix + "bind" + suffix, str(path), str(path)]
 
-    def tmpfs(path: Path | str, dir: bool = True) -> list[str]:
+    def tmpfs(path: Path | str, is_dir: bool = True) -> list[str]:
         dir_cmd = []
-        if dir:
+        if is_dir:
             dir_cmd = ["--dir", str(path)]
 
         return [*dir_cmd, "--tmpfs", str(path)]
@@ -155,7 +157,7 @@ def _nix_shell_sandbox(
         # / and cia.
         *bind("/"),
         *bind("/dev", dev=True),
-        *tmpfs("/tmp"),
+        *tmpfs("/tmp"),  # noqa: S108
         # Required for evaluation
         *bind(nixpkgs_config),
         *bind(nixpkgs_overlay),
@@ -167,7 +169,7 @@ def _nix_shell_sandbox(
         *bind(nixpkgs_review_pr, ro=False),
         *bind(nixpkgs_config_dir, try_=True),
         # For X11 applications
-        *bind("/tmp/.X11-unix", try_=True),
+        *bind("/tmp/.X11-unix", try_=True),  # noqa: S108
         *bind(xauthority, try_=True),
         # GitHub
         *bind(hub_config, try_=True),
@@ -187,20 +189,18 @@ def _nix_shell_sandbox(
 
 def _nix_eval_filter(json: dict[str, Any]) -> list[Attr]:
     # workaround https://github.com/NixOS/ofborg/issues/269
-    blacklist = set(
-        [
-            "appimage-run-tests",
-            "darwin.builder",
-            "nixos-install-tools",
-            "tests.nixos-functions.nixos-test",
-            "tests.nixos-functions.nixosTest-test",
-            "tests.php.overrideAttrs-preserves-enabled-extensions",
-            "tests.php.withExtensions-enables-previously-disabled-extensions",
-            "tests.trivial",
-            "tests.writers",
-        ]
-    )
-    attr_by_path: dict[str, Attr] = {}
+    blacklist = {
+        "appimage-run-tests",
+        "darwin.builder",
+        "nixos-install-tools",
+        "tests.nixos-functions.nixos-test",
+        "tests.nixos-functions.nixosTest-test",
+        "tests.php.overrideAttrs-preserves-enabled-extensions",
+        "tests.php.withExtensions-enables-previously-disabled-extensions",
+        "tests.trivial",
+        "tests.writers",
+    }
+    attr_by_path: dict[Path, Attr] = {}
     broken = []
     for name, props in json.items():
         attr = Attr(
@@ -208,19 +208,18 @@ def _nix_eval_filter(json: dict[str, Any]) -> list[Attr]:
             exists=props["exists"],
             broken=props["broken"],
             blacklisted=name in blacklist,
-            path=props["path"],
+            path=Path(props["path"]),
             drv_path=props["drvPath"],
         )
         if attr.path is not None:
             other = attr_by_path.get(attr.path, None)
             if other is None:
                 attr_by_path[attr.path] = attr
+            elif len(other.name) > len(attr.name):
+                attr_by_path[attr.path] = attr
+                attr.aliases.append(other.name)
             else:
-                if len(other.name) > len(attr.name):
-                    attr_by_path[attr.path] = attr
-                    attr.aliases.append(other.name)
-                else:
-                    other.aliases.append(attr.name)
+                other.aliases.append(attr.name)
         else:
             broken.append(attr)
     return list(attr_by_path.values()) + broken
@@ -232,7 +231,7 @@ def nix_eval(
     allow: AllowedFeatures,
     nix_path: str,
 ) -> list[Attr]:
-    attr_json = NamedTemporaryFile(mode="w+", delete=False)
+    attr_json = NamedTemporaryFile(mode="w+", delete=False)  # noqa: SIM115
     delete = True
     try:
         json.dump(list(attrs), attr_json)
@@ -256,18 +255,19 @@ def nix_eval(
             f"(import {eval_script} {{ attr-json = {attr_json.name}; }})",
         ]
 
-        nix_eval = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
+        nix_eval = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, check=False)
         if nix_eval.returncode != 0:
             delete = False
-            raise NixpkgsReviewError(
+            msg = (
                 f"{' '.join(cmd)} failed to run, {attr_json.name} was stored inspection"
             )
+            raise NixpkgsReviewError(msg)
 
         return _nix_eval_filter(json.loads(nix_eval.stdout))
     finally:
         attr_json.close()
         if delete:
-            os.unlink(attr_json.name)
+            Path(attr_json.name).unlink()
 
 
 def multi_system_eval(
@@ -299,7 +299,6 @@ def nix_build(
     attr_names_per_system: dict[System, set[str]],
     args: str,
     cache_directory: Path,
-    systems: set[System],
     local_system: System,
     allow: AllowedFeatures,
     build_graph: str,
@@ -370,7 +369,7 @@ def build_shell_file_args(
     nixpkgs_config: Path,
 ) -> list[str]:
     attrs_file = cache_dir.joinpath("attrs.nix")
-    with open(attrs_file, "w+", encoding="utf-8") as f:
+    with attrs_file.open("w+") as f:
         f.write("{\n")
         for system, attrs in attrs_per_system.items():
             f.write(f"  {system} = [\n")

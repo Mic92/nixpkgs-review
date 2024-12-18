@@ -9,7 +9,7 @@ from enum import Enum
 from pathlib import Path
 from re import Pattern
 from typing import IO
-from xml.etree import ElementTree
+from xml.etree import ElementTree as ET
 
 from .allow import AllowedFeatures
 from .builddir import Builddir
@@ -23,8 +23,8 @@ from .utils import System, current_system, info, sh, system_order_key, warn
 # https://github.com/NixOS/ofborg/blob/cf2c6712bd7342406e799110e7cd465aa250cdca/ofborg/src/outpaths.nix#L12
 PLATFORMS_LINUX: set[str] = {"aarch64-linux", "x86_64-linux"}
 PLATFORMS_DARWIN: set[str] = {"aarch64-darwin", "x86_64-darwin"}
-PLATFORMS_AARCH64: set[str] = {"aarch64-darwin", "aarch64-darwin"}
-PLATFORMS_X64: set[str] = {"x86_64-darwin", "x86_64-darwin"}
+PLATFORMS_AARCH64: set[str] = {"aarch64-darwin", "aarch64-linux"}
+PLATFORMS_X64: set[str] = {"x86_64-darwin", "x86_64-linux"}
 PLATFORMS: set[str] = PLATFORMS_LINUX.union(PLATFORMS_DARWIN)
 
 
@@ -48,7 +48,7 @@ def print_packages(
 
     print(f"{len(names)} package{plural} {msg}:")
     print(" ".join(names))
-    print("")
+    print()
 
 
 @dataclass
@@ -77,7 +77,7 @@ def print_updates(changed_pkgs: list[Package], removed_pkgs: list[Package]) -> N
         else:
             updated.append(pkg.pname)
 
-    removed = list(f"{p.pname} (†{p.version})" for p in removed_pkgs)
+    removed = [f"{p.pname} (†{p.version})" for p in removed_pkgs]
 
     print_packages(new, "added")
     print_packages(updated, "updated")
@@ -99,14 +99,22 @@ class Review:
         extra_nixpkgs_config: str,
         api_token: str | None = None,
         use_ofborg_eval: bool | None = True,
-        only_packages: set[str] = set(),
-        package_regexes: list[Pattern[str]] = [],
-        skip_packages: set[str] = set(),
-        skip_packages_regex: list[Pattern[str]] = [],
+        only_packages: set[str] | None = None,
+        package_regexes: list[Pattern[str]] | None = None,
+        skip_packages: set[str] | None = None,
+        skip_packages_regex: list[Pattern[str]] | None = None,
         checkout: CheckoutOption = CheckoutOption.MERGE,
         sandbox: bool = False,
         num_parallel_evals: int = 1,
     ) -> None:
+        if skip_packages_regex is None:
+            skip_packages_regex = []
+        if skip_packages is None:
+            skip_packages = set()
+        if package_regexes is None:
+            package_regexes = []
+        if only_packages is None:
+            only_packages = set()
         self.builddir = builddir
         self.build_args = build_args
         self.no_shell = no_shell
@@ -122,10 +130,11 @@ class Review:
         self.local_system = current_system()
         match len(systems):
             case 0:
-                raise NixpkgsReviewError("Systems is empty")
+                msg = "Systems is empty"
+                raise NixpkgsReviewError(msg)
             case 1:
                 self.systems = self._process_aliases_for_systems(
-                    list(systems)[0].lower()
+                    next(iter(systems)).lower()
                 )
             case _:
                 self.systems = set(systems)
@@ -139,7 +148,7 @@ class Review:
     def _process_aliases_for_systems(self, system: str) -> set[str]:
         match system:
             case "current":
-                return set([current_system()])
+                return {current_system()}
             case "all":
                 return PLATFORMS
             case "linux":
@@ -151,7 +160,7 @@ class Review:
             case "aarch64" | "arm64":
                 return PLATFORMS_AARCH64
             case _:
-                return set([system])
+                return {system}
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -161,16 +170,14 @@ class Review:
             ["git", "merge", "--no-commit", "--no-ff", commit], cwd=self.worktree_dir()
         )
         if res.returncode != 0:
-            raise NixpkgsReviewError(
-                f"Failed to merge {commit} into {self.worktree_dir()}. git merge failed with exit code {res.returncode}"
-            )
+            msg = f"Failed to merge {commit} into {self.worktree_dir()}. git merge failed with exit code {res.returncode}"
+            raise NixpkgsReviewError(msg)
 
     def git_checkout(self, commit: str) -> None:
         res = sh(["git", "checkout", commit], cwd=self.worktree_dir())
         if res.returncode != 0:
-            raise NixpkgsReviewError(
-                f"Failed to checkout {commit} in {self.worktree_dir()}. git checkout failed with exit code {res.returncode}"
-            )
+            msg = f"Failed to checkout {commit} in {self.worktree_dir()}. git checkout failed with exit code {res.returncode}"
+            raise NixpkgsReviewError(msg)
 
     def apply_unstaged(self, staged: bool = False) -> None:
         args = [
@@ -191,7 +198,9 @@ class Review:
             sys.exit(0)
 
         info("Applying `nixpkgs` diff...")
-        result = subprocess.run(["git", "apply"], cwd=self.worktree_dir(), input=diff)
+        result = subprocess.run(
+            ["git", "apply"], cwd=self.worktree_dir(), input=diff, check=False
+        )
 
         if result.returncode != 0:
             warn(f"Failed to apply diff in {self.worktree_dir()}")
@@ -233,7 +242,7 @@ class Review:
 
         # Systems ordered correctly (x86_64-linux, aarch64-linux, x86_64-darwin, aarch64-darwin)
         sorted_systems: list[System] = sorted(
-            list(self.systems),
+            self.systems,
             key=system_order_key,
             reverse=True,
         )
@@ -245,16 +254,15 @@ class Review:
             print(f"--------- Impacted packages on '{system}' ---------")
             print_updates(changed_pkgs, removed_pkgs)
 
-            changed_attrs[system] = set(p.attr_path for p in changed_pkgs)
+            changed_attrs[system] = {p.attr_path for p in changed_pkgs}
 
         return self.build(changed_attrs, self.build_args)
 
     def git_worktree(self, commit: str) -> None:
         res = sh(["git", "worktree", "add", self.worktree_dir(), commit])
         if res.returncode != 0:
-            raise NixpkgsReviewError(
-                f"Failed to add worktree for {commit} in {self.worktree_dir()}. git worktree failed with exit code {res.returncode}"
-            )
+            msg = f"Failed to add worktree for {commit} in {self.worktree_dir()}. git worktree failed with exit code {res.returncode}"
+            raise NixpkgsReviewError(msg)
 
     def build(
         self, packages_per_system: dict[System, set[str]], args: str
@@ -274,7 +282,6 @@ class Review:
             packages_per_system,
             args,
             self.builddir.path,
-            self.systems,
             self.local_system,
             self.allow,
             self.build_graph,
@@ -319,11 +326,11 @@ class Review:
                 ["git", "merge-base", merge_rev, pr_rev],
                 stdout=subprocess.PIPE,
                 text=True,
+                check=False,
             )
             if run.returncode != 0:
-                raise NixpkgsReviewError(
-                    f"Failed to get the merge base of {merge_rev} with PR {pr_rev}"
-                )
+                msg = f"Failed to get the merge base of {merge_rev} with PR {pr_rev}"
+                raise NixpkgsReviewError(msg)
             base_rev = run.stdout.strip()
 
         if packages_per_system is None:
@@ -351,7 +358,7 @@ class Review:
         report = Report(
             attrs_per_system,
             self.extra_nixpkgs_config,
-            checkout=self.checkout.name.lower(),  # type: ignore
+            checkout=self.checkout.name.lower(),  # type: ignore[arg-type]
         )
         report.print_console(pr)
         report.write(path, pr)
@@ -400,7 +407,7 @@ def parse_packages_xml(stdout: IO[str]) -> list[Package]:
     homepage = None
     description = None
     position = None
-    context = ElementTree.iterparse(stdout, events=("start", "end"))
+    context = ET.iterparse(stdout, events=("start", "end"))  # noqa: S314
     for event, elem in context:
         if elem.tag == "item":
             if event == "start":
@@ -473,13 +480,12 @@ def _list_packages_system(
         cmd.append("--meta")
     info("$ " + " ".join(cmd))
     with tempfile.NamedTemporaryFile(mode="w") as tmp:
-        res = subprocess.run(cmd, stdout=tmp)
+        res = subprocess.run(cmd, stdout=tmp, check=False)
         if res.returncode != 0:
-            raise NixpkgsReviewError(
-                f"Failed to list packages: nix-env failed with exit code {res.returncode}"
-            )
+            msg = f"Failed to list packages: nix-env failed with exit code {res.returncode}"
+            raise NixpkgsReviewError(msg)
         tmp.flush()
-        with open(tmp.name, encoding="utf-8") as f:
+        with Path(tmp.name).open() as f:
             return parse_packages_xml(f)
 
 
@@ -515,8 +521,8 @@ def package_attrs(
     allow: AllowedFeatures,
     nix_path: str,
     ignore_nonexisting: bool = True,
-) -> dict[str, Attr]:
-    attrs: dict[str, Attr] = {}
+) -> dict[Path, Attr]:
+    attrs: dict[Path, Attr] = {}
 
     nonexisting = []
 
@@ -550,11 +556,8 @@ def join_packages(
         ignore_nonexisting=False,
     )
 
-    tests: dict[str, Attr] = {}
-    for path, attr in specified_attrs.items():
-        # ofborg does not include tests and manual evaluation is too expensive
-        if attr.is_test():
-            tests[path] = attr
+    # ofborg does not include tests and manual evaluation is too expensive
+    tests = {path: attr for path, attr in specified_attrs.items() if attr.is_test()}
 
     nonexistent = specified_attrs.keys() - changed_attrs.keys() - tests.keys()
 
@@ -566,7 +569,7 @@ def join_packages(
         sys.exit(1)
     union_paths = (changed_attrs.keys() & specified_attrs.keys()) | tests.keys()
 
-    return set(specified_attrs[path].name for path in union_paths)
+    return {specified_attrs[path].name for path in union_paths}
 
 
 def filter_packages(
@@ -627,26 +630,26 @@ def fetch_refs(repo: str, *refs: str) -> list[str]:
         ["git", "rev-parse", "--is-shallow-repository"],
         text=True,
         stdout=subprocess.PIPE,
+        check=False,
     )
     if shallow.returncode != 0:
-        raise NixpkgsReviewError(f"Failed to detect if {repo} is shallow repository")
+        msg = f"Failed to detect if {repo} is shallow repository"
+        raise NixpkgsReviewError(msg)
     if shallow.stdout.strip() == "true":
         cmd.append("--depth=1")
     for i, ref in enumerate(refs):
         cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
     res = sh(cmd)
     if res.returncode != 0:
-        raise NixpkgsReviewError(
-            f"Failed to fetch {refs} from {repo}. git fetch failed with exit code {res.returncode}"
-        )
+        msg = f"Failed to fetch {refs} from {repo}. git fetch failed with exit code {res.returncode}"
+        raise NixpkgsReviewError(msg)
     shas = []
     for i, ref in enumerate(refs):
         cmd = ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"]
-        out = subprocess.run(cmd, text=True, stdout=subprocess.PIPE)
+        out = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, check=False)
         if out.returncode != 0:
-            raise NixpkgsReviewError(
-                f"Failed to fetch {ref} from {repo} with command: {''.join(cmd)}"
-            )
+            msg = f"Failed to fetch {ref} from {repo} with command: {''.join(cmd)}"
+            raise NixpkgsReviewError(msg)
         shas.append(out.stdout.strip())
     return shas
 
@@ -654,7 +657,7 @@ def fetch_refs(repo: str, *refs: str) -> list[str]:
 def differences(
     old: list[Package], new: list[Package]
 ) -> tuple[list[Package], list[Package]]:
-    old_attrs = dict((pkg.attr_path, pkg) for pkg in old)
+    old_attrs = {pkg.attr_path: pkg for pkg in old}
     changed_packages = []
     for new_pkg in new:
         old_pkg = old_attrs.get(new_pkg.attr_path, None)

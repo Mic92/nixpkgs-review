@@ -1,6 +1,7 @@
 import argparse
 
-from ..github import GithubClient
+from nixpkgs_review.github import GithubClient
+
 from .utils import ensure_github_token, get_current_pr
 
 
