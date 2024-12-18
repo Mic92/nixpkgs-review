@@ -6,12 +6,12 @@ import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from typing import IO, Any, TypeAlias
+from typing import IO, Any
 
 HAS_TTY = sys.stdout.isatty()
 ROOT = Path(os.path.dirname(os.path.realpath(__file__)))
 
-System: TypeAlias = str
+System: type = str
 
 
 def color_text(code: int, file: IO[Any] | None = None) -> Callable[[str], None]:
