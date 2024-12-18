@@ -173,7 +173,14 @@ class Review:
             )
 
     def apply_unstaged(self, staged: bool = False) -> None:
-        args = ["git", "--no-pager", "diff", "--no-ext-diff"]
+        args = [
+            "git",
+            "--no-pager",
+            "diff",
+            "--no-ext-diff",
+            "--src-prefix=a/",
+            "--dst-prefix=b/",
+        ]
         args.extend(["--staged"] if staged else [])
         with subprocess.Popen(args, stdout=subprocess.PIPE) as diff_proc:
             assert diff_proc.stdout
