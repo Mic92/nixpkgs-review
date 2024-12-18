@@ -3,8 +3,9 @@ import os
 import sys
 from pathlib import Path
 
-from ..github import GithubClient
-from ..utils import warn
+from nixpkgs_review.github import GithubClient
+from nixpkgs_review.utils import warn
+
 from .utils import ensure_github_token
 
 
@@ -21,6 +22,5 @@ def post_result_command(args: argparse.Namespace) -> None:
         warn(f"Report not found in {report}. Are you in a nixpkgs-review nix-shell?")
         sys.exit(1)
 
-    with open(report, encoding="utf-8") as f:
-        report_text = f.read()
+    report_text = report.read_text()
     github_client.comment_issue(pr, report_text)

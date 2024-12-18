@@ -2,16 +2,21 @@ import argparse
 import re
 import sys
 from contextlib import ExitStack
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from ..allow import AllowedFeatures
-from ..builddir import Builddir
-from ..buildenv import Buildenv
-from ..errors import NixpkgsReviewError
-from ..nix import Attr
-from ..review import CheckoutOption, Review
-from ..utils import System, warn
+from nixpkgs_review.allow import AllowedFeatures
+from nixpkgs_review.builddir import Builddir
+from nixpkgs_review.buildenv import Buildenv
+from nixpkgs_review.errors import NixpkgsReviewError
+from nixpkgs_review.review import CheckoutOption, Review
+from nixpkgs_review.utils import System, warn
+
 from .utils import ensure_github_token
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from nixpkgs_review.nix import Attr
 
 
 def parse_pr_numbers(number_args: list[str]) -> list[int]:

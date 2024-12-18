@@ -4,7 +4,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from ..github import GithubClient
+from nixpkgs_review.github import GithubClient
+
 from .utils import ensure_github_token, get_current_pr
 
 
@@ -106,7 +107,8 @@ class Review:
 
 
 def parse_time(string: str) -> datetime:
-    return datetime.strptime(string, "%Y-%m-%dT%H:%M:%SZ")
+    # Should we care about timezone here? %z
+    return datetime.strptime(string, "%Y-%m-%dT%H:%M:%SZ")  # noqa: DTZ007
 
 
 def bold(text: str) -> str:
@@ -121,8 +123,7 @@ def get_comments(github_token: str, pr_num: int) -> list[Comment | Review]:
 
     comments: list[Comment | Review] = [Comment.from_json(pr)]
 
-    for comment in pr["comments"]["nodes"]:
-        comments.append(Comment.from_json(comment))
+    comments.extend(ReviewComment.from_json(c) for c in pr["reviews"]["nodes"])
 
     review_comments_by_ids: dict[str, ReviewComment] = {}
     for review in pr["reviews"]["nodes"]:

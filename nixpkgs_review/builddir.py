@@ -1,5 +1,6 @@
 import os
 import signal
+import types
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Union
@@ -17,7 +18,12 @@ class DisableKeyboardInterrupt:
 
         self.old_handler = signal.signal(signal.SIGINT, handler)
 
-    def __exit__(self, _type: Any, _value: Any, _traceback: Any) -> None:
+    def __exit__(
+        self,
+        _type: type[BaseException] | None,
+        _value: BaseException | None,
+        _traceback: types.TracebackType | None,
+    ) -> None:
         signal.signal(signal.SIGINT, self.old_handler)
 
 
@@ -39,9 +45,10 @@ def create_cache_directory(name: str) -> Union[Path, "TemporaryDirectory[str]"]:
             final_name = name if counter == 0 else f"{name}-{counter}"
             cache_home = xdg_cache.joinpath("nixpkgs-review", final_name)
             cache_home.mkdir(parents=True)
-            return cache_home
         except FileExistsError:
             counter += 1
+        else:
+            return cache_home
 
 
 class Builddir:
@@ -68,7 +75,12 @@ class Builddir:
     def __enter__(self) -> "Builddir":
         return self
 
-    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: types.TracebackType | None,
+    ) -> None:
         os.environ.clear()
         os.environ.update(self.environ)
 

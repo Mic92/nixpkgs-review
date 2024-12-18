@@ -24,10 +24,11 @@ python3Packages.buildPythonApplication {
     [
       python3Packages.setuptools
       python3Packages.pylint
-      glibcLocales
 
       # needed for interactive unittests
       python3Packages.pytest
+      python3Packages.pytest-xdist
+
       pkgs.nixVersions.stable or nix_2_4
       git
     ]

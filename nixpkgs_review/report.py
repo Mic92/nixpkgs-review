@@ -67,7 +67,7 @@ def write_error_logs(attrs_per_system: dict[str, list[Attr]], directory: Path) -
 
             attr_name: str = f"{attr.name}-{system}"
 
-            if attr.path is not None and os.path.exists(attr.path):
+            if attr.path is not None and attr.path.exists():
                 if attr.was_build():
                     symlink_source = results.ensure().joinpath(attr_name)
                 else:
@@ -79,11 +79,7 @@ def write_error_logs(attrs_per_system: dict[str, list[Attr]], directory: Path) -
             for path in [f"{attr.drv_path}^*", attr.path]:
                 if not path:
                     continue
-                with open(
-                    logs.ensure().joinpath(attr_name + ".log"),
-                    "w+",
-                    encoding="utf-8",
-                ) as f:
+                with logs.ensure().joinpath(attr_name + ".log").open("w+") as f:
                     nix_log = subprocess.run(
                         [
                             "nix",
@@ -93,13 +89,14 @@ def write_error_logs(attrs_per_system: dict[str, list[Attr]], directory: Path) -
                             path,
                         ],
                         stdout=f,
+                        check=False,
                     )
                     if nix_log.returncode == 0:
                         break
 
 
 def _serialize_attrs(attrs: list[Attr]) -> list[str]:
-    return list(map(lambda a: a.name, attrs))
+    return [a.name for a in attrs]
 
 
 class SystemReport:
@@ -175,11 +172,8 @@ class Report:
         }
 
     def write(self, directory: Path, pr: int | None) -> None:
-        with open(directory.joinpath("report.md"), "w+", encoding="utf-8") as f:
-            f.write(self.markdown(pr))
-
-        with open(directory.joinpath("report.json"), "w+", encoding="utf-8") as f:
-            f.write(self.json(pr))
+        directory.joinpath("report.md").write_text(self.markdown(pr))
+        directory.joinpath("report.json").write_text(self.json(pr))
 
         write_error_logs(self.attrs, directory)
 

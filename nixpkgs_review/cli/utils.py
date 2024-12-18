@@ -1,7 +1,7 @@
 import os
 import sys
 
-from ..utils import warn
+from nixpkgs_review.utils import warn
 
 
 def ensure_github_token(token: str | None) -> str:

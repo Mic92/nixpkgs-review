@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import json
 import os
 import shutil
@@ -36,6 +34,7 @@ def real_nixpkgs() -> str:
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
         text=True,
+        check=False,
     )
     if proc.returncode == 0:
         return proc.stdout.strip()
@@ -65,24 +64,21 @@ def setup_nixpkgs(target: Path) -> Path:
 
     default_nix = target.joinpath("default.nix")
 
-    with open(default_nix) as r:
-        text = r.read().replace('"@NIXPKGS@"', real_nixpkgs())
-
-    with open(default_nix, "w") as w:
-        w.write(text)
+    text = default_nix.read_text().replace('"@NIXPKGS@"', real_nixpkgs())
+    default_nix.write_text(text)
 
     return target
 
 
 class Chdir:
     def __init__(self, path: Path | str) -> None:
-        self.old_dir = os.getcwd()
+        self.old_dir = Path.cwd()
         self.new_dir = path
 
     def __enter__(self) -> None:
         os.chdir(self.new_dir)
 
-    def __exit__(self, *args: Any) -> None:
+    def __exit__(self, *args: object) -> None:
         os.chdir(self.old_dir)
 
 
@@ -110,13 +106,12 @@ class Helpers:
 
     @staticmethod
     def read_asset(asset: str) -> str:
-        with open(os.path.join(TEST_ROOT, "assets", asset)) as f:
-            return f.read()
+        return (TEST_ROOT / "assets" / asset).read_text()
 
     @staticmethod
     def load_report(review_dir: str) -> dict[str, Any]:
-        with open(os.path.join(review_dir, "report.json")) as f:
-            return cast(dict[str, Any], json.load(f))
+        data = (Path(review_dir) / "report.json").read_text()
+        return cast(dict[str, Any], json.loads(data))
 
     @staticmethod
     def assert_built(pkg_name: str, path: str) -> None:

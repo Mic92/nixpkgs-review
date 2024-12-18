@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import io
 import shutil
 import subprocess
@@ -26,12 +24,11 @@ def test_default_to_nix_if_nom_not_found(mock_shutil: Mock) -> None:
 @pytest.mark.skipif(not shutil.which("nom"), reason="`nom` not found in PATH")
 def test_pr_local_eval(helpers: Helpers, capfd: pytest.CaptureFixture) -> None:
     with helpers.nixpkgs() as nixpkgs:
-        with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
-            f.write("foo")
-        subprocess.run(["git", "add", "."])
-        subprocess.run(["git", "commit", "-m", "example-change"])
-        subprocess.run(["git", "checkout", "-b", "pull/1/merge"])
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"])
+        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
+        subprocess.run(["git", "checkout", "-b", "pull/1/merge"], check=True)
+        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"], check=True)
 
         path = main(
             "nixpkgs-review",
@@ -54,12 +51,11 @@ def test_pr_local_eval_missing_nom(
     mock_tool: Mock, helpers: Helpers, capfd: pytest.CaptureFixture
 ) -> None:
     with helpers.nixpkgs() as nixpkgs:
-        with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
-            f.write("foo")
-        subprocess.run(["git", "add", "."])
-        subprocess.run(["git", "commit", "-m", "example-change"])
-        subprocess.run(["git", "checkout", "-b", "pull/1/merge"])
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"])
+        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
+        subprocess.run(["git", "checkout", "-b", "pull/1/merge"], check=True)
+        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"], check=True)
 
         path = main(
             "nixpkgs-review",
@@ -82,12 +78,11 @@ def test_pr_local_eval_without_nom(
     helpers: Helpers, capfd: pytest.CaptureFixture
 ) -> None:
     with helpers.nixpkgs() as nixpkgs:
-        with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
-            f.write("foo")
-        subprocess.run(["git", "add", "."])
-        subprocess.run(["git", "commit", "-m", "example-change"])
-        subprocess.run(["git", "checkout", "-b", "pull/1/merge"])
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"])
+        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
+        subprocess.run(["git", "checkout", "-b", "pull/1/merge"], check=True)
+        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"], check=True)
 
         path = main(
             "nixpkgs-review",
@@ -110,12 +105,11 @@ def test_pr_local_eval_without_nom(
 @pytest.mark.skipif(not shutil.which("bwrap"), reason="`bwrap` not found in PATH")
 def test_pr_local_eval_with_sandbox(helpers: Helpers) -> None:
     with helpers.nixpkgs() as nixpkgs:
-        with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
-            f.write("foo")
-        subprocess.run(["git", "add", "."])
-        subprocess.run(["git", "commit", "-m", "example-change"])
-        subprocess.run(["git", "checkout", "-b", "pull/1/merge"])
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"])
+        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
+        subprocess.run(["git", "checkout", "-b", "pull/1/merge"], check=True)
+        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"], check=True)
 
         path = main(
             "nixpkgs-review",
@@ -135,12 +129,13 @@ def test_pr_local_eval_with_sandbox(helpers: Helpers) -> None:
 @patch("urllib.request.urlopen")
 def test_pr_ofborg_eval(mock_urlopen: MagicMock, helpers: Helpers) -> None:
     with helpers.nixpkgs() as nixpkgs:
-        with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
-            f.write("foo")
-        subprocess.run(["git", "add", "."])
-        subprocess.run(["git", "commit", "-m", "example-change"])
-        subprocess.run(["git", "checkout", "-b", "pull/37200/merge"])
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/37200/merge"])
+        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
+        subprocess.run(["git", "checkout", "-b", "pull/37200/merge"], check=True)
+        subprocess.run(
+            ["git", "push", str(nixpkgs.remote), "pull/37200/merge"], check=True
+        )
 
         mock_urlopen.side_effect = [
             mock_open(
@@ -183,12 +178,13 @@ def test_pr_github_action_eval(
     helpers: Helpers,
 ) -> None:
     with helpers.nixpkgs() as nixpkgs:
-        with open(nixpkgs.path.joinpath("pkg1.txt"), "w") as f:
-            f.write("foo")
-        subprocess.run(["git", "add", "."])
-        subprocess.run(["git", "commit", "-m", "example-change"])
-        subprocess.run(["git", "checkout", "-b", "pull/363128/merge"])
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/363128/merge"])
+        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
+        subprocess.run(["git", "checkout", "-b", "pull/363128/merge"], check=True)
+        subprocess.run(
+            ["git", "push", str(nixpkgs.remote), "pull/363128/merge"], check=True
+        )
 
         # Create minimal fake zip archive that could have been generated by the `comparison` GH action.
         mock_zip = io.BytesIO()

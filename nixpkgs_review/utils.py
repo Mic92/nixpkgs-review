@@ -1,17 +1,16 @@
 import functools
-import os
 import shlex
 import shutil
 import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from typing import IO, Any, TypeAlias
+from typing import IO, Any
 
 HAS_TTY = sys.stdout.isatty()
-ROOT = Path(os.path.dirname(os.path.realpath(__file__)))
+ROOT = Path(__file__).resolve().parent
 
-System: TypeAlias = str
+type System = str
 
 
 def color_text(code: int, file: IO[Any] | None = None) -> Callable[[str], None]:
@@ -34,7 +33,7 @@ def sh(
     command: list[str], cwd: Path | str | None = None
 ) -> "subprocess.CompletedProcess[str]":
     info("$ " + shlex.join(command))
-    return subprocess.run(command, cwd=cwd, text=True)
+    return subprocess.run(command, cwd=cwd, text=True, check=False)
 
 
 def verify_commit_hash(commit: str) -> str:
