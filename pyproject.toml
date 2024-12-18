@@ -34,8 +34,8 @@ nixpkgs_review = ["nix/*.nix"]
 target-version = "py312"
 line-length = 88
 
-select = ["E", "F", "I", "U", "N"]
-ignore = ["E501"]
+lint.select = ["E", "F", "I", "U", "N"]
+lint.ignore = ["E501"]
 
 [tool.pytest.ini_options]
 addopts = "-n auto"
