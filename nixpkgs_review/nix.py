@@ -203,12 +203,16 @@ def _nix_eval_filter(json: dict[str, Any]) -> list[Attr]:
     attr_by_path: dict[Path, Attr] = {}
     broken = []
     for name, props in json.items():
+        path = props.get("path", None)
+        if path is not None:
+            path = Path(path)
+
         attr = Attr(
             name=name,
             exists=props["exists"],
             broken=props["broken"],
             blacklisted=name in blacklist,
-            path=Path(props["path"]),
+            path=path,
             drv_path=props["drvPath"],
         )
         if attr.path is not None:
