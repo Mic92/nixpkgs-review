@@ -76,6 +76,7 @@ def pr_command(args: argparse.Namespace) -> str:
                 review = Review(
                     builddir=builddir,
                     build_args=args.build_args,
+                    git_configs=args.git_config,
                     no_shell=args.no_shell,
                     run=args.run,
                     remote=args.remote,

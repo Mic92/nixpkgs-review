@@ -168,6 +168,12 @@ def common_flags() -> list[CommonFlag]:
             "--build-args", default="", help="arguments passed to nix when building"
         ),
         CommonFlag(
+            "--git-config",
+            action="append",
+            default=[],
+            help="additional Git configuration to use (accept multiple specification)",
+        ),
+        CommonFlag(
             "--no-shell",
             action="store_true",
             help="Only evaluate and build without executing nix-shell",
