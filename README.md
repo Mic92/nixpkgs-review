@@ -399,7 +399,7 @@ nixpkgs so we can try to fix this issue.
 
 ```console
 $ nix-shell -p bubblewrap # or install it using NixOS/Home-Manager/etc.
-$ nixpkgs-review --sandbox pr 98734
+$ nixpkgs-review pr --sandbox 98734
 ```
 
 ## Roadmap
