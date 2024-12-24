@@ -6,6 +6,7 @@ import sys
 import tempfile
 from dataclasses import dataclass, field
 from enum import Enum
+from itertools import chain
 from pathlib import Path
 from re import Pattern
 from typing import IO
@@ -89,6 +90,7 @@ class Review:
         self,
         builddir: Builddir,
         build_args: str,
+        git_configs: list[str],
         no_shell: bool,
         run: str,
         remote: str,
@@ -118,6 +120,7 @@ class Review:
             only_packages = set()
         self.builddir = builddir
         self.build_args = build_args
+        self.git_configs = git_configs
         self.no_shell = no_shell
         self.run = run
         self.remote = remote
@@ -167,9 +170,15 @@ class Review:
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
 
+    def form_git_command(self, main_args: [str]) -> [str]:
+        result = ["git"]
+        result.extend(chain(*(["-c", c] for c in self.git_configs)))
+        result.extend(main_args)
+        return result
+
     def git_merge(self, commit: str) -> None:
         res = sh(
-            ["git", "merge", "--no-commit", "--no-ff", commit], cwd=self.worktree_dir()
+            self.form_git_command(["merge", "--no-commit", "--no-ff", commit]), cwd=self.worktree_dir()
         )
         if res.returncode != 0:
             msg = f"Failed to merge {commit} into {self.worktree_dir()}. git merge failed with exit code {res.returncode}"
@@ -182,14 +191,13 @@ class Review:
             raise NixpkgsReviewError(msg)
 
     def apply_unstaged(self, staged: bool = False) -> None:
-        args = [
-            "git",
+        args = self.form_git_command([
             "--no-pager",
             "diff",
             "--no-ext-diff",
             "--src-prefix=a/",
             "--dst-prefix=b/",
-        ]
+        ])
         args.extend(["--staged"] if staged else [])
         with subprocess.Popen(args, stdout=subprocess.PIPE) as diff_proc:
             assert diff_proc.stdout
@@ -201,7 +209,7 @@ class Review:
 
         info("Applying `nixpkgs` diff...")
         result = subprocess.run(
-            ["git", "apply"], cwd=self.worktree_dir(), input=diff, check=False
+            self.form_git_command(["apply"]), cwd=self.worktree_dir(), input=diff, check=False
         )
 
         if result.returncode != 0:
@@ -261,7 +269,7 @@ class Review:
         return self.build(changed_attrs, self.build_args)
 
     def git_worktree(self, commit: str) -> None:
-        res = sh(["git", "worktree", "add", self.worktree_dir(), commit])
+        res = sh(self.form_git_command(["worktree", "add", self.worktree_dir(), commit]))
         if res.returncode != 0:
             msg = f"Failed to add worktree for {commit} in {self.worktree_dir()}. git worktree failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
@@ -686,6 +694,7 @@ def review_local_revision(
         review = Review(
             builddir=builddir,
             build_args=args.build_args,
+            git_configs=args.git_config,
             no_shell=args.no_shell,
             run=args.run,
             remote=args.remote,
