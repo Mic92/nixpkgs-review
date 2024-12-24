@@ -149,9 +149,11 @@ class Report:
         self,
         attrs_per_system: dict[str, list[Attr]],
         extra_nixpkgs_config: str,
+        show_header: bool = True,
         *,
         checkout: Literal["merge", "commit"] = "merge",
     ) -> None:
+        self.show_header = show_header
         self.attrs = attrs_per_system
         self.checkout = checkout
 
@@ -198,17 +200,19 @@ class Report:
         )
 
     def markdown(self, pr: int | None) -> str:
-        msg = "## `nixpkgs-review` result\n\n"
-        msg += "Generated using [`nixpkgs-review`](https://github.com/Mic92/nixpkgs-review).\n\n"
+        msg = ""
+        if self.show_header:
+            msg += "## `nixpkgs-review` result\n\n"
+            msg += "Generated using [`nixpkgs-review`](https://github.com/Mic92/nixpkgs-review).\n\n"
 
-        cmd = "nixpkgs-review"
-        if pr is not None:
-            cmd += f" pr {pr}"
-        if self.extra_nixpkgs_config:
-            cmd += f" --extra-nixpkgs-config '{self.extra_nixpkgs_config}'"
-        if self.checkout != "merge":
-            cmd += f" --checkout {self.checkout}"
-        msg += f"Command: `{cmd}`\n"
+            cmd = "nixpkgs-review"
+            if pr is not None:
+                cmd += f" pr {pr}"
+            if self.extra_nixpkgs_config:
+                cmd += f" --extra-nixpkgs-config '{self.extra_nixpkgs_config}'"
+            if self.checkout != "merge":
+                cmd += f" --checkout {self.checkout}"
+            msg += f"Command: `{cmd}`\n"
 
         for system, report in self.system_reports.items():
             msg += "\n---\n"

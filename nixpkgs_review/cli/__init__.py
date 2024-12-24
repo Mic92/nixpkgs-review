@@ -66,6 +66,11 @@ def pr_flags(
         action="store_true",
         help="Post the nixpkgs-review results as a PR comment",
     )
+    pr_parser.add_argument(
+        "--no-headers",
+        action="store_true",
+        help="Do not render the header in the markdown report",
+    )
     pr_parser.set_defaults(func=pr_command)
     return pr_parser
 
