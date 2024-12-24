@@ -106,6 +106,7 @@ class Review:
         checkout: CheckoutOption = CheckoutOption.MERGE,
         sandbox: bool = False,
         num_parallel_evals: int = 1,
+        show_header: bool = True,
     ) -> None:
         if skip_packages_regex is None:
             skip_packages_regex = []
@@ -144,6 +145,7 @@ class Review:
         self.nixpkgs_config = nixpkgs_config
         self.extra_nixpkgs_config = extra_nixpkgs_config
         self.num_parallel_evals = num_parallel_evals
+        self.show_header = show_header
 
     def _process_aliases_for_systems(self, system: str) -> set[str]:
         match system:
@@ -359,6 +361,7 @@ class Review:
             attrs_per_system,
             self.extra_nixpkgs_config,
             checkout=self.checkout.name.lower(),  # type: ignore[arg-type]
+            show_header=self.show_header,
         )
         report.print_console(pr)
         report.write(path, pr)
