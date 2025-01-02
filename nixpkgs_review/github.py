@@ -5,12 +5,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
-from collections import defaultdict
 from http.client import HTTPMessage
 from pathlib import Path
 from typing import IO, Any, override
 
-from .utils import System
+from .utils import System, warn
 
 
 def pr_url(pr: int) -> str:
@@ -176,46 +175,32 @@ class GithubClient:
                 workflow_run["artifacts_url"],
             )["artifacts"]
 
+            found_comparison = False
             for artifact in artifacts:
                 if artifact["name"] != "comparison":
                     continue
+                found_comparison = True
                 changed_paths: Any = self.get_json_from_artifact(
                     workflow_id=artifact["id"],
                     json_filename="changed-paths.json",
                 )
                 if changed_paths is None:
+                    warn(
+                        f"Found comparison artifact, but no changed-paths.json in workflow {workflow_run['html_url']}"
+                    )
                     continue
                 if (path := changed_paths.get("rebuildsByPlatform")) is not None:
                     assert isinstance(path, dict)
                     return path
-        return None
 
-    def get_borg_eval_gist(self, pr: dict[str, Any]) -> dict[System, set[str]] | None:
-        packages_per_system: defaultdict[System, set[str]] = defaultdict(set)
-        statuses = self.get(pr["statuses_url"])
-        for status in statuses:
-            if (
-                status["description"] == "^.^!"
-                and status["state"] == "success"
-                and status["context"] == "ofborg-eval"
-                and status["creator"]["login"] == "ofborg[bot]"
-            ):
-                url = status.get("target_url", "")
-                if url == "":
-                    return packages_per_system
+            if not found_comparison:
+                if workflow_run["status"] == "queued":
+                    warn(
+                        f"Found eval workflow run, but evaluation is still work in progress: {workflow_run['html_url']}"
+                    )
+                else:
+                    warn(
+                        f"Found eval workflow run, but no comparison artifact in {workflow_run['html_url']}."
+                    )
 
-                url = urllib.parse.urlparse(url)
-                gist_hash = url.path.split("/")[-1]
-                raw_gist_url = (
-                    f"https://gist.githubusercontent.com/GrahamcOfBorg/{gist_hash}/raw/"
-                )
-
-                with urllib.request.urlopen(raw_gist_url) as resp:  # noqa: S310
-                    for line in resp:
-                        if line == b"":
-                            break
-                        system, attribute = line.decode("utf-8").split()
-                        packages_per_system[system].add(attribute)
-
-                return packages_per_system
         return None
