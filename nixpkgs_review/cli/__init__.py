@@ -39,9 +39,9 @@ def pr_flags(
     pr_parser = subparsers.add_parser("pr", help="review a pull request on nixpkgs")
     pr_parser.add_argument(
         "--eval",
-        default="ofborg",
-        choices=["ofborg", "local"],
-        help="Whether to use ofborg's evaluation result",
+        default="auto",
+        choices=["auto", "github", "local", "ofborg"],  # ofborg is legacy
+        help="Whether to use github's evaluation result. Defaults to auto. Auto will use github if a github token is provided",
     )
     checkout_help = (
         "What to source checkout when building: "
@@ -134,18 +134,6 @@ def read_github_token() -> str | None:
     token = os.environ.get("GITHUB_OAUTH_TOKEN", os.environ.get("GITHUB_TOKEN"))
     if token:
         return token
-    try:
-        with hub_config_path().open() as f:
-            for line in f:
-                # Allow substring match as hub uses yaml. Example string we match:
-                # " - oauth_token: ghp_abcdefghijklmnopqrstuvwxyzABCDEF1234\n"
-                token_match = re.search(
-                    r"\s*oauth_token:\s+((?:gh[po]_)?[A-Za-z0-9]+)", line
-                )
-                if token_match:
-                    return token_match.group(1)
-    except OSError:
-        pass
     if which("gh"):
         r = subprocess.run(
             ["gh", "auth", "token"], stdout=subprocess.PIPE, text=True, check=False

@@ -98,7 +98,7 @@ class Review:
         nixpkgs_config: Path,
         extra_nixpkgs_config: str,
         api_token: str | None = None,
-        use_ofborg_eval: bool | None = True,
+        use_github_eval: bool | None = True,
         only_packages: set[str] | None = None,
         package_regexes: list[Pattern[str]] | None = None,
         skip_packages: set[str] | None = None,
@@ -121,7 +121,7 @@ class Review:
         self.run = run
         self.remote = remote
         self.github_client = GithubClient(api_token)
-        self.use_ofborg_eval = use_ofborg_eval
+        self.use_github_eval = use_github_eval
         self.checkout = checkout
         self.only_packages = only_packages
         self.package_regex = package_regexes
@@ -294,15 +294,10 @@ class Review:
         pr = self.github_client.pull_request(pr_number)
 
         packages_per_system: dict[System, set[str]] | None = None
-        if self.use_ofborg_eval and all(system in PLATFORMS for system in self.systems):
+        if self.use_github_eval and all(system in PLATFORMS for system in self.systems):
             # Attempt to fetch the GitHub actions evaluation result
             print("-> Attempting to fetch eval results from GitHub actions")
             packages_per_system = self.github_client.get_github_action_eval_result(pr)
-
-            # If unsuccessfull, fallback to ofborg
-            if packages_per_system is None:
-                print("-> Unsuccessfull: Trying out legacy ofborg")
-                packages_per_system = self.github_client.get_borg_eval_gist(pr)
 
             if packages_per_system is not None:
                 print("-> Successfully fetched rebuilds: no local evaluation needed")
