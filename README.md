@@ -407,7 +407,6 @@ $ nixpkgs-review pr --sandbox 98734
 
 ## Roadmap
 
-- [ ] build on multiple platforms
 - [ ] test backports
 - [ ] show pull request description + diff during review
 
