@@ -581,6 +581,7 @@ def filter_packages(
     nix_path: str,
 ) -> set[str]:
     packages: set[str] = set()
+    assert isinstance(changed_packages, set)
 
     if (
         len(specified_packages) == 0

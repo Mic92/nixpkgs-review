@@ -191,7 +191,11 @@ class GithubClient:
                     continue
                 if (path := changed_paths.get("rebuildsByPlatform")) is not None:
                     assert isinstance(path, dict)
-                    return path
+                    return {
+                        # Convert package lists to package sets
+                        system: set(packages_list)
+                        for system, packages_list in path.items()
+                    }
 
             if not found_comparison:
                 if workflow_run["status"] == "queued":
