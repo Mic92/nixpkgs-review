@@ -1,6 +1,5 @@
 import argparse
 import json
-import multiprocessing
 import os
 import subprocess
 import sys
@@ -226,8 +225,9 @@ class Review:
         # Source: https://github.com/NixOS/nixpkgs/blob/master/ci/eval/README.md
         # TODO: make those overridable
         max_jobs: int = len(self.systems)
-        n_cores: int = multiprocessing.cpu_count() // max_jobs
-        chunk_size: int = 10_000
+        # n_cores: int = multiprocessing.cpu_count() // max_jobs
+        n_cores: int = self.num_parallel_evals
+        chunk_size: int = 200_000
 
         with tempfile.TemporaryDirectory() as temp_dir:
             before_dir: str = str(temp_dir / Path("before_eval_results"))
