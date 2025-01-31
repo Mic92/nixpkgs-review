@@ -149,6 +149,7 @@ class Report:
         self,
         attrs_per_system: dict[str, list[Attr]],
         extra_nixpkgs_config: str,
+        only_packages: set[str],
         show_header: bool = True,
         *,
         checkout: Literal["merge", "commit"] = "merge",
@@ -156,6 +157,7 @@ class Report:
         self.show_header = show_header
         self.attrs = attrs_per_system
         self.checkout = checkout
+        self.only_packages = only_packages
 
         if extra_nixpkgs_config != "{ }":
             self.extra_nixpkgs_config: str | None = extra_nixpkgs_config
@@ -190,6 +192,7 @@ class Report:
                 "pr": pr,
                 "checkout": self.checkout,
                 "extra-nixpkgs-config": self.extra_nixpkgs_config,
+                "only_packages": list(self.only_packages),
                 "result": {
                     system: report.serialize()
                     for system, report in self.system_reports.items()
@@ -212,6 +215,8 @@ class Report:
                 cmd += f" --extra-nixpkgs-config '{self.extra_nixpkgs_config}'"
             if self.checkout != "merge":
                 cmd += f" --checkout {self.checkout}"
+            if self.only_packages:
+                cmd += " --package " + " --package ".join(self.only_packages)
             msg += f"Command: `{cmd}`\n"
 
         for system, report in self.system_reports.items():

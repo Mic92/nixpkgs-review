@@ -122,7 +122,7 @@ class Review:
         self.run = run
         self.remote = remote
         self.github_client = GithubClient(api_token)
-        self.use_github_eval = use_github_eval
+        self.use_github_eval = use_github_eval and not only_packages
         self.checkout = checkout
         self.only_packages = only_packages
         self.package_regex = package_regexes
@@ -215,6 +215,22 @@ class Review:
         Review a local git commit
         """
         self.git_worktree(base_commit)
+
+        if self.only_packages:
+            if reviewed_commit is None:
+                self.apply_unstaged(staged)
+            elif self.checkout == CheckoutOption.MERGE:
+                self.git_checkout(reviewed_commit)
+            else:
+                self.git_merge(reviewed_commit)
+
+            changed_attrs = {}
+            for system in self.systems:
+                changed_attrs[system] = set()
+                for package in self.only_packages:
+                    changed_attrs[system].add(package)
+
+            return self.build(changed_attrs, self.build_args)
 
         print("Local evaluation for computing rebuilds")
 
@@ -330,6 +346,13 @@ class Review:
                 raise NixpkgsReviewError(msg)
             base_rev = run.stdout.strip()
 
+        if self.only_packages:
+            packages_per_system = {}
+            for system in self.systems:
+                packages_per_system[system] = set()
+                for package in self.only_packages:
+                    packages_per_system[system].add(package)
+
         if packages_per_system is None:
             return self.build_commit(base_rev, pr_rev)
 
@@ -356,6 +379,7 @@ class Review:
             attrs_per_system,
             self.extra_nixpkgs_config,
             checkout=self.checkout.name.lower(),  # type: ignore[arg-type]
+            only_packages=self.only_packages,
             show_header=self.show_header,
         )
         report.print_console(pr)
