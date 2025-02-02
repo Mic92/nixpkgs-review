@@ -1,5 +1,5 @@
 import argparse
-import concurrent.futures
+import json
 import os
 import subprocess
 import sys
@@ -8,9 +8,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from re import Pattern
-from typing import IO
+from typing import IO, Any
 from xml.etree import ElementTree as ET
 
+from . import eval_ci
 from .allow import AllowedFeatures
 from .builddir import Builddir
 from .errors import NixpkgsReviewError
@@ -209,7 +210,10 @@ class Review:
             sys.exit(1)
 
     def build_commit(
-        self, base_commit: str, reviewed_commit: str | None, staged: bool = False
+        self,
+        base_commit: str,
+        reviewed_commit: str | None,
+        staged: bool = False,
     ) -> dict[System, list[Attr]]:
         """
         Review a local git commit
@@ -234,29 +238,60 @@ class Review:
 
         print("Local evaluation for computing rebuilds")
 
-        # TODO: nix-eval-jobs ?
-        base_packages: dict[System, list[Package]] = list_packages(
-            self.builddir.nix_path,
-            self.systems,
-            self.allow,
-            n_threads=self.num_parallel_evals,
-        )
+        # Source: https://github.com/NixOS/nixpkgs/blob/master/ci/eval/README.md
+        # TODO: make those overridable
+        max_jobs: int = len(self.systems)
+        # n_cores: int = multiprocessing.cpu_count() // max_jobs
+        n_cores: int = self.num_parallel_evals
+        chunk_size: int = 200_000
 
-        if reviewed_commit is None:
-            self.apply_unstaged(staged)
-        elif self.checkout == CheckoutOption.MERGE:
-            self.git_checkout(reviewed_commit)
-        else:
-            self.git_merge(reviewed_commit)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            before_dir: str = str(temp_dir / Path("before_eval_results"))
+            after_dir: str = str(temp_dir / Path("after_eval_results"))
+            # TODO: handle `self.allow` settings
+            eval_ci.local_eval(
+                worktree_dir=self.builddir.worktree_dir,
+                systems=self.systems,
+                max_jobs=max_jobs,
+                n_cores=n_cores,
+                chunk_size=chunk_size,
+                output_dir=before_dir,
+            )
 
-        # TODO: nix-eval-jobs ?
-        merged_packages: dict[System, list[Package]] = list_packages(
-            self.builddir.nix_path,
-            self.systems,
-            self.allow,
-            n_threads=self.num_parallel_evals,
-            check_meta=True,
-        )
+            if reviewed_commit is None:
+                self.apply_unstaged(staged)
+            elif self.checkout == CheckoutOption.MERGE:
+                self.git_checkout(reviewed_commit)
+            else:
+                self.git_merge(reviewed_commit)
+
+            eval_ci.local_eval(
+                worktree_dir=self.builddir.worktree_dir,
+                systems=self.systems,
+                max_jobs=max_jobs,
+                n_cores=n_cores,
+                chunk_size=chunk_size,
+                output_dir=after_dir,
+            )
+
+            # merged_packages: dict[System, list[Package]] = list_packages(
+            #     self.builddir.nix_path,
+            #     self.systems,
+            #     self.allow,
+            #     n_threads=self.num_parallel_evals,
+            #     check_meta=True,
+            # )
+
+            output_dir: Path = temp_dir / Path("comparison")
+            eval_ci.compare(
+                worktree_dir=self.builddir.worktree_dir,
+                before_dir=before_dir,
+                after_dir=after_dir,
+                output_dir=str(output_dir),
+            )
+
+            with (output_dir / Path("changed-paths.json")).open() as compare_result:
+                outpaths_dict: dict[str, Any] = json.load(compare_result)
 
         # Systems ordered correctly (x86_64-linux, aarch64-linux, x86_64-darwin, aarch64-darwin)
         sorted_systems: list[System] = sorted(
@@ -264,15 +299,20 @@ class Review:
             key=system_order_key,
             reverse=True,
         )
+
         changed_attrs: dict[System, set[str]] = {}
         for system in sorted_systems:
-            changed_pkgs, removed_pkgs = differences(
-                base_packages[system], merged_packages[system]
-            )
-            print(f"--------- Impacted packages on '{system}' ---------")
-            print_updates(changed_pkgs, removed_pkgs)
+            print(f"--------- Rebuilds on '{system}' ---------")
 
-            changed_attrs[system] = {p.attr_path for p in changed_pkgs}
+            rebuilds: set[str] = set(
+                outpaths_dict["rebuildsByPlatform"].get(system, [])
+            )
+            print_packages(
+                names=list(rebuilds),
+                msg="to rebuild",
+            )
+
+            changed_attrs[system] = rebuilds
 
         return self.build(changed_attrs, self.build_args)
 
@@ -474,70 +514,6 @@ def parse_packages_xml(stdout: IO[str]) -> list[Package]:
             elif name == "position":
                 position = value
     return packages
-
-
-def _list_packages_system(
-    system: System,
-    nix_path: str,
-    allow: AllowedFeatures,
-    check_meta: bool = False,
-) -> list[Package]:
-    cmd = [
-        "nix-env",
-        "--extra-experimental-features",
-        "" if allow.url_literals else "no-url-literals",
-        "--option",
-        "system",
-        system,
-        "-f",
-        "<nixpkgs>",
-        "--nix-path",
-        nix_path,
-        "-qaP",
-        "--xml",
-        "--out-path",
-        "--show-trace",
-        "--allow-import-from-derivation"
-        if allow.ifd
-        else "--no-allow-import-from-derivation",
-    ]
-    if check_meta:
-        cmd.append("--meta")
-    info("$ " + " ".join(cmd))
-    with tempfile.NamedTemporaryFile(mode="w") as tmp:
-        res = subprocess.run(cmd, stdout=tmp, check=False)
-        if res.returncode != 0:
-            msg = f"Failed to list packages: nix-env failed with exit code {res.returncode}"
-            raise NixpkgsReviewError(msg)
-        tmp.flush()
-        with Path(tmp.name).open() as f:
-            return parse_packages_xml(f)
-
-
-def list_packages(
-    nix_path: str,
-    systems: set[System],
-    allow: AllowedFeatures,
-    n_threads: int,
-    check_meta: bool = False,
-) -> dict[System, list[Package]]:
-    results: dict[System, list[Package]] = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
-        future_to_system = {
-            executor.submit(
-                _list_packages_system,
-                system=system,
-                nix_path=nix_path,
-                allow=allow,
-                check_meta=check_meta,
-            ): system
-            for system in systems
-        }
-        for future in concurrent.futures.as_completed(future_to_system):
-            system = future_to_system[future]
-            results[system] = future.result()
-
-    return results
 
 
 def package_attrs(

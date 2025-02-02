@@ -30,10 +30,18 @@ link = color_text(34)
 
 
 def sh(
-    command: list[str], cwd: Path | str | None = None
+    command: list[str],
+    cwd: Path | str | None = None,
+    capture_output: bool = False,
 ) -> "subprocess.CompletedProcess[str]":
     info("$ " + shlex.join(command))
-    return subprocess.run(command, cwd=cwd, text=True, check=False)
+    return subprocess.run(
+        command,
+        cwd=cwd,
+        text=True,
+        check=False,
+        capture_output=capture_output,
+    )
 
 
 def verify_commit_hash(commit: str) -> str:
