@@ -380,6 +380,9 @@ class Review:
             self.extra_nixpkgs_config,
             checkout=self.checkout.name.lower(),  # type: ignore[arg-type]
             only_packages=self.only_packages,
+            package_regex=self.package_regex,
+            skip_packages=self.skip_packages,
+            skip_packages_regex=self.skip_packages_regex,
             show_header=self.show_header,
         )
         report.print_console(pr)
