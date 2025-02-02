@@ -241,3 +241,34 @@ def test_pr_github_action_eval(
                 ],
             )
             helpers.assert_built(pkg_name="pkg1", path=path)
+
+
+@patch("nixpkgs_review.review._list_packages_system")
+def test_pr_only_packages_does_not_trigger_an_eval(
+    mock_eval: MagicMock,
+    helpers: Helpers,
+) -> None:
+    mock_eval.side_effect = RuntimeError
+    with helpers.nixpkgs() as nixpkgs:
+        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
+        subprocess.run(["git", "checkout", "-b", "pull/363128/merge"], check=True)
+        subprocess.run(
+            ["git", "push", str(nixpkgs.remote), "pull/363128/merge"], check=True
+        )
+
+        path = main(
+            "nixpkgs-review",
+            [
+                "pr",
+                "--remote",
+                str(nixpkgs.remote),
+                "--run",
+                "exit 0",
+                "--package",
+                "pkg1",
+                "363128",
+            ],
+        )
+        helpers.assert_built(pkg_name="pkg1", path=path)

@@ -48,10 +48,11 @@ def pr_command(args: argparse.Namespace) -> str:
             if args.token:
                 args.eval = "github"
             else:
-                warn(
-                    "No GitHub token provided via GITHUB_TOKEN variable. Falling back to local evaluation.\n"
-                    "Tip: Install the `gh` command line tool and run `gh auth login` to authenticate."
-                )
+                if not args.package:
+                    warn(
+                        "No GitHub token provided via GITHUB_TOKEN variable. Falling back to local evaluation.\n"
+                        "Tip: Install the `gh` command line tool and run `gh auth login` to authenticate."
+                    )
                 args.eval = "local"
         case "github":
             if not args.token:

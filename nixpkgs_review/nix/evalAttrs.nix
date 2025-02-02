@@ -27,6 +27,12 @@ let
           drvPath = null;
         })
       ]
+    else if !lib.isDerivation pkg then
+      if builtins.typeOf pkg != "set" then
+        # if it is not a package, ignore it (it is probably something like overrideAttrs)
+        [ ]
+      else
+        lib.flatten (lib.mapAttrsToList (name': _: getProperties ("${name}.${name'}")) pkg)
     else
       lib.flip map pkg.outputs or [ "out" ] (
         output:
