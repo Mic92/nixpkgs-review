@@ -3,6 +3,7 @@ import os
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
+from re import Pattern
 from typing import Literal
 
 from .nix import Attr
@@ -150,6 +151,9 @@ class Report:
         attrs_per_system: dict[str, list[Attr]],
         extra_nixpkgs_config: str,
         only_packages: set[str],
+        package_regex: list[Pattern[str]],
+        skip_packages: set[str],
+        skip_packages_regex: list[Pattern[str]],
         show_header: bool = True,
         *,
         checkout: Literal["merge", "commit"] = "merge",
@@ -158,6 +162,9 @@ class Report:
         self.attrs = attrs_per_system
         self.checkout = checkout
         self.only_packages = only_packages
+        self.package_regex = [r.pattern for r in package_regex]
+        self.skip_packages = skip_packages
+        self.skip_packages_regex = [r.pattern for r in skip_packages_regex]
 
         if extra_nixpkgs_config != "{ }":
             self.extra_nixpkgs_config: str | None = extra_nixpkgs_config
@@ -193,6 +200,9 @@ class Report:
                 "checkout": self.checkout,
                 "extra-nixpkgs-config": self.extra_nixpkgs_config,
                 "only_packages": list(self.only_packages),
+                "package_regex": list(self.package_regex),
+                "skip_packages": list(self.skip_packages),
+                "skip_packages_regex": list(self.skip_packages_regex),
                 "result": {
                     system: report.serialize()
                     for system, report in self.system_reports.items()
@@ -215,8 +225,16 @@ class Report:
                 cmd += f" --extra-nixpkgs-config '{self.extra_nixpkgs_config}'"
             if self.checkout != "merge":
                 cmd += f" --checkout {self.checkout}"
-            if self.only_packages:
-                cmd += " --package " + " --package ".join(self.only_packages)
+            for option_name, option_value in {
+                "package": self.only_packages,
+                "package-regex": self.package_regex,
+                "skip-package": self.skip_packages,
+                "skip-package-regex": self.skip_packages_regex,
+            }.items():
+                if option_value:
+                    cmd += f" --{option_name} " + f" --{option_name} ".join(
+                        option_value
+                    )
             msg += f"Command: `{cmd}`\n"
 
         for system, report in self.system_reports.items():
