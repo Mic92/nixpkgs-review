@@ -216,6 +216,7 @@ class Review:
         Review a local git commit
         """
         self.git_worktree(base_commit)
+        changed_attrs: dict[System, set[str]] = {}
 
         if self.only_packages:
             if reviewed_commit is None:
@@ -265,7 +266,7 @@ class Review:
             key=system_order_key,
             reverse=True,
         )
-        changed_attrs: dict[System, set[str]] = {}
+        changed_attrs = {}
         for system in sorted_systems:
             changed_pkgs, removed_pkgs = differences(
                 base_packages[system], merged_packages[system]
