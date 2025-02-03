@@ -38,7 +38,7 @@ def html_pkgs_section(
     for pkg in packages:
         res += f"    <li>{pkg.name}"
         if len(pkg.aliases) > 0:
-            res += f" ({' ,'.join(pkg.aliases)})"
+            res += f" ({', '.join(pkg.aliases)})"
         res += "</li>\n"
     res += "  </ul>\n</details>\n"
     return res
