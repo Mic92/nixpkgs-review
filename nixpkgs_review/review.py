@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -215,6 +216,7 @@ class Review:
         Review a local git commit
         """
         self.git_worktree(base_commit)
+        changed_attrs: dict[System, set[str]] = {}
 
         if self.only_packages:
             if reviewed_commit is None:
@@ -264,7 +266,7 @@ class Review:
             key=system_order_key,
             reverse=True,
         )
-        changed_attrs: dict[System, set[str]] = {}
+        changed_attrs = {}
         for system in sorted_systems:
             changed_pkgs, removed_pkgs = differences(
                 base_packages[system], merged_packages[system]
@@ -312,14 +314,32 @@ class Review:
         pr = self.github_client.pull_request(pr_number)
 
         packages_per_system: dict[System, set[str]] | None = None
-        if self.use_github_eval and all(system in PLATFORMS for system in self.systems):
-            # Attempt to fetch the GitHub actions evaluation result
-            print("-> Attempting to fetch eval results from GitHub actions")
+        if self.use_github_eval:
+            assert all(system in PLATFORMS for system in self.systems)
+            print("-> Fetching eval results from GitHub actions")
+
             packages_per_system = self.github_client.get_github_action_eval_result(pr)
+            if packages_per_system is None:
+                timeout_s: int = 10
+                print(f"...Results are not (yet) available. Retrying in {timeout_s}s")
+                waiting_time_s: int = 0
+                while packages_per_system is None:
+                    waiting_time_s += timeout_s
+                    print(".", end="")
+                    sys.stdout.flush()
+                    time.sleep(timeout_s)
+                    packages_per_system = (
+                        self.github_client.get_github_action_eval_result(pr)
+                    )
+                    if waiting_time_s > 10 * 60:
+                        warn(
+                            "\nTimeout exceeded: No evaluation seems to be available on GitHub."
+                            "\nLook for an eventual evaluation error issue on the PR web page."
+                        )
+                        sys.exit(1)
+                print()
 
-            if packages_per_system is not None:
-                print("-> Successfully fetched rebuilds: no local evaluation needed")
-
+            print("-> Successfully fetched rebuilds: no local evaluation needed")
         else:
             packages_per_system = None
 

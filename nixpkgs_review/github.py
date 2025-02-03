@@ -9,7 +9,7 @@ from http.client import HTTPMessage
 from pathlib import Path
 from typing import IO, Any, override
 
-from .utils import System, warn
+from .utils import System
 
 
 def pr_url(pr: int) -> str:
@@ -175,19 +175,14 @@ class GithubClient:
                 workflow_run["artifacts_url"],
             )["artifacts"]
 
-            found_comparison = False
             for artifact in artifacts:
                 if artifact["name"] != "comparison":
                     continue
-                found_comparison = True
                 changed_paths: Any = self.get_json_from_artifact(
                     workflow_id=artifact["id"],
                     json_filename="changed-paths.json",
                 )
                 if changed_paths is None:
-                    warn(
-                        f"Found comparison artifact, but no changed-paths.json in workflow {workflow_run['html_url']}"
-                    )
                     continue
                 if (path := changed_paths.get("rebuildsByPlatform")) is not None:
                     assert isinstance(path, dict)
@@ -196,15 +191,5 @@ class GithubClient:
                         system: set(packages_list)
                         for system, packages_list in path.items()
                     }
-
-            if not found_comparison:
-                if workflow_run["status"] == "queued":
-                    warn(
-                        f"Found eval workflow run, but evaluation is still work in progress: {workflow_run['html_url']}"
-                    )
-                else:
-                    warn(
-                        f"Found eval workflow run, but no comparison artifact in {workflow_run['html_url']}."
-                    )
 
         return None
