@@ -424,6 +424,15 @@ We also use python3's type hints. To check them, use `mypy`:
 $ mypy nixpkgs_review
 ```
 
+## Maintainers
+
+The following persons have commit access to this repo:
+
+- [Artturin](https://github.com/Artturin)
+- [GaetanLepage](https://github.com/GaetanLepage)
+- [Mic92](https://github.com/Mic92)
+- [SuperSandro2000](https://github.com/SuperSandro2000)
+
 ## Related projects:
 
 - [nox-review](https://github.com/madjar/nox):
