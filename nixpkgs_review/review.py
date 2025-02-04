@@ -335,6 +335,7 @@ class Review:
                         warn(
                             "\nTimeout exceeded: No evaluation seems to be available on GitHub."
                             "\nLook for an eventual evaluation error issue on the PR web page."
+                            "\nAlternatively, use `--eval local` to do the evaluation locally."
                         )
                         sys.exit(1)
                 print()
