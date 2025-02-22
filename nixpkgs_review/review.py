@@ -391,6 +391,7 @@ class Review:
         pr: int | None = None,
         post_result: bool | None = False,
         print_result: bool = False,
+        approve_pr: bool = False,
     ) -> bool:
         os.environ.pop("NIXPKGS_CONFIG", None)
         os.environ["NIXPKGS_REVIEW_ROOT"] = str(path)
@@ -409,8 +410,16 @@ class Review:
         report.print_console(pr)
         report.write(path, pr)
 
+        success = report.succeeded()
+
         if pr and post_result:
             self.github_client.comment_issue(pr, report.markdown(pr))
+
+        if pr and approve_pr and success:
+            self.github_client.approve_pr(
+                pr,
+                "Approved automatically following the successful run of `nixpkgs-review`.",
+            )
 
         if print_result:
             print(report.markdown(pr))
@@ -428,7 +437,7 @@ class Review:
                 self.sandbox,
             )
 
-        return report.succeeded()
+        return success
 
     def review_commit(
         self,
@@ -437,12 +446,14 @@ class Review:
         reviewed_commit: str | None,
         staged: bool = False,
         print_result: bool = False,
+        approve_pr: bool = False,
     ) -> None:
         branch_rev = fetch_refs(self.remote, branch)[0]
         self.start_review(
             self.build_commit(branch_rev, reviewed_commit, staged),
             path,
             print_result=print_result,
+            approve_pr=approve_pr,
         )
 
 
