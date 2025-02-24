@@ -221,7 +221,7 @@ class Review:
         if self.only_packages:
             if reviewed_commit is None:
                 self.apply_unstaged(staged)
-            elif self.checkout == CheckoutOption.MERGE:
+            elif self.checkout == CheckoutOption.COMMIT:
                 self.git_checkout(reviewed_commit)
             else:
                 self.git_merge(reviewed_commit)
@@ -246,7 +246,7 @@ class Review:
 
         if reviewed_commit is None:
             self.apply_unstaged(staged)
-        elif self.checkout == CheckoutOption.MERGE:
+        elif self.checkout == CheckoutOption.COMMIT:
             self.git_checkout(reviewed_commit)
         else:
             self.git_merge(reviewed_commit)
