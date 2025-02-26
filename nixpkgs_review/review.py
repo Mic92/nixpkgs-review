@@ -238,7 +238,6 @@ class Review:
 
         print("Local evaluation for computing rebuilds")
 
-        # TODO: nix-eval-jobs ?
         base_packages: dict[System, list[Package]] = list_packages(
             self.builddir.nix_path,
             self.systems,
@@ -254,7 +253,6 @@ class Review:
         else:
             self.git_merge(reviewed_commit)
 
-        # TODO: nix-eval-jobs ?
         merged_packages: dict[System, list[Package]] = list_packages(
             self.builddir.nix_path,
             self.systems,
@@ -301,6 +299,8 @@ class Review:
                 system,
                 self.allow,
                 self.builddir.nix_path,
+                self.num_parallel_evals,
+                self.max_memory_size,
             )
         return nix_build(
             packages_per_system,
@@ -312,6 +312,7 @@ class Review:
             self.builddir.nix_path,
             self.nixpkgs_config,
             self.num_parallel_evals,
+            self.max_memory_size,
         )
 
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
@@ -496,7 +497,6 @@ def list_packages(
         f"builtins.mapAttrs (system: _: import <nixpkgs> {{ inherit system; }} // {{ recurseForDerivations = true; }}) {systems_str}",
         "--nix-path",
         nix_path,
-        "--show-trace",
         "--allow-import-from-derivation"
         if allow.ifd
         else "--no-allow-import-from-derivation",
@@ -525,18 +525,27 @@ def package_attrs(
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
+    num_parallel_evals: int,
+    max_memory_size: int,
     ignore_nonexisting: bool = True,
 ) -> dict[Path, Attr]:
     attrs: dict[Path, Attr] = {}
 
     nonexisting = []
 
-    for attr in nix_eval(package_set, system, allow, nix_path):
+    for attr in nix_eval(
+        package_set,
+        system,
+        allow,
+        nix_path,
+        num_parallel_evals,
+        max_memory_size,
+    ):
         if not attr.exists:
             nonexisting.append(attr.name)
         elif not attr.broken:
-            assert attr.path is not None
-            attrs[attr.path] = attr
+            assert attr.drv_path is not None
+            attrs[attr.drv_path] = attr
 
     if not ignore_nonexisting and len(nonexisting) > 0:
         warn("These packages do not exist:")
@@ -551,13 +560,19 @@ def join_packages(
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
+    num_parallel_evals: int,
+    max_memory_size: int,
 ) -> set[str]:
-    changed_attrs = package_attrs(changed_packages, system, allow, nix_path)
+    changed_attrs = package_attrs(
+        changed_packages, system, allow, nix_path, num_parallel_evals, max_memory_size
+    )
     specified_attrs = package_attrs(
         specified_packages,
         system,
         allow,
         nix_path,
+        num_parallel_evals,
+        max_memory_size,
         ignore_nonexisting=False,
     )
 
@@ -586,6 +601,8 @@ def filter_packages(
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
+    num_parallel_evals: int,
+    max_memory_size: int,
 ) -> set[str]:
     packages: set[str] = set()
     assert isinstance(changed_packages, set)
@@ -605,6 +622,8 @@ def filter_packages(
             system,
             allow,
             nix_path,
+            num_parallel_evals,
+            max_memory_size,
         )
 
     for attr in changed_packages:
