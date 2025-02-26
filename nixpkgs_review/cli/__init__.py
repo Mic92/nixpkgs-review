@@ -180,6 +180,11 @@ def common_flags() -> list[CommonFlag]:
             help="Regular expression that package attributes have to match (can be passed multiple times)",
         ),
         CommonFlag(
+            "--tests",
+            action="store_true",
+            help="For all packages to be built, also build their `passthru.tests`",
+        ),
+        CommonFlag(
             "-r",
             "--remote",
             default="https://github.com/NixOS/nixpkgs",

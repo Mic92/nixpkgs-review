@@ -50,7 +50,7 @@ class Attr:
         return self._path_verified
 
     def is_test(self) -> bool:
-        return self.name.startswith("nixosTests")
+        return self.name.startswith("nixosTests") or ".passthru.tests." in self.name
 
     def outputs_with_name(self) -> dict[str, Path]:
         def with_output(output: str) -> str:
@@ -207,6 +207,12 @@ def _nix_eval_filter(json: list[Any]) -> list[Attr]:
         "tests.trivial",
         "tests.writers",
     }
+
+    def is_blacklisted(name: str) -> bool:
+        return name in blacklist or any(
+            name.startswith(f"{entry}.") for entry in blacklist
+        )
+
     attr_by_path: dict[Path, Attr] = {}
     broken = []
     for props in json:
@@ -222,7 +228,7 @@ def _nix_eval_filter(json: list[Any]) -> list[Attr]:
             name=name,
             exists=props["exists"],
             broken=props["broken"],
-            blacklisted=name in blacklist,
+            blacklisted=is_blacklisted(name),
             outputs=outputs,
             drv_path=drv_path,
         )
@@ -247,6 +253,7 @@ def nix_eval(
     nix_path: str,
     num_parallel_evals: int,
     max_memory_size: int,
+    include_passthru_tests: bool = False,
 ) -> list[Attr]:
     return multi_system_eval(
         {system: attrs},
@@ -254,6 +261,7 @@ def nix_eval(
         nix_path=nix_path,
         num_parallel_evals=num_parallel_evals,
         max_memory_size=max_memory_size,
+        include_passthru_tests=include_passthru_tests,
     ).get(system, [])
 
 
@@ -263,6 +271,7 @@ def multi_system_eval(
     nix_path: str,
     num_parallel_evals: int,
     max_memory_size: int,
+    include_passthru_tests: bool = False,
 ) -> dict[System, list[Attr]]:
     attr_json = NamedTemporaryFile(mode="w+", delete=False)  # noqa: SIM115
     delete = True
@@ -282,7 +291,10 @@ def multi_system_eval(
             "--extra-experimental-features",
             "" if allow.url_literals else "no-url-literals",
             "--expr",
-            f"(import {eval_script} {{ attr-json = {attr_json.name}; }})",
+            f"""(import {eval_script} {{
+              attr-json = {attr_json.name};
+              include-passthru-tests = {str(include_passthru_tests).lower()};
+            }})""",
             "--nix-path",
             nix_path,
             "--allow-import-from-derivation"

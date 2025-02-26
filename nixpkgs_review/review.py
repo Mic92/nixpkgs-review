@@ -106,6 +106,7 @@ class Review:
         skip_packages_regex: list[Pattern[str]] | None = None,
         checkout: CheckoutOption = CheckoutOption.MERGE,
         sandbox: bool = False,
+        build_passthru_tests: bool = False,
         num_parallel_evals: int = 1,
         max_memory_size: int = 4096,
         show_header: bool = True,
@@ -146,6 +147,7 @@ class Review:
         self.build_graph = build_graph
         self.nixpkgs_config = nixpkgs_config
         self.extra_nixpkgs_config = extra_nixpkgs_config
+        self.build_passthru_tests = build_passthru_tests
         self.num_parallel_evals = num_parallel_evals
         self.max_memory_size = max_memory_size
         self.show_header = show_header
@@ -301,6 +303,7 @@ class Review:
                 self.builddir.nix_path,
                 self.num_parallel_evals,
                 self.max_memory_size,
+                self.build_passthru_tests,
             )
         return nix_build(
             packages_per_system,
@@ -525,6 +528,7 @@ def package_attrs(
     num_parallel_evals: int,
     max_memory_size: int,
     ignore_nonexisting: bool = True,
+    build_passthru_tests: bool = False,
 ) -> dict[Path, Attr]:
     attrs: dict[Path, Attr] = {}
 
@@ -537,6 +541,7 @@ def package_attrs(
         nix_path,
         num_parallel_evals,
         max_memory_size,
+        build_passthru_tests,
     ):
         if not attr.exists:
             nonexisting.append(attr.name)
@@ -559,6 +564,7 @@ def join_packages(
     nix_path: str,
     num_parallel_evals: int,
     max_memory_size: int,
+    build_passthru_tests: bool,
 ) -> set[str]:
     changed_attrs = package_attrs(
         changed_packages, system, allow, nix_path, num_parallel_evals, max_memory_size
@@ -571,6 +577,7 @@ def join_packages(
         num_parallel_evals,
         max_memory_size,
         ignore_nonexisting=False,
+        build_passthru_tests=build_passthru_tests,
     )
 
     # ofborg does not include tests and manual evaluation is too expensive
@@ -600,9 +607,24 @@ def filter_packages(
     nix_path: str,
     num_parallel_evals: int,
     max_memory_size: int,
+    build_passthru_tests: bool,
 ) -> set[str]:
     packages: set[str] = set()
     assert isinstance(changed_packages, set)
+
+    # reduce number of times the passthru.tests are evaluated, by either doing
+    # it here or in join_packages
+    if build_passthru_tests and len(specified_packages) == 0:
+        changed_attrs = package_attrs(
+            changed_packages,
+            system,
+            allow,
+            nix_path,
+            num_parallel_evals,
+            max_memory_size,
+            build_passthru_tests=build_passthru_tests,
+        )
+        changed_packages = {changed_attrs[path].name for path in changed_attrs}
 
     if (
         len(specified_packages) == 0
@@ -621,6 +643,7 @@ def filter_packages(
             nix_path,
             num_parallel_evals,
             max_memory_size,
+            build_passthru_tests,
         )
 
     for attr in changed_packages:
@@ -718,6 +741,7 @@ def review_local_revision(
             build_graph=args.build_graph,
             nixpkgs_config=nixpkgs_config,
             extra_nixpkgs_config=args.extra_nixpkgs_config,
+            build_passthru_tests=args.tests,
             num_parallel_evals=args.num_parallel_evals,
             max_memory_size=args.max_memory_size,
         )

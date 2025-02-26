@@ -1,4 +1,7 @@
-{ attr-json }:
+{
+  attr-json,
+  include-passthru-tests,
+}:
 
 with builtins;
 mapAttrs (
@@ -50,7 +53,23 @@ mapAttrs (
           maybePath = tryEval "${pkg}";
           broken = !maybePath.success;
         in
-        [ (lib.nameValuePair name (pkg // { inherit exists broken; })) ];
+        [ (lib.nameValuePair name (pkg // { inherit exists broken; })) ]
+        ++ lib.optionals include-passthru-tests (
+          lib.flip lib.mapAttrsToList pkg.passthru.tests or { } (
+            test: drv:
+            let
+              maybePath = tryEval drv.outPath;
+              broken = !maybePath.success || !lib.isDerivation drv;
+            in
+            lib.nameValuePair "${name}.passthru.tests.${test}" (
+              drv
+              // {
+                inherit exists broken;
+                recurseForDerivations = false; # dont recurse into 'broken' tests
+              }
+            )
+          )
+        );
   in
   listToAttrs (concatMap getProperties attrs) // { recurseForDerivations = true; }
 ) (fromJSON (readFile attr-json))
