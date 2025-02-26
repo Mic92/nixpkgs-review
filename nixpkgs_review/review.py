@@ -1,6 +1,7 @@
 import argparse
-import concurrent.futures
+import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -10,7 +11,6 @@ from enum import Enum
 from pathlib import Path
 from re import Pattern
 from typing import IO
-from xml.etree import ElementTree as ET
 
 from .allow import AllowedFeatures
 from .builddir import Builddir
@@ -107,6 +107,7 @@ class Review:
         checkout: CheckoutOption = CheckoutOption.MERGE,
         sandbox: bool = False,
         num_parallel_evals: int = 1,
+        max_memory_size: int = 4096,
         show_header: bool = True,
     ) -> None:
         if skip_packages_regex is None:
@@ -146,6 +147,7 @@ class Review:
         self.nixpkgs_config = nixpkgs_config
         self.extra_nixpkgs_config = extra_nixpkgs_config
         self.num_parallel_evals = num_parallel_evals
+        self.max_memory_size = max_memory_size
         self.show_header = show_header
 
     def _process_aliases_for_systems(self, system: str) -> set[str]:
@@ -241,7 +243,8 @@ class Review:
             self.builddir.nix_path,
             self.systems,
             self.allow,
-            n_threads=self.num_parallel_evals,
+            num_parallel_evals=self.num_parallel_evals,
+            max_memory_size=self.max_memory_size,
         )
 
         if reviewed_commit is None:
@@ -256,7 +259,8 @@ class Review:
             self.builddir.nix_path,
             self.systems,
             self.allow,
-            n_threads=self.num_parallel_evals,
+            num_parallel_evals=self.num_parallel_evals,
+            max_memory_size=self.max_memory_size,
             check_meta=True,
         )
 
@@ -446,119 +450,74 @@ class Review:
         )
 
 
-def parse_packages_xml(stdout: IO[str]) -> list[Package]:
-    packages: list[Package] = []
-    path = None
-    attrs = None
-    homepage = None
-    description = None
-    position = None
-    context = ET.iterparse(stdout, events=("start", "end"))  # noqa: S314
-    for event, elem in context:
-        if elem.tag == "item":
-            if event == "start":
-                attrs = elem.attrib
-                homepage = None
-                description = None
-                position = None
-                path = None
-            else:
-                assert attrs is not None
-                if path is None:
-                    # architecture not supported
-                    continue
-                pkg = Package(
-                    pname=attrs["pname"],
-                    version=attrs["version"],
-                    attr_path=attrs["attrPath"],
-                    store_path=path,
-                    homepage=homepage,
-                    description=description,
-                    position=position,
-                )
-                packages.append(pkg)
-        elif event == "start" and elem.tag == "output" and elem.attrib["name"] == "out":
-            path = elem.attrib["path"]
-        elif event == "start" and elem.tag == "meta":
-            name = elem.attrib["name"]
-            if name not in ["homepage", "description", "position"]:
-                continue
-            if elem.attrib["type"] == "strings":
-                values = (e.attrib["value"] for e in elem)
-                value = ", ".join(values)
-            else:
-                value = elem.attrib["value"]
-            if name == "homepage":
-                homepage = value
-            elif name == "description":
-                description = value
-            elif name == "position":
-                position = value
+def parse_packages_json(stdout: IO[str]) -> dict[System, list[Package]]:
+    packages = dict()
+
+    for line in stdout:
+        attrs = json.loads(line)
+        if "error" in attrs:
+            continue
+
+        system, attr_path = attrs["attr"].split(".", 1)
+
+        packages.setdefault(system, list()).append(
+            Package(
+                pname=attrs["pname"] or attrs["name"],
+                version=attrs["version"],
+                attr_path=attr_path,
+                store_path=(attrs["outputs"].get("out") or attrs["outputs"].popitem()),
+                homepage=attrs.get("meta", {}).get("homepage"),
+                description=attrs.get("meta", {}).get("description"),
+                position=attrs.get("meta", {}).get("position"),
+            )
+        )
+
     return packages
-
-
-def _list_packages_system(
-    system: System,
-    nix_path: str,
-    allow: AllowedFeatures,
-    check_meta: bool = False,
-) -> list[Package]:
-    cmd = [
-        "nix-env",
-        "--extra-experimental-features",
-        "" if allow.url_literals else "no-url-literals",
-        "--option",
-        "system",
-        system,
-        "-f",
-        "<nixpkgs>",
-        "--nix-path",
-        nix_path,
-        "-qaP",
-        "--xml",
-        "--out-path",
-        "--show-trace",
-        "--allow-import-from-derivation"
-        if allow.ifd
-        else "--no-allow-import-from-derivation",
-    ]
-    if check_meta:
-        cmd.append("--meta")
-    info("$ " + " ".join(cmd))
-    with tempfile.NamedTemporaryFile(mode="w") as tmp:
-        res = subprocess.run(cmd, stdout=tmp, check=False)
-        if res.returncode != 0:
-            msg = f"Failed to list packages: nix-env failed with exit code {res.returncode}"
-            raise NixpkgsReviewError(msg)
-        tmp.flush()
-        with Path(tmp.name).open() as f:
-            return parse_packages_xml(f)
 
 
 def list_packages(
     nix_path: str,
     systems: set[System],
     allow: AllowedFeatures,
-    n_threads: int,
+    num_parallel_evals: int,
+    max_memory_size: int,
     check_meta: bool = False,
 ) -> dict[System, list[Package]]:
-    results: dict[System, list[Package]] = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
-        future_to_system = {
-            executor.submit(
-                _list_packages_system,
-                system=system,
-                nix_path=nix_path,
-                allow=allow,
-                check_meta=check_meta,
-            ): system
-            for system in systems
-        }
-        for future in concurrent.futures.as_completed(future_to_system):
-            system = future_to_system[future]
-            results[system] = future.result()
-
-    return results
+    systems_str = "{ " + " ".join(f"{system} = null;" for system in systems) + " }"
+    cmd = [
+        "nix-eval-jobs",
+        "--workers",
+        str(num_parallel_evals),
+        "--max-memory-size",
+        str(max_memory_size),
+        "--extra-experimental-features",
+        "" if allow.url_literals else "no-url-literals",
+        "--expr",
+        f"builtins.mapAttrs (system: _: import <nixpkgs> {{ inherit system; }} // {{ recurseForDerivations = true; }}) {systems_str}",
+        "--nix-path",
+        nix_path,
+        "--show-trace",
+        "--allow-import-from-derivation"
+        if allow.ifd
+        else "--no-allow-import-from-derivation",
+        "--apply",
+        'd: { pname = if d ? pname then d.pname else null; version = if d ? version then d.version else ""; }',
+    ]
+    if check_meta:
+        cmd.append("--meta")
+    info("$ " + shlex.join(cmd))
+    with tempfile.NamedTemporaryFile(mode="w") as tmp:
+        res = subprocess.run(cmd, stdout=tmp, stderr=subprocess.DEVNULL, check=False)
+        if res.returncode != 0:
+            msg = f"Failed to list packages: nix-eval-jobs failed with exit code {res.returncode}"
+            raise NixpkgsReviewError(msg)
+        tmp.flush()
+        with Path(tmp.name).open() as f:
+            packages = parse_packages_json(f)
+            if len(packages) == 0:
+                msg = "Failed to list packages: nix-eval-jobs returned no packages"
+                raise NixpkgsReviewError(msg)
+            return packages
 
 
 def package_attrs(
@@ -744,6 +703,7 @@ def review_local_revision(
             nixpkgs_config=nixpkgs_config,
             extra_nixpkgs_config=args.extra_nixpkgs_config,
             num_parallel_evals=args.num_parallel_evals,
+            max_memory_size=args.max_memory_size,
         )
         review.review_commit(builddir.path, args.branch, commit, staged, print_result)
         return builddir.path

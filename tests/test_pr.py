@@ -253,7 +253,7 @@ def test_pr_github_action_eval(
             helpers.assert_built(pkg_name="pkg1", path=path)
 
 
-@patch("nixpkgs_review.review._list_packages_system")
+@patch("nixpkgs_review.review.list_packages")
 def test_pr_only_packages_does_not_trigger_an_eval(
     mock_eval: MagicMock,
     helpers: Helpers,
