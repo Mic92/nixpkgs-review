@@ -320,12 +320,9 @@ def multi_system_eval(
 def nix_build(
     attr_names_per_system: dict[System, set[str]],
     args: str,
-    cache_directory: Path,
-    local_system: System,
     allow: AllowedFeatures,
     build_graph: str,
     nix_path: str,
-    nixpkgs_config: Path,
     num_parallel_evals: int,
     max_memory_size: int,
 ) -> dict[System, list[Attr]]:
@@ -341,30 +338,25 @@ def nix_build(
         max_memory_size=max_memory_size,
     )
 
-    filtered_per_system: dict[System, list[str]] = {}
-    for system, attrs in attrs_per_system.items():
-        filtered_per_system[system] = []
-        for attr in attrs:
-            if not (attr.broken or attr.blacklisted):
-                filtered_per_system[system].append(attr.name)
+    paths = []
+    for attrs in attrs_per_system.values():
+        paths.extend(
+            f"{attr.drv_path}^*"
+            for attr in attrs
+            if not (attr.broken or attr.blacklisted)
+        )
 
-    if all(len(filtered) == 0 for filtered in filtered_per_system.values()):
+    if len(paths) == 0:
         return attrs_per_system
 
     command = [
         build_graph,
         "build",
-        "--file",
-        REVIEW_SHELL,
-        "--nix-path",
-        nix_path,
         "--extra-experimental-features",
-        "nix-command" if allow.url_literals else "nix-command no-url-literals",
+        "nix-command",
         "--no-link",
         "--keep-going",
-        "--allow-import-from-derivation"
-        if allow.ifd
-        else "--no-allow-import-from-derivation",
+        "--stdin",
     ]
 
     if platform == "linux":
@@ -375,14 +367,9 @@ def nix_build(
             "relaxed",
         ]
 
-    command += build_shell_file_args(
-        cache_dir=cache_directory,
-        attrs_per_system=filtered_per_system,
-        local_system=local_system,
-        nixpkgs_config=nixpkgs_config,
-    ) + shlex.split(args)
+    command += shlex.split(args)
 
-    sh(command)
+    sh(command, input="\n".join(str(p) for p in paths))
     return attrs_per_system
 
 

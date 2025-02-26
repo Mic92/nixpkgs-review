@@ -305,12 +305,9 @@ class Review:
         return nix_build(
             packages_per_system,
             args,
-            self.builddir.path,
-            self.local_system,
             self.allow,
             self.build_graph,
             self.builddir.nix_path,
-            self.nixpkgs_config,
             self.num_parallel_evals,
             self.max_memory_size,
         )
