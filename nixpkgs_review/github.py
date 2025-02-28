@@ -80,12 +80,15 @@ class GithubClient:
             f"/repos/NixOS/nixpkgs/issues/{pr}/comments", data={"body": msg}
         )
 
-    def approve_pr(self, pr: int) -> Any:
-        "Approve a PR"
+    def approve_pr(self, pr: int, comment: str = "") -> Any:
+        "Approve a PR with an optional comment"
         print(f"Approving {pr_url(pr)}")
+        data = {"event": "APPROVE"}
+        if comment:
+            data["body"] = comment
         return self.post(
             f"/repos/NixOS/nixpkgs/pulls/{pr}/reviews",
-            data={"event": "APPROVE"},
+            data=data,
         )
 
     def merge_pr(self, pr: int) -> Any:
