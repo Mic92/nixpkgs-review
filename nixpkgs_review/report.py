@@ -57,6 +57,41 @@ class LazyDirectory:
         return self.path
 
 
+def get_nix_config(name: str | None = None) -> dict[str, str]:
+    resp = subprocess.run(
+        [
+            "nix",
+            "--extra-experimental-features",
+            "nix-command",
+            "config",
+            "show",
+            *([name] if name is not None else []),
+        ],
+        text=True,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=None,
+    )
+
+    if resp.returncode == 0:
+        if resp.stdout is None:
+            return {}
+        if name is not None:
+            return {name: resp.stdout.strip()}
+
+        out = {}
+        for line in resp.stdout.splitlines():
+            if not line:
+                continue
+            lhs, sep, rhs = line.partition(" = ")
+            if not sep:
+                continue
+            out[lhs] = rhs
+        return out
+
+    return {}
+
+
 def write_error_logs(
     attrs_per_system: dict[str, list[Attr]],
     directory: Path,
@@ -66,6 +101,22 @@ def write_error_logs(
     logs = LazyDirectory(directory.joinpath("logs"))
     results = LazyDirectory(directory.joinpath("results"))
     failed_results = LazyDirectory(directory.joinpath("failed_results"))
+
+    extra_nix_log_args = []
+
+    # filter https://cache.nixos.org from acting as build-log substituters
+    # to avoid hammering it
+    # IDEA: also add the remote builders if user has not already configured this
+    # TODO: should this option respect '--build-args'? 'nix log' accepts most, but not all
+    substituters = get_nix_config("substituters").get("substituters")
+    if substituters is not None:
+        extra_nix_log_args += [
+            "--option",
+            "substituters",
+            " ".join(
+                i for i in substituters.split() if i and i != "https://cache.nixos.org"
+            ),
+        ]
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         for system, attrs in attrs_per_system.items():
@@ -99,6 +150,7 @@ def write_error_logs(
                                     "nix-command",
                                     "log",
                                     path,
+                                    *extra_nix_log_args,
                                 ],
                                 stdout=f,
                                 check=False,
