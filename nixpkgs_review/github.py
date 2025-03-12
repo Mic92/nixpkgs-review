@@ -9,7 +9,7 @@ from http.client import HTTPMessage
 from pathlib import Path
 from typing import IO, Any, override
 
-from .utils import System
+from .utils import System, warn
 
 
 def pr_url(pr: int) -> str:
@@ -86,10 +86,18 @@ class GithubClient:
         data = {"event": "APPROVE"}
         if comment:
             data["body"] = comment
-        return self.post(
-            f"/repos/NixOS/nixpkgs/pulls/{pr}/reviews",
-            data=data,
-        )
+        try:
+            return self.post(
+                f"/repos/NixOS/nixpkgs/pulls/{pr}/reviews",
+                data=data,
+            )
+        except urllib.error.HTTPError as e:
+            if e.code == 422:
+                warn(
+                    "Sorry, unable to process request. You may have tried to approve your own PR, which is unsupported by GitHub"
+                )
+            else:
+                raise
 
     def merge_pr(self, pr: int) -> Any:
         "Merge a PR. Requires maintainer access to NixPkgs"
