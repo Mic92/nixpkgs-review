@@ -166,6 +166,11 @@ def common_flags() -> list[CommonFlag]:
             help="Only evaluate and build without executing nix-shell",
         ),
         CommonFlag(
+            "--approve-pr",
+            action="store_true",
+            help="Approve PR on review success",
+        ),
+        CommonFlag(
             "-p",
             "--package",
             action="append",
