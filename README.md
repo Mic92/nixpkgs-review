@@ -323,6 +323,10 @@ attribute set:
 $ nixpkgs-review pr -p nixosTests.ferm 47077
 ```
 
+Many packages also specify their associated `nixosTests` in the `passthru.tests`
+attribute set. Adding the `--tests` argument will run those tests for all
+packages that will be rebuild.
+
 ## Ignoring ofborg evaluations
 
 By default, nixpkgs-review will use ofborg's evaluation result if available to

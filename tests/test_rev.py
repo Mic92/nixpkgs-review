@@ -43,7 +43,7 @@ def test_rev_command_without_nom(helpers: Helpers) -> None:
         helpers.assert_built(pkg_name="pkg1", path=path)
 
 
-@patch("nixpkgs_review.review._list_packages_system")
+@patch("nixpkgs_review.review.list_packages")
 def test_rev_only_packages_does_not_trigger_an_eval(
     mock_eval: MagicMock,
     helpers: Helpers,

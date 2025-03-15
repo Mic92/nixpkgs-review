@@ -10,6 +10,18 @@ let
   withNom' =
     withNom
     && (builtins.tryEval (builtins.elem buildPlatform.system pkgs.ghc.meta.platforms)).value or false;
+
+  # at least v2.26.0 (currently unreleased) is required for the '--apply' flag
+  nix-eval-jobs =
+    if lib.versionOlder pkgs.nix-eval-jobs.version "2.26.0" then
+      callPackage (fetchFromGitHub {
+        owner = "nix-community";
+        repo = "nix-eval-jobs";
+        rev = "6d4fd5a93d7bc953ffa4dcd6d53ad7056a71eff7";
+        hash = "sha256-1dZLPw+nlFQzzswfyTxW+8VF1AJ4ZvoYvLTjlHiz1SA=";
+      }) { nix = nixVersions.nix_2_25; }
+    else
+      pkgs.nix-eval-jobs;
 in
 python3Packages.buildPythonApplication {
   name = "nixpkgs-review";
@@ -46,6 +58,7 @@ python3Packages.buildPythonApplication {
         [
           pkgs.nixVersions.stable or nix_2_4
           git
+          nix-eval-jobs
         ]
         ++ lib.optional withSandboxSupport bubblewrap
         ++ lib.optional withNom' nix-output-monitor;

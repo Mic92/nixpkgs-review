@@ -185,6 +185,11 @@ def common_flags() -> list[CommonFlag]:
             help="Regular expression that package attributes have to match (can be passed multiple times)",
         ),
         CommonFlag(
+            "--tests",
+            action="store_true",
+            help="For all packages to be built, also build their `passthru.tests`",
+        ),
+        CommonFlag(
             "-r",
             "--remote",
             default="https://github.com/NixOS/nixpkgs",
@@ -255,7 +260,13 @@ def common_flags() -> list[CommonFlag]:
             "--num-parallel-evals",
             type=int,
             default=1,
-            help="Number of parallel `nix-env`/`nix eval` processes to run simultaneously (warning, can imply heavy RAM usage)",
+            help="Number of parallel `nix-eval-jobs` workers to run simultaneously (warning, can imply heavy RAM usage)",
+        ),
+        CommonFlag(
+            "--max-memory-size",
+            type=int,
+            default=4096,
+            help="Maximum `nix-eval-jobs` per worker memory size in megabyte (warning, workers can shortly exceed the limit)",
         ),
     ]
 

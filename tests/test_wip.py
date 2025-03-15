@@ -43,7 +43,7 @@ def test_wip_command_without_nom(
         assert "$ nix build" in captured.out
 
 
-@patch("nixpkgs_review.review._list_packages_system")
+@patch("nixpkgs_review.review.list_packages")
 def test_wip_only_packages_does_not_trigger_an_eval(
     mock_eval: MagicMock,
     helpers: Helpers,
