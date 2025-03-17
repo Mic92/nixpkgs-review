@@ -68,32 +68,31 @@ def write_error_logs(attrs_per_system: dict[str, list[Attr]], directory: Path) -
 
             attr_name: str = f"{attr.name}-{system}"
 
-            if attr.path is not None and attr.path.exists():
+            if not attr.broken:
                 if attr.was_build():
-                    symlink_source = results.ensure().joinpath(attr_name)
+                    symlink_folder = results.ensure()
                 else:
-                    symlink_source = failed_results.ensure().joinpath(attr_name)
-                if os.path.lexists(symlink_source):
-                    symlink_source.unlink()
-                symlink_source.symlink_to(attr.path)
+                    symlink_folder = failed_results.ensure()
 
-            for path in [f"{attr.drv_path}^*", attr.path]:
-                if not path:
-                    continue
-                with logs.ensure().joinpath(attr_name + ".log").open("w+") as f:
-                    nix_log = subprocess.run(
-                        [
-                            "nix",
-                            "--extra-experimental-features",
-                            "nix-command",
-                            "log",
-                            path,
-                        ],
-                        stdout=f,
-                        check=False,
-                    )
-                    if nix_log.returncode == 0:
-                        break
+                for name, path in attr.outputs_with_name().items():
+                    symlink_source = symlink_folder.joinpath(f"{name}-{system}")
+
+                    if os.path.lexists(symlink_source):
+                        symlink_source.unlink()
+                    symlink_source.symlink_to(path)
+
+            with logs.ensure().joinpath(attr_name + ".log").open("w+") as f:
+                subprocess.run(
+                    [
+                        "nix",
+                        "--extra-experimental-features",
+                        "nix-command",
+                        "log",
+                        f"{attr.drv_path}^*",
+                    ],
+                    stdout=f,
+                    check=False,
+                )
 
 
 def _serialize_attrs(attrs: list[Attr]) -> list[str]:
@@ -116,10 +115,10 @@ class SystemReport:
                 self.blacklisted.append(attr)
             elif not attr.exists:
                 self.non_existent.append(attr)
-            elif attr.name.startswith("nixosTests."):
-                self.tests.append(attr)
             elif not attr.was_build():
                 self.failed.append(attr)
+            elif attr.is_test():
+                self.tests.append(attr)
             else:
                 self.built.append(attr)
 
@@ -275,5 +274,5 @@ class Report:
             )
             print_number(report.blacklisted, "blacklisted", log=skipped)
             print_number(report.failed, "failed to build")
-            print_number(report.tests, "built", what="tests", log=print)
+            print_number(report.tests, "built", what="test", log=print)
             print_number(report.built, "built", log=print)
