@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from re import Pattern
 from typing import Literal
@@ -56,44 +57,106 @@ class LazyDirectory:
         return self.path
 
 
-def write_error_logs(attrs_per_system: dict[str, list[Attr]], directory: Path) -> None:
+def get_nix_config(name: str | None = None) -> dict[str, str]:
+    resp = subprocess.run(
+        [
+            "nix",
+            "--extra-experimental-features",
+            "nix-command",
+            "config",
+            "show",
+            *([name] if name is not None else []),
+        ],
+        text=True,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=None,
+    )
+
+    if resp.returncode == 0:
+        if resp.stdout is None:
+            return {}
+        if name is not None:
+            return {name: resp.stdout.strip()}
+
+        out = {}
+        for line in resp.stdout.splitlines():
+            if not line:
+                continue
+            lhs, sep, rhs = line.partition(" = ")
+            if not sep:
+                continue
+            out[lhs] = rhs
+        return out
+
+    return {}
+
+
+def write_error_logs(
+    attrs_per_system: dict[str, list[Attr]],
+    directory: Path,
+    *,
+    max_workers: int | None = 1,
+) -> None:
     logs = LazyDirectory(directory.joinpath("logs"))
     results = LazyDirectory(directory.joinpath("results"))
     failed_results = LazyDirectory(directory.joinpath("failed_results"))
-    for system, attrs in attrs_per_system.items():
-        for attr in attrs:
-            # Broken attrs have no drv_path.
-            if attr.blacklisted or attr.drv_path is None:
-                continue
 
-            attr_name: str = f"{attr.name}-{system}"
+    extra_nix_log_args = []
 
-            if attr.path is not None and attr.path.exists():
-                if attr.was_build():
-                    symlink_source = results.ensure().joinpath(attr_name)
-                else:
-                    symlink_source = failed_results.ensure().joinpath(attr_name)
-                if os.path.lexists(symlink_source):
-                    symlink_source.unlink()
-                symlink_source.symlink_to(attr.path)
+    # filter https://cache.nixos.org from acting as build-log substituters
+    # to avoid hammering it
+    # IDEA: also add the remote builders if user has not already configured this
+    # TODO: should this option respect '--build-args'? 'nix log' accepts most, but not all
+    substituters = get_nix_config("substituters").get("substituters")
+    if substituters is not None:
+        extra_nix_log_args += [
+            "--option",
+            "substituters",
+            " ".join(
+                i for i in substituters.split() if i and i != "https://cache.nixos.org"
+            ),
+        ]
 
-            for path in [f"{attr.drv_path}^*", attr.path]:
-                if not path:
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        for system, attrs in attrs_per_system.items():
+            for attr in attrs:
+                # Broken attrs have no drv_path.
+                if attr.blacklisted or attr.drv_path is None:
                     continue
-                with logs.ensure().joinpath(attr_name + ".log").open("w+") as f:
-                    nix_log = subprocess.run(
-                        [
-                            "nix",
-                            "--extra-experimental-features",
-                            "nix-command",
-                            "log",
-                            path,
-                        ],
-                        stdout=f,
-                        check=False,
-                    )
-                    if nix_log.returncode == 0:
-                        break
+
+                attr_name: str = f"{attr.name}-{system}"
+
+                if attr.path is not None and attr.path.exists():
+                    if attr.was_build():
+                        symlink_source = results.ensure().joinpath(attr_name)
+                    else:
+                        symlink_source = failed_results.ensure().joinpath(attr_name)
+                    if os.path.lexists(symlink_source):
+                        symlink_source.unlink()
+                    symlink_source.symlink_to(attr.path)
+
+                @pool.submit
+                def future(attr: Attr = attr, attr_name: str = attr_name) -> None:
+                    for path in [f"{attr.drv_path}^*", attr.path]:
+                        if not path:
+                            continue
+
+                        with logs.ensure().joinpath(attr_name + ".log").open("w+") as f:
+                            nix_log = subprocess.run(
+                                [
+                                    "nix",
+                                    "--extra-experimental-features",
+                                    "nix-command",
+                                    "log",
+                                    path,
+                                    *extra_nix_log_args,
+                                ],
+                                stdout=f,
+                                check=False,
+                            )
+                            if nix_log.returncode == 0:
+                                break
 
 
 def _serialize_attrs(attrs: list[Attr]) -> list[str]:
@@ -155,10 +218,12 @@ class Report:
         skip_packages: set[str],
         skip_packages_regex: list[Pattern[str]],
         show_header: bool = True,
+        max_workers: int | None = 1,
         *,
         checkout: Literal["merge", "commit"] = "merge",
     ) -> None:
         self.show_header = show_header
+        self.max_workers = max_workers
         self.attrs = attrs_per_system
         self.checkout = checkout
         self.only_packages = only_packages
@@ -186,7 +251,7 @@ class Report:
         directory.joinpath("report.md").write_text(self.markdown(pr))
         directory.joinpath("report.json").write_text(self.json(pr))
 
-        write_error_logs(self.attrs, directory)
+        write_error_logs(self.attrs, directory, max_workers=self.max_workers)
 
     def succeeded(self) -> bool:
         """Whether the report is considered a success or a failure"""
