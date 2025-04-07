@@ -340,5 +340,5 @@ class Report:
             )
             print_number(report.blacklisted, "blacklisted", log=skipped)
             print_number(report.failed, "failed to build")
-            print_number(report.tests, "built", what="tests", log=print)
+            print_number(report.tests, "built", what="test", log=print)
             print_number(report.built, "built", log=print)
