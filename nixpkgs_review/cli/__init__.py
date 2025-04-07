@@ -219,7 +219,7 @@ def common_flags() -> list[CommonFlag]:
             "--systems",
             type=str,
             default="current",
-            help="Nix 'systems' to evaluate and build packages for",
+            help="Nix 'systems' to evaluate and build packages for (e.g. 'x86_64-linux aarch64-darwin')",
         ),
         CommonFlag(
             "--system",
