@@ -197,6 +197,7 @@ def _nix_eval_filter(json: dict[str, Any]) -> list[Attr]:
         "tests.nixos-functions.nixosTest-test",
         "tests.php.overrideAttrs-preserves-enabled-extensions",
         "tests.php.withExtensions-enables-previously-disabled-extensions",
+        "tests.pkg-config.defaultPkgConfigPackages.tests-combined",
         "tests.trivial",
         "tests.writers",
     }
