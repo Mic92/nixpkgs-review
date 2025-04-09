@@ -1,10 +1,13 @@
 import argparse
 import concurrent.futures
+import fcntl
 import os
 import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -685,8 +688,35 @@ def filter_packages(
     return packages
 
 
+@contextmanager
+def locked_open(filename: Path, mode: str = "r") -> Iterator[IO[str]]:
+    """
+    This is a context manager that provides an advisory write lock on the file specified by `filename` when entering the context, and releases the lock when leaving the context.
+    The lock is acquired using the `fcntl` module's `LOCK_EX` flag, which applies an exclusive write lock to the file.
+    """
+    with filename.open(mode) as fd:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield fd
+        fcntl.flock(fd, fcntl.LOCK_UN)
+
+
+def resolve_git_dir() -> Path:
+    dotgit = Path(".git")
+    if dotgit.is_file():
+        actual_git_dir = dotgit.read_text().strip()
+        if not actual_git_dir.startswith("gitdir: "):
+            msg = f"Invalid .git file: {actual_git_dir} found in current directory"
+            raise NixpkgsReviewError(msg)
+        return Path() / actual_git_dir[len("gitdir: ") :]
+
+    if dotgit.is_dir():
+        return dotgit
+
+    msg = "Cannot find .git file or directory in current directory"
+    raise NixpkgsReviewError(msg)
+
+
 def fetch_refs(repo: str, *refs: str) -> list[str]:
-    cmd = ["git", "-c", "fetch.prune=false", "fetch", "--no-tags", "--force", repo]
     shallow = subprocess.run(
         ["git", "rev-parse", "--is-shallow-repository"],
         text=True,
@@ -696,23 +726,37 @@ def fetch_refs(repo: str, *refs: str) -> list[str]:
     if shallow.returncode != 0:
         msg = f"Failed to detect if {repo} is shallow repository"
         raise NixpkgsReviewError(msg)
+
+    fetch_cmd = [
+        "git",
+        "-c",
+        "fetch.prune=false",
+        "fetch",
+        "--no-tags",
+        "--force",
+        repo,
+    ]
     if shallow.stdout.strip() == "true":
-        cmd.append("--depth=1")
+        fetch_cmd.append("--depth=1")
     for i, ref in enumerate(refs):
-        cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
-    res = sh(cmd)
-    if res.returncode != 0:
-        msg = f"Failed to fetch {refs} from {repo}. git fetch failed with exit code {res.returncode}"
-        raise NixpkgsReviewError(msg)
-    shas = []
-    for i, ref in enumerate(refs):
-        cmd = ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"]
-        out = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, check=False)
-        if out.returncode != 0:
-            msg = f"Failed to fetch {ref} from {repo} with command: {''.join(cmd)}"
+        fetch_cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
+    dotgit = resolve_git_dir()
+    with locked_open(dotgit / "nixpkgs-review", "w"):
+        res = sh(fetch_cmd)
+        if res.returncode != 0:
+            msg = f"Failed to fetch {refs} from {repo}. git fetch failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
-        shas.append(out.stdout.strip())
-    return shas
+        shas = []
+        for i, ref in enumerate(refs):
+            rev_parse_cmd = ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"]
+            out = subprocess.run(
+                rev_parse_cmd, text=True, stdout=subprocess.PIPE, check=False
+            )
+            if out.returncode != 0:
+                msg = f"Failed to fetch {ref} from {repo} with command: {''.join(rev_parse_cmd)}"
+                raise NixpkgsReviewError(msg)
+            shas.append(out.stdout.strip())
+        return shas
 
 
 def differences(
