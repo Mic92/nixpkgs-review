@@ -1,6 +1,7 @@
 import argparse
 import concurrent.futures
 import fcntl
+import itertools
 import os
 import subprocess
 import sys
@@ -133,16 +134,14 @@ class Review:
         self.skip_packages = skip_packages
         self.skip_packages_regex = skip_packages_regex
         self.local_system = current_system()
-        match len(systems):
-            case 0:
-                msg = "Systems is empty"
-                raise NixpkgsReviewError(msg)
-            case 1:
-                self.systems = self._process_aliases_for_systems(
-                    next(iter(systems)).lower()
-                )
-            case _:
-                self.systems = set(systems)
+        if not systems:
+            msg = "Systems is empty"
+            raise NixpkgsReviewError(msg)
+        self.systems = set(
+            itertools.chain(
+                *[self._process_aliases_for_systems(s.lower()) for s in systems]
+            )
+        )
         self.allow = allow
         self.sandbox = sandbox
         self.build_graph = build_graph
