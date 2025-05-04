@@ -1,3 +1,4 @@
+import functools
 import json
 import os
 import socket
@@ -12,7 +13,13 @@ from .nix import Attr
 from .utils import System, info, link, skipped, system_order_key, to_link, warn
 
 
+def get_log_filename(a: Attr, system: str) -> str:
+    return f"{a.name}-{system}.log"
+
+
 def print_number(
+    logs_dir: Path,
+    system: str,
     packages: list[Attr],
     msg: str,
     what: str = "package",
@@ -21,9 +28,15 @@ def print_number(
     if len(packages) == 0:
         return
     plural = "s" if len(packages) > 1 else ""
-    names = (a.name for a in packages)
     log(f"{len(packages)} {what}{plural} {msg}:")
-    log(" ".join(names))
+    log(
+        " ".join(
+            [
+                to_link(to_file_uri(logs_dir / get_log_filename(pkg, system)), pkg.name)
+                for pkg in packages
+            ]
+        )
+    )
     log("")
 
 
@@ -138,12 +151,16 @@ def write_error_logs(
                     symlink_source.symlink_to(attr.path)
 
                 @pool.submit
-                def future(attr: Attr = attr, attr_name: str = attr_name) -> None:
+                def future(attr: Attr = attr, system: str = system) -> None:
                     for path in [f"{attr.drv_path}^*", attr.path]:
                         if not path:
                             continue
 
-                        with logs.ensure().joinpath(attr_name + ".log").open("w+") as f:
+                        with (
+                            logs.ensure()
+                            .joinpath(get_log_filename(attr, system))
+                            .open("w+") as f
+                        ):
                             nix_log = subprocess.run(
                                 [
                                     "nix",
@@ -337,20 +354,21 @@ class Report:
             info("\nLink to currently reviewing PR:")
             link(to_link(pr_url, pr_url))
 
+        logs_dir = root / "logs"
         for system, report in self.system_reports.items():
             info(f"--------- Report for '{system}' ---------")
-            print_number(report.broken, "marked as broken and skipped", log=skipped)
-            print_number(
+            p = functools.partial(print_number, logs_dir, system)
+            p(report.broken, "marked as broken and skipped", log=skipped)
+            p(
                 report.non_existent,
                 "present in ofBorgs evaluation, but not found in the checkout",
                 log=skipped,
             )
-            print_number(report.blacklisted, "blacklisted", log=skipped)
-            print_number(report.failed, "failed to build")
-            print_number(report.tests, "built", what="test", log=print)
-            print_number(report.built, "built", log=print)
+            p(report.blacklisted, "blacklisted", log=skipped)
+            p(report.failed, "failed to build")
+            p(report.tests, "built", what="test", log=print)
+            p(report.built, "built", log=print)
 
-        logs_dir = root / "logs"
         info("Logs can be found under:")
         link(to_link(to_file_uri(logs_dir), str(logs_dir)))
         info("")
