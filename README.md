@@ -355,7 +355,7 @@ since the architecture/operating system mismatches.
 By default, `nixpkgs-review` targets only the current system
 (`--systems current`). You can also explicitly provide one or several systems to
 target (`--systems "x86_64-linux aarch64-darwin"`). We also provide aliases for
-the flag:
+the flag, which can also be mixed with the system names.
 
 | Alias                                                | Transforms to                                             |
 | ---------------------------------------------------- | --------------------------------------------------------- |
