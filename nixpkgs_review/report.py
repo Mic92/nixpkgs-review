@@ -328,7 +328,7 @@ class Report:
         if pr is not None:
             pr_url = f"https://github.com/NixOS/nixpkgs/pull/{pr}"
             info("\nLink to currently reviewing PR:")
-            link(f"\u001b]8;;{pr_url}\u001b\\{pr_url}\u001b]8;;\u001b\\\n")
+            link(pr_url)
 
         for system, report in self.system_reports.items():
             info(f"--------- Report for '{system}' ---------")

@@ -26,7 +26,14 @@ def color_text(code: int, file: IO[Any] | None = None) -> Callable[[str], None]:
 warn = color_text(31, file=sys.stderr)
 info = color_text(32)
 skipped = color_text(33)
-link = color_text(34)
+
+
+def link(text: str) -> None:
+    f = color_text(34)
+    if HAS_TTY:
+        f(f"\u001b]8;;{text}\u001b\\{text}\u001b]8;;\u001b\\\n")
+    else:
+        f(text)
 
 
 def sh(
