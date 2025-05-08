@@ -1,5 +1,6 @@
 import json
 import os
+import socket
 import subprocess
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -8,7 +9,7 @@ from re import Pattern
 from typing import Literal
 
 from .nix import Attr
-from .utils import System, info, link, skipped, system_order_key, warn
+from .utils import System, info, link, skipped, system_order_key, to_link, warn
 
 
 def print_number(
@@ -208,6 +209,12 @@ def order_reports(reports: dict[System, SystemReport]) -> dict[System, SystemRep
     )
 
 
+# https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+def to_file_uri(path: Path) -> str:
+    """Convert a path to a file URI, including hostname."""
+    return f"file://{socket.gethostname()}{path.absolute()}"
+
+
 class Report:
     def __init__(
         self,
@@ -324,11 +331,11 @@ class Report:
 
         return msg
 
-    def print_console(self, pr: int | None) -> None:
+    def print_console(self, root: Path, pr: int | None) -> None:
         if pr is not None:
             pr_url = f"https://github.com/NixOS/nixpkgs/pull/{pr}"
             info("\nLink to currently reviewing PR:")
-            link(pr_url)
+            link(to_link(pr_url, pr_url))
 
         for system, report in self.system_reports.items():
             info(f"--------- Report for '{system}' ---------")
@@ -342,3 +349,8 @@ class Report:
             print_number(report.failed, "failed to build")
             print_number(report.tests, "built", what="test", log=print)
             print_number(report.built, "built", log=print)
+
+        logs_dir = root / "logs"
+        info("Logs can be found under:")
+        link(to_link(to_file_uri(logs_dir), str(logs_dir)))
+        info("")

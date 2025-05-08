@@ -412,7 +412,7 @@ class Review:
             # is mainly capped by available RAM
             max_workers=min(32, os.cpu_count() or 1),  # 'None' assumes IO tasks
         )
-        report.print_console(pr)
+        report.print_console(path, pr)
         report.write(path, pr)
 
         success = report.succeeded()
