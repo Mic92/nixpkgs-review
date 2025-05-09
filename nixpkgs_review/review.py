@@ -112,6 +112,7 @@ class Review:
         sandbox: bool = False,
         num_parallel_evals: int = 1,
         show_header: bool = True,
+        show_logs: bool = False,
     ) -> None:
         if skip_packages_regex is None:
             skip_packages_regex = []
@@ -149,6 +150,7 @@ class Review:
         self.extra_nixpkgs_config = extra_nixpkgs_config
         self.num_parallel_evals = num_parallel_evals
         self.show_header = show_header
+        self.show_logs = show_logs
 
     def _process_aliases_for_systems(self, system: str) -> set[str]:
         match system:
@@ -408,6 +410,7 @@ class Review:
             skip_packages=self.skip_packages,
             skip_packages_regex=self.skip_packages_regex,
             show_header=self.show_header,
+            show_logs=self.show_logs,
             # we don't use self.num_parallel_evals here since its choice
             # is mainly capped by available RAM
             max_workers=min(32, os.cpu_count() or 1),  # 'None' assumes IO tasks
