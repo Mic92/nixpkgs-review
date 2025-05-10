@@ -77,6 +77,8 @@ def pr_command(args: argparse.Namespace) -> str:
             Path,
             # Attrs to build for each system
             dict[System, list[Attr]],
+            # PR revision
+            str | None,
         ]
     ] = []
 
@@ -113,16 +115,24 @@ def pr_command(args: argparse.Namespace) -> str:
                     num_parallel_evals=args.num_parallel_evals,
                     show_header=not args.no_headers,
                 )
-                contexts.append((pr, builddir.path, review.build_pr(pr)))
+                contexts.append(
+                    (pr, builddir.path, review.build_pr(pr), review.head_commit)
+                )
             except NixpkgsReviewError as e:
                 warn(f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build: {e}")
         assert review is not None
 
         all_succeeded = all(
             review.start_review(
-                attrs, path, pr, args.post_result, args.print_result, args.approve_pr
+                commit,
+                attrs,
+                path,
+                pr,
+                args.post_result,
+                args.print_result,
+                args.approve_pr,
             )
-            for pr, path, attrs in contexts
+            for pr, path, attrs, commit in contexts
         )
 
         if args.no_shell:

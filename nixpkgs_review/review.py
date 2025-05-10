@@ -149,6 +149,7 @@ class Review:
         self.extra_nixpkgs_config = extra_nixpkgs_config
         self.num_parallel_evals = num_parallel_evals
         self.show_header = show_header
+        self.head_commit: str | None = None
 
     def _process_aliases_for_systems(self, system: str) -> set[str]:
         match system:
@@ -314,6 +315,7 @@ class Review:
 
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
         pr = self.github_client.pull_request(pr_number)
+        self.head_commit = pr["head"]["sha"]
 
         packages_per_system: dict[System, set[str]] | None = None
         if self.use_github_eval:
@@ -388,6 +390,7 @@ class Review:
 
     def start_review(
         self,
+        commit: str | None,
         attrs_per_system: dict[System, list[Attr]],
         path: Path,
         pr: int | None = None,
@@ -400,6 +403,7 @@ class Review:
         if pr:
             os.environ["PR"] = str(pr)
         report = Report(
+            commit,
             attrs_per_system,
             self.extra_nixpkgs_config,
             checkout=self.checkout.name.lower(),  # type: ignore[arg-type]
@@ -455,6 +459,7 @@ class Review:
     ) -> None:
         branch_rev = fetch_refs(self.remote, branch)[0]
         self.start_review(
+            reviewed_commit,
             self.build_commit(branch_rev, reviewed_commit, staged),
             path,
             print_result=print_result,

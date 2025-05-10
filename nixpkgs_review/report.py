@@ -235,6 +235,7 @@ def to_file_uri(path: Path) -> str:
 class Report:
     def __init__(
         self,
+        commit: str | None,
         attrs_per_system: dict[str, list[Attr]],
         extra_nixpkgs_config: str,
         only_packages: set[str],
@@ -246,6 +247,7 @@ class Report:
         *,
         checkout: Literal["merge", "commit"] = "merge",
     ) -> None:
+        self.commit = commit
         self.show_header = show_header
         self.max_workers = max_workers
         self.attrs = attrs_per_system
@@ -325,6 +327,8 @@ class Report:
                         option_value
                     )
             msg += f"Command: `{cmd}`\n"
+            if self.commit:
+                msg += f"Commit: `{self.commit}`\n"
 
         for system, report in self.system_reports.items():
             msg += "\n---\n"
