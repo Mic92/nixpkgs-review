@@ -119,6 +119,13 @@ pass the `--post-result` flag:
 $ nixpkgs-review pr --post-result 37242
 ```
 
+If you'd like to exclude log snippets for failed builds, add the `--no-logs`
+flag:
+
+```console
+$ nixpkgs-review pr --post-result --no-logs 37242
+```
+
 Instead of posting a PR comment, nixpkgs-review can also print the report to the
 terminal using the `--print-result` flag. This flag will work for the `rev` and
 `wip` command..
