@@ -1,6 +1,7 @@
 import functools
 import json
 import os
+import re
 import socket
 import subprocess
 from collections.abc import Callable
@@ -79,10 +80,18 @@ def get_file_tail(file: Path, lines: int = 20) -> str:
         return ""
 
 
+def remove_ansi_escape_sequences(text: str) -> str:
+    """Remove ANSI escape sequences from a string."""
+    ansi_escape_pattern = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape_pattern.sub("", text)
+
+
 def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
     res = ""
     for pkg in packages:
-        tail = get_file_tail(logs_dir / get_log_filename(pkg, system))
+        tail = remove_ansi_escape_sequences(
+            get_file_tail(logs_dir / get_log_filename(pkg, system))
+        )
         if tail:
             res += f"<details>\n<summary>{pkg.name}</summary>\n<pre>{tail}</pre>\n</details>\n"
     return res
