@@ -382,6 +382,10 @@ class Report:
             msg += html_pkgs_section(":white_check_mark:", report.built, "built")
 
         if self.show_logs:
+            truncated_msg = (
+                "\n---\n"
+                "WARNING: Some logs were not included in this report: there were too many."
+            )
             for system, report in self.system_reports.items():
                 if not report.failed:
                     continue
@@ -390,7 +394,8 @@ class Report:
                 full_msg += f"### Error logs: `{system}`\n"
                 full_msg += html_logs_section(get_log_dir(root), report.failed, system)
                 # if the final message won't fit a single github comment, stop
-                if len(full_msg) > MAX_GITHUB_COMMENT_LENGTH:
+                if len(full_msg) > MAX_GITHUB_COMMENT_LENGTH - len(truncated_msg):
+                    msg += truncated_msg
                     break
                 msg = full_msg
 
