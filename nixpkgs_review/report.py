@@ -93,6 +93,9 @@ def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
             get_file_tail(logs_dir / get_log_filename(pkg, system))
         )
         if tail:
+            if not res:
+                res = "\n---\n"
+                res += f"### Error logs: `{system}`\n"
             res += f"<details>\n<summary>{pkg.name}</summary>\n<pre>{tail}</pre>\n</details>\n"
     return res
 
@@ -399,8 +402,6 @@ class Report:
                 if not report.failed:
                     continue
                 full_msg = msg
-                full_msg += "\n---\n"
-                full_msg += f"### Error logs: `{system}`\n"
                 full_msg += html_logs_section(get_log_dir(root), report.failed, system)
                 # if the final message won't fit a single github comment, stop
                 if len(full_msg) > MAX_GITHUB_COMMENT_LENGTH - len(truncated_msg):
