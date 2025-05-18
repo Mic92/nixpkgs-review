@@ -88,6 +88,7 @@ def remove_ansi_escape_sequences(text: str) -> str:
 
 def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
     res = ""
+    seen_tails = set()
     for pkg in packages:
         tail = remove_ansi_escape_sequences(
             get_file_tail(logs_dir / get_log_filename(pkg, system))
@@ -96,7 +97,10 @@ def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
             if not res:
                 res = "\n---\n"
                 res += f"<details>\n<summary>Error logs: `{system}`</summary>\n"
+            if tail in seen_tails:
+                continue
             res += f"<details>\n<summary>{pkg.name}</summary>\n<pre>{tail}</pre>\n</details>\n"
+            seen_tails.add(tail)
     res += "</details>\n"
     return res
 
