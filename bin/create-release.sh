@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-set -eu -o pipefail
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
 cd "$SCRIPT_DIR/.."
 
-version=${1:-}
+version="${1:-}"
 if [[ -z $version ]]; then
   echo "USAGE: $0 version" >&2
   exit 1
@@ -15,6 +15,17 @@ if [[ "$(git symbolic-ref --short HEAD)" != "master" ]]; then
   echo "must be on master branch" >&2
   exit 1
 fi
+
+waitForPr() {
+  local pr=$1
+  while true; do
+    if gh pr view "$pr" | grep -q 'MERGED'; then
+      break
+    fi
+    echo "Waiting for PR to be merged..."
+    sleep 5
+  done
+}
 
 # ensure we are up-to-date
 uncommitted_changes=$(git diff --compact-summary)
@@ -28,10 +39,27 @@ if [[ $unpushed_commits != "" ]]; then
   echo -e "\nThere are unpushed changes, exiting:\n$unpushed_commits" >&2
   exit 1
 fi
+# make sure tag does not exist
+if git tag -l | grep -q "^${version}\$"; then
+  echo "Tag ${version} already exists, exiting" >&2
+  exit 1
+fi
 sed -i -e "s!^version = \".*\"\$!version = \"${version}\"!" pyproject.toml
 git add pyproject.toml
-nix flake check -vL
+git branch -D "release-${version}" || true
+git checkout -b "release-${version}"
 git commit -m "bump version ${version}"
-git tag "${version}"
+git push origin "release-${version}"
+gh pr create \
+  --base master \
+  --head "release-${version}" \
+  --title "Release ${version}" \
+  --body "Release ${version} of nix-direnv"
 
-echo "now run 'git push --tags origin master'"
+gh pr merge --auto "release-${version}"
+
+waitForPr "release-${version}"
+git checkout master
+git pull git@github.com:Mic92/nixpkgs-review master
+git tag "${version}"
+git push origin "${version}"
