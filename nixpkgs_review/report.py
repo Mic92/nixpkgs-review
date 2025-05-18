@@ -95,8 +95,9 @@ def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
         if tail:
             if not res:
                 res = "\n---\n"
-                res += f"### Error logs: `{system}`\n"
+                res += f"<details>\n<summary>Error logs: `{system}`</summary>\n"
             res += f"<details>\n<summary>{pkg.name}</summary>\n<pre>{tail}</pre>\n</details>\n"
+    res += "</details>\n"
     return res
 
 
