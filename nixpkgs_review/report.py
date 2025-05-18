@@ -1,6 +1,7 @@
 import functools
 import json
 import os
+import re
 import socket
 import subprocess
 from collections.abc import Callable
@@ -12,9 +13,16 @@ from typing import Literal
 from .nix import Attr
 from .utils import System, info, link, skipped, system_order_key, to_link, warn
 
+# https://github.com/orgs/community/discussions/27190
+MAX_GITHUB_COMMENT_LENGTH = 65536
+
 
 def get_log_filename(a: Attr, system: str) -> str:
     return f"{a.name}-{system}.log"
+
+
+def get_log_dir(root: Path) -> Path:
+    return root / "logs"
 
 
 def print_number(
@@ -56,6 +64,40 @@ def html_pkgs_section(
             res += f" ({', '.join(pkg.aliases)})"
         res += "</li>\n"
     res += "  </ul>\n</details>\n"
+    return res
+
+
+def get_file_tail(file: Path, lines: int = 20) -> str:
+    try:
+        with file.open("rb") as f:
+            f.seek(0, os.SEEK_END)
+            end = f.tell()
+            f.seek(max(end - lines * 1024, 0), os.SEEK_SET)
+            return "\n".join(
+                f.read().decode("utf-8", errors="replace").splitlines()[-lines:]
+            )
+    except OSError:
+        return ""
+
+
+def remove_ansi_escape_sequences(text: str) -> str:
+    """Remove ANSI escape sequences from a string."""
+    ansi_escape_pattern = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape_pattern.sub("", text)
+
+
+def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
+    res = ""
+    for pkg in packages:
+        tail = remove_ansi_escape_sequences(
+            get_file_tail(logs_dir / get_log_filename(pkg, system))
+        )
+        if tail:
+            if not res:
+                res = "\n---\n"
+                res += f"<details>\n<summary>Error logs: `{system}`</summary>\n"
+            res += f"<details>\n<summary>{pkg.name}</summary>\n<pre>{tail}</pre>\n</details>\n"
+    res += "</details>\n"
     return res
 
 
@@ -112,7 +154,7 @@ def write_error_logs(
     *,
     max_workers: int | None = 1,
 ) -> None:
-    logs = LazyDirectory(directory.joinpath("logs"))
+    logs = LazyDirectory(get_log_dir(directory))
     results = LazyDirectory(directory.joinpath("results"))
     failed_results = LazyDirectory(directory.joinpath("failed_results"))
 
@@ -243,12 +285,14 @@ class Report:
         skip_packages: set[str],
         skip_packages_regex: list[Pattern[str]],
         show_header: bool = True,
+        show_logs: bool = False,
         max_workers: int | None = 1,
         *,
         checkout: Literal["merge", "commit"] = "merge",
     ) -> None:
         self.commit = commit
         self.show_header = show_header
+        self.show_logs = show_logs
         self.max_workers = max_workers
         self.attrs = attrs_per_system
         self.checkout = checkout
@@ -274,10 +318,10 @@ class Report:
         }
 
     def write(self, directory: Path, pr: int | None) -> None:
-        directory.joinpath("report.md").write_text(self.markdown(pr))
-        directory.joinpath("report.json").write_text(self.json(pr))
-
+        # write logs first because snippets from them may be needed for the report
         write_error_logs(self.attrs, directory, max_workers=self.max_workers)
+        directory.joinpath("report.md").write_text(self.markdown(directory, pr))
+        directory.joinpath("report.json").write_text(self.json(pr))
 
     def succeeded(self) -> bool:
         """Whether the report is considered a success or a failure"""
@@ -303,7 +347,7 @@ class Report:
             indent=4,
         )
 
-    def markdown(self, pr: int | None) -> str:
+    def markdown(self, root: Path, pr: int | None) -> str:
         msg = ""
         if self.show_header:
             msg += "## `nixpkgs-review` result\n\n"
@@ -350,6 +394,22 @@ class Report:
             )
             msg += html_pkgs_section(":white_check_mark:", report.built, "built")
 
+        if self.show_logs:
+            truncated_msg = (
+                "\n---\n"
+                "WARNING: Some logs were not included in this report: there were too many."
+            )
+            for system, report in self.system_reports.items():
+                if not report.failed:
+                    continue
+                full_msg = msg
+                full_msg += html_logs_section(get_log_dir(root), report.failed, system)
+                # if the final message won't fit a single github comment, stop
+                if len(full_msg) > MAX_GITHUB_COMMENT_LENGTH - len(truncated_msg):
+                    msg += truncated_msg
+                    break
+                msg = full_msg
+
         return msg
 
     def print_console(self, root: Path, pr: int | None) -> None:
@@ -358,7 +418,7 @@ class Report:
             info("\nLink to currently reviewing PR:")
             link(to_link(pr_url, pr_url))
 
-        logs_dir = root / "logs"
+        logs_dir = get_log_dir(root)
         for system, report in self.system_reports.items():
             info(f"--------- Report for '{system}' ---------")
             p = functools.partial(print_number, logs_dir, system)
