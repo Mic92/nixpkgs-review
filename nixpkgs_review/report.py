@@ -101,7 +101,8 @@ def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
                 continue
             res += f"<details>\n<summary>{pkg.name}</summary>\n<pre>{tail}</pre>\n</details>\n"
             seen_tails.add(tail)
-    res += "</details>\n"
+    if res:
+        res += "</details>\n"
     return res
 
 
