@@ -54,7 +54,7 @@ gh pr create \
   --base master \
   --head "release-${version}" \
   --title "Release ${version}" \
-  --body "Release ${version} of nix-direnv"
+  --body "Release ${version} of nixpkgs-review"
 
 gh pr merge --auto "release-${version}"
 
