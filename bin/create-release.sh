@@ -54,12 +54,13 @@ gh pr create \
   --base master \
   --head "release-${version}" \
   --title "Release ${version}" \
-  --body "Release ${version} of nixpkgs-review"
+  --body "Release ${version} of nixpkgs-review" \
+  --merge \
+  --delete-branch
 
 gh pr merge --auto "release-${version}"
+git checkout master
 
 waitForPr "release-${version}"
-git checkout master
 git pull git@github.com:Mic92/nixpkgs-review master
-git tag "${version}"
-git push origin "${version}"
+gh release create "${version}" --draft --title "${version}" --notes ""
