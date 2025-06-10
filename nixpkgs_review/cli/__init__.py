@@ -144,10 +144,13 @@ def read_github_token() -> str | None:
     token = os.environ.get("GITHUB_OAUTH_TOKEN", os.environ.get("GITHUB_TOKEN"))
     if token:
         return token
+    token_cmds = []
+    if "GITHUB_TOKEN_CMD" in os.environ:
+        token_cmds.append(os.environ.get("GITHUB_TOKEN_CMD").split())
     if which("gh"):
-        r = subprocess.run(
-            ["gh", "auth", "token"], stdout=subprocess.PIPE, text=True, check=False
-        )
+        token_cmds.append(["gh", "auth", "token"])
+    for token_cmd in token_cmds:
+        r = subprocess.run(token_cmd, stdout=subprocess.PIPE, text=True, check=False)
         if r.returncode == 0:
             return r.stdout.strip()
     return None
