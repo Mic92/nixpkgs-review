@@ -17,6 +17,8 @@
         # Used to find the project root
         projectRootFile = "flake.lock";
 
+        flakeCheck = pkgs.hostPlatform.system != "riscv64-linux";
+
         programs.deno.enable =
           pkgs.lib.meta.availableOn pkgs.stdenv.hostPlatform pkgs.deno && !pkgs.deno.meta.broken;
         programs.ruff.format = true;
