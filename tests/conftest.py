@@ -180,6 +180,9 @@ sandbox = false
 sandbox-build-dir = {test_nix_dir.joinpath("build")}
 """
 
+            # Disable sandbox for tests (for macOS compatibility)
+            os.environ["_NIX_TEST_NO_SANDBOX"] = "1"
+
             setup_nixpkgs(nixpkgs_path)
 
             with Chdir(nixpkgs_path):
