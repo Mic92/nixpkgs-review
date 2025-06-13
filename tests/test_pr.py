@@ -1,4 +1,5 @@
 import io
+import json
 import shutil
 import subprocess
 import zipfile
@@ -48,9 +49,13 @@ def test_pr_local_eval(helpers: Helpers, capfd: pytest.CaptureFixture) -> None:
         assert "$ nom build" in captured.out
 
 
+@patch("urllib.request.urlopen")
 @patch("nixpkgs_review.cli.nix_nom_tool", return_value="nix")
 def test_pr_local_eval_missing_nom(
-    mock_tool: Mock, helpers: Helpers, capfd: pytest.CaptureFixture
+    mock_tool: Mock,
+    mock_urlopen: MagicMock,
+    helpers: Helpers,
+    capfd: pytest.CaptureFixture,
 ) -> None:
     with helpers.nixpkgs() as nixpkgs:
         nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
@@ -58,6 +63,16 @@ def test_pr_local_eval_missing_nom(
         subprocess.run(["git", "commit", "-m", "example-change"], check=True)
         subprocess.run(["git", "checkout", "-b", "pull/1/merge"], check=True)
         subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"], check=True)
+
+        # Mock GitHub API response for PR info
+        pr_response = {
+            "number": 1,
+            "head": {"ref": "example-branch", "sha": "abc123"},
+            "base": {"ref": "master"},
+            "title": "Example PR",
+            "html_url": "https://github.com/NixOS/nixpkgs/pull/1",
+        }
+        mock_urlopen.return_value = mock_open(read_data=json.dumps(pr_response))()
 
         path = main(
             "nixpkgs-review",
@@ -78,8 +93,9 @@ def test_pr_local_eval_missing_nom(
         assert "$ nix build" in captured.out
 
 
+@patch("urllib.request.urlopen")
 def test_pr_local_eval_without_nom(
-    helpers: Helpers, capfd: pytest.CaptureFixture
+    mock_urlopen: MagicMock, helpers: Helpers, capfd: pytest.CaptureFixture
 ) -> None:
     with helpers.nixpkgs() as nixpkgs:
         nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
@@ -87,6 +103,16 @@ def test_pr_local_eval_without_nom(
         subprocess.run(["git", "commit", "-m", "example-change"], check=True)
         subprocess.run(["git", "checkout", "-b", "pull/1/merge"], check=True)
         subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"], check=True)
+
+        # Mock GitHub API response for PR info
+        pr_response = {
+            "number": 1,
+            "head": {"ref": "example-branch", "sha": "abc123"},
+            "base": {"ref": "master"},
+            "title": "Example PR",
+            "html_url": "https://github.com/NixOS/nixpkgs/pull/1",
+        }
+        mock_urlopen.return_value = mock_open(read_data=json.dumps(pr_response))()
 
         path = main(
             "nixpkgs-review",
@@ -253,9 +279,11 @@ def test_pr_github_action_eval(
             helpers.assert_built(pkg_name="pkg1", path=path)
 
 
+@patch("urllib.request.urlopen")
 @patch("nixpkgs_review.review._list_packages_system")
 def test_pr_only_packages_does_not_trigger_an_eval(
     mock_eval: MagicMock,
+    mock_urlopen: MagicMock,
     helpers: Helpers,
 ) -> None:
     mock_eval.side_effect = RuntimeError
@@ -267,6 +295,13 @@ def test_pr_only_packages_does_not_trigger_an_eval(
         subprocess.run(
             ["git", "push", str(nixpkgs.remote), "pull/363128/merge"], check=True
         )
+
+        # Mock the GitHub API call to get PR info
+        mock_urlopen.return_value = mock_open(
+            read_data=helpers.read_asset(
+                "test_pr_github_action_eval/github-pull-363128.json"
+            )
+        )()
 
         path = main(
             "nixpkgs-review",
