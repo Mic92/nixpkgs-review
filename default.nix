@@ -17,12 +17,12 @@ python3Packages.buildPythonApplication {
   format = "pyproject";
   nativeBuildInputs = [
     installShellFiles
+    python3Packages.setuptools
   ] ++ lib.optional withAutocomplete python3Packages.argcomplete;
   dependencies = with python3Packages; [ argcomplete ];
 
   nativeCheckInputs =
     [
-      python3Packages.setuptools
       python3Packages.pylint
 
       # needed for interactive unittests
@@ -35,10 +35,38 @@ python3Packages.buildPythonApplication {
     ++ lib.optional withSandboxSupport bubblewrap
     ++ lib.optional withNom' nix-output-monitor;
 
-  checkPhase = ''
-    echo -e "\x1b[32m## run nixpkgs-review --help\x1b[0m"
+  # Disable checks when building with sandbox support since bwrap doesn't work in build sandbox
+  doCheck = !withSandboxSupport;
 
-    NIX_STATE_DIR=$TMPDIR/var/nix $out/bin/nixpkgs-review --help
+  checkPhase = ''
+    # Set up test dependencies
+    export TEST_BASH_PATH="${if stdenv.isLinux then pkgsStatic.bash else pkgs.bash}"
+    export TEST_COREUTILS_PATH="${if stdenv.isLinux then pkgsStatic.coreutils else pkgs.coreutils}"
+    export TEST_NIXPKGS_PATH="${pkgs.path}"
+
+    # Set up Nix environment for sandbox builds
+    export TEST_NIX_DIR=$TMPDIR/test-nix
+    export NIX_STORE_DIR=$TEST_NIX_DIR/store
+    export NIX_DATA_DIR=$TEST_NIX_DIR/share
+    export NIX_LOG_DIR=$TEST_NIX_DIR/var/log/nix
+    export NIX_STATE_DIR=$TEST_NIX_DIR/state
+    export NIX_CONF_DIR=$TEST_NIX_DIR/etc
+
+    mkdir -p $NIX_STORE_DIR $NIX_DATA_DIR $NIX_LOG_DIR $NIX_STATE_DIR $NIX_CONF_DIR
+
+    # Disable substituters and sandboxing for tests
+    export NIX_CONFIG="
+    substituters =
+    connect-timeout = 0
+    sandbox = false
+    sandbox-build-dir = $TEST_NIX_DIR/build
+    "
+
+    # Disable sandbox for tests (for macOS compatibility)
+    export _NIX_TEST_NO_SANDBOX=1
+
+    # Run tests
+    python -m pytest tests/ -x
   '';
   makeWrapperArgs =
     let

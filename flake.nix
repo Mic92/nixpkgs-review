@@ -46,9 +46,14 @@
               // lib.mapAttrs' (n: lib.nameValuePair "devShell-${n}") config.devShells;
 
             devShells = {
-              default = (self'.packages.nixpkgs-review-sandbox or self'.packages.nixpkgs-review).override {
-                withNom = pkgs.hostPlatform.system != "riscv64-linux";
-              };
+              default =
+                ((self'.packages.nixpkgs-review-sandbox or self'.packages.nixpkgs-review).override {
+                  withNom = pkgs.hostPlatform.system != "riscv64-linux";
+                }).overrideAttrs
+                  (_old: {
+                    doCheck = false;
+                    doInstallCheck = false;
+                  });
             };
           };
       }

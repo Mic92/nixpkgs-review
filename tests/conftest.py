@@ -30,16 +30,6 @@ def run(cmd: list[str | Path]) -> None:
 
 def real_nixpkgs() -> str:
     proc = subprocess.run(
-        ["nix-instantiate", "--find-file", "nixpkgs"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        text=True,
-        check=False,
-    )
-    if proc.returncode == 0:
-        return proc.stdout.strip()
-
-    proc = subprocess.run(
         [
             "nix",
             "eval",
@@ -62,10 +52,40 @@ def setup_nixpkgs(target: Path) -> Path:
         dirs_exist_ok=True,
     )
 
-    default_nix = target.joinpath("default.nix")
+    # Get bash and coreutils from environment or build them
+    bash_path = os.environ.get("TEST_BASH_PATH")
+    if not bash_path:
+        bash_path = subprocess.run(
+            ["nix-build", "<nixpkgs>", "-A", "pkgsStatic.bash", "--no-out-link"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
 
-    text = default_nix.read_text().replace('"@NIXPKGS@"', real_nixpkgs())
-    default_nix.write_text(text)
+    coreutils_path = os.environ.get("TEST_COREUTILS_PATH")
+    if not coreutils_path:
+        coreutils_path = subprocess.run(
+            ["nix-build", "<nixpkgs>", "-A", "pkgsStatic.coreutils", "--no-out-link"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+
+    # Get the real nixpkgs path
+    nixpkgs_path = os.environ.get("TEST_NIXPKGS_PATH")
+    if not nixpkgs_path:
+        nixpkgs_path = real_nixpkgs()
+
+    # Substitute the config.nix.in template
+    config_in = target.joinpath("config.nix.in")
+    config_out = target.joinpath("config.nix")
+
+    if config_in.exists():
+        content = config_in.read_text()
+        content = content.replace("@bash@", f"{bash_path}/bin/bash")
+        content = content.replace("@coreutils@", f"{coreutils_path}/bin")
+        content = content.replace("@lib@", f"(import {nixpkgs_path} {{}}).lib")
+        config_out.write_text(content)
 
     return target
 
@@ -133,6 +153,33 @@ class Helpers:
             path = Path(tmpdirname)
             nixpkgs_path = path.joinpath("nixpkgs")
             os.environ["XDG_CACHE_HOME"] = str(path.joinpath("cache"))
+
+            # Set up isolated Nix environment for each test
+            test_nix_dir = path.joinpath("test-nix")
+            os.environ["NIX_STORE_DIR"] = str(test_nix_dir.joinpath("store"))
+            os.environ["NIX_DATA_DIR"] = str(test_nix_dir.joinpath("share"))
+            os.environ["NIX_LOG_DIR"] = str(test_nix_dir.joinpath("var/log/nix"))
+            os.environ["NIX_STATE_DIR"] = str(test_nix_dir.joinpath("state"))
+            os.environ["NIX_CONF_DIR"] = str(test_nix_dir.joinpath("etc"))
+
+            # Create directories
+            for env_var in [
+                "NIX_STORE_DIR",
+                "NIX_DATA_DIR",
+                "NIX_LOG_DIR",
+                "NIX_STATE_DIR",
+                "NIX_CONF_DIR",
+            ]:
+                Path(os.environ[env_var]).mkdir(parents=True, exist_ok=True)
+
+            # Disable substituters and sandboxing for tests
+            os.environ["NIX_CONFIG"] = f"""
+substituters =
+connect-timeout = 0
+sandbox = false
+sandbox-build-dir = {test_nix_dir.joinpath("build")}
+"""
+
             setup_nixpkgs(nixpkgs_path)
 
             with Chdir(nixpkgs_path):
