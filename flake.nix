@@ -40,9 +40,14 @@
               // lib.optionalAttrs (pkgs.stdenv.isLinux) {
                 nixpkgs-review-sandbox = pkgs.callPackage ./. { withSandboxSupport = true; };
               };
+
+            checks =
+              lib.mapAttrs' (n: lib.nameValuePair "package-${n}") config.packages
+              // lib.mapAttrs' (n: lib.nameValuePair "devShell-${n}") config.devShells;
+
             devShells = {
               default = (self'.packages.nixpkgs-review-sandbox or self'.packages.nixpkgs-review).override {
-                withNom = true;
+                withNom = pkgs.hostPlatform.system != "riscv64-linux";
               };
             };
           };
