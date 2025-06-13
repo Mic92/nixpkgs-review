@@ -426,10 +426,10 @@ To run tests use:
 $ pytest
 ```
 
-We also use python3's type hints. To check them, use `mypy`:
+To format the code, use:
 
 ```console
-$ mypy nixpkgs_review
+$ nix fmt
 ```
 
 ## Maintainers
