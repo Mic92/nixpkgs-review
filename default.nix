@@ -30,8 +30,6 @@ python3Packages.buildPythonApplication {
 
   nativeCheckInputs =
     [
-      python3Packages.pylint
-
       # needed for interactive unittests
       python3Packages.pytest
       python3Packages.pytest-xdist
