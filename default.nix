@@ -13,7 +13,14 @@ let
 in
 python3Packages.buildPythonApplication {
   name = "nixpkgs-review";
-  src = ./.;
+  src = lib.fileset.toSource {
+    root = ./.;
+    fileset = lib.fileset.unions [
+      ./pyproject.toml
+      ./nixpkgs_review
+      ./tests
+    ];
+  };
   format = "pyproject";
   nativeBuildInputs = [
     installShellFiles
