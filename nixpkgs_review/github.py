@@ -180,7 +180,9 @@ class GithubClient:
             return None
 
         for workflow_run in workflow_runs:
-            if workflow_run["name"] != "Eval":
+            # "Eval" could be removed after a transition period, when
+            # all pull requests run with the new PR workflow.
+            if workflow_run["name"] not in ("Eval", "PR"):
                 continue
             artifacts: list[Any] = self.get(
                 workflow_run["artifacts_url"],
