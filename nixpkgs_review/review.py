@@ -224,18 +224,13 @@ class Review:
             limited_diff = "\n".join(diff_lines)
 
             try:
-                delta_process = subprocess.Popen(
-                    [delta_cmd, "--side-by-side", "--line-numbers"],
+                subprocess.run(
+                    [delta_cmd, "--side-by-side", "--line-numbers", "--paging=never"],
                     stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
+                    check=True,
                 )
-                stdout, _ = delta_process.communicate(input=limited_diff)
-                if delta_process.returncode == 0:
-                    print(stdout)
-                else:
-                    print(limited_diff)
             except subprocess.SubprocessError:
                 print(limited_diff)
 
