@@ -38,7 +38,7 @@
                 default = config.packages.nixpkgs-review;
               }
               // lib.optionalAttrs (pkgs.stdenv.isLinux) {
-                nixpkgs-review-sandbox = pkgs.callPackage ./. { withSandboxSupport = true; };
+                nixpkgs-review-sandbox = pkgs.callPackage ./default.nix { withSandboxSupport = true; };
               };
 
             checks =
