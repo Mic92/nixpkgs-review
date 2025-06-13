@@ -182,7 +182,7 @@ done
 inside the nix-shell instead of an interactive session:
 
 ```console
-$ nixpkgs-review pr --run --systems all 'jq < report.json' 340297
+$ nixpkgs-review pr --run 'jq < report.json' --systems all 340297
 # ...
 {
   "checkout": "merge",
