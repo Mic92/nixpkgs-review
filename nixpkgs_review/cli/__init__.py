@@ -76,6 +76,11 @@ def pr_flags(
         action="store_true",
         help="Do not include build error log snippets in the markdown report",
     )
+    pr_parser.add_argument(
+        "--no-pr-info",
+        action="store_true",
+        help="Do not show pull request description and diff before building",
+    )
     pr_parser.set_defaults(func=pr_command)
     return pr_parser
 

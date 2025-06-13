@@ -15,6 +15,59 @@ from nixpkgs_review.utils import nix_nom_tool
 from .conftest import Helpers
 
 
+def create_mock_pr_response(
+    pr_number: int = 1,
+    title: str = "Example PR",
+    body: str = "This is a test PR",
+) -> dict:
+    """Create a mock GitHub PR response."""
+    return {
+        "number": pr_number,
+        "head": {
+            "ref": "example-branch",
+            "sha": "abc123",
+            "label": "user:example-branch",
+        },
+        "base": {"ref": "master", "label": "NixOS:master"},
+        "title": title,
+        "html_url": f"https://github.com/NixOS/nixpkgs/pull/{pr_number}",
+        "user": {"login": "test-user"},
+        "state": "open",
+        "body": body,
+        "diff_url": f"https://github.com/NixOS/nixpkgs/pull/{pr_number}.diff",
+        "draft": False,
+    }
+
+
+def create_mock_diff_content() -> str:
+    """Create a mock diff content."""
+    return """diff --git a/pkg1.txt b/pkg1.txt
+new file mode 100644
+index 0000000..1910281
+--- /dev/null
++++ b/pkg1.txt
+@@ -0,0 +1 @@
++foo"""
+
+
+def setup_pr_mocks(
+    mock_urlopen: MagicMock, pr_number: int = 1, additional_mocks: list | None = None
+) -> None:
+    """Set up standard mock responses for PR tests."""
+    pr_response = create_mock_pr_response(pr_number)
+    diff_content = create_mock_diff_content()
+
+    mocks = [
+        mock_open(read_data=json.dumps(pr_response).encode())(),
+        mock_open(read_data=diff_content.encode())(),
+    ]
+
+    if additional_mocks:
+        mocks.extend(additional_mocks)
+
+    mock_urlopen.side_effect = mocks
+
+
 @patch("nixpkgs_review.utils.shutil.which", return_value=None)
 def test_default_to_nix_if_nom_not_found(mock_shutil: Mock) -> None:
     return_value = nix_nom_tool()
@@ -64,15 +117,7 @@ def test_pr_local_eval_missing_nom(
         subprocess.run(["git", "checkout", "-b", "pull/1/merge"], check=True)
         subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"], check=True)
 
-        # Mock GitHub API response for PR info
-        pr_response = {
-            "number": 1,
-            "head": {"ref": "example-branch", "sha": "abc123"},
-            "base": {"ref": "master"},
-            "title": "Example PR",
-            "html_url": "https://github.com/NixOS/nixpkgs/pull/1",
-        }
-        mock_urlopen.return_value = mock_open(read_data=json.dumps(pr_response))()
+        setup_pr_mocks(mock_urlopen, pr_number=1)
 
         path = main(
             "nixpkgs-review",
@@ -104,15 +149,7 @@ def test_pr_local_eval_without_nom(
         subprocess.run(["git", "checkout", "-b", "pull/1/merge"], check=True)
         subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"], check=True)
 
-        # Mock GitHub API response for PR info
-        pr_response = {
-            "number": 1,
-            "head": {"ref": "example-branch", "sha": "abc123"},
-            "base": {"ref": "master"},
-            "title": "Example PR",
-            "html_url": "https://github.com/NixOS/nixpkgs/pull/1",
-        }
-        mock_urlopen.return_value = mock_open(read_data=json.dumps(pr_response))()
+        setup_pr_mocks(mock_urlopen, pr_number=1)
 
         path = main(
             "nixpkgs-review",
@@ -171,25 +208,32 @@ def test_pr_ofborg_eval(mock_urlopen: MagicMock, helpers: Helpers) -> None:
             ["git", "push", str(nixpkgs.remote), "pull/37200/merge"], check=True
         )
 
-        mock_urlopen.side_effect = [
-            mock_open(
-                read_data=helpers.read_asset(
-                    "test_pr_ofborg_eval/github-pull-37200.json"
-                )
-            )(),
+        # Set up mocks for ofborg eval
+        additional_mocks = [
             mock_open(
                 read_data=helpers.read_asset(
                     "test_pr_ofborg_eval/github-workflows-37200.json"
-                )
+                ).encode()
             )(),
             mock_open(
                 read_data=helpers.read_asset(
                     "test_pr_ofborg_eval/github-pull-37200-statuses.json"
-                )
+                ).encode()
             )(),
             helpers.read_asset("test_pr_ofborg_eval/gist-37200.txt")
             .encode("utf-8")
             .split(b"\n"),
+        ]
+
+        # Use custom PR response from asset file
+        mock_urlopen.side_effect = [
+            mock_open(
+                read_data=helpers.read_asset(
+                    "test_pr_ofborg_eval/github-pull-37200.json"
+                ).encode()
+            )(),
+            mock_open(read_data=create_mock_diff_content().encode())(),
+            *additional_mocks,
         ]
 
         path = main(
@@ -233,23 +277,30 @@ def test_pr_github_action_eval(
             )
         mock_zip.seek(0)
 
-        mock_urlopen.side_effect = [
-            mock_open(
-                read_data=helpers.read_asset(
-                    "test_pr_github_action_eval/github-pull-363128.json"
-                )
-            )(),
+        # Set up mocks for github action eval
+        additional_mocks = [
             mock_open(
                 read_data=helpers.read_asset(
                     "test_pr_github_action_eval/github-workflows-363128.json"
-                )
+                ).encode()
             )(),
             mock_open(
                 read_data=helpers.read_asset(
                     "test_pr_github_action_eval/github-artifacts-363128.json"
-                )
+                ).encode()
             )(),
             mock_open(read_data=mock_zip.getvalue())(),
+        ]
+
+        # Use custom PR response from asset file
+        mock_urlopen.side_effect = [
+            mock_open(
+                read_data=helpers.read_asset(
+                    "test_pr_github_action_eval/github-pull-363128.json"
+                ).encode()
+            )(),
+            mock_open(read_data=create_mock_diff_content().encode())(),
+            *additional_mocks,
         ]
 
         hdrs = HTTPMessage()
@@ -296,12 +347,15 @@ def test_pr_only_packages_does_not_trigger_an_eval(
             ["git", "push", str(nixpkgs.remote), "pull/363128/merge"], check=True
         )
 
-        # Mock the GitHub API call to get PR info
-        mock_urlopen.return_value = mock_open(
-            read_data=helpers.read_asset(
-                "test_pr_github_action_eval/github-pull-363128.json"
-            )
-        )()
+        # Use custom PR response from asset file
+        mock_urlopen.side_effect = [
+            mock_open(
+                read_data=helpers.read_asset(
+                    "test_pr_github_action_eval/github-pull-363128.json"
+                ).encode()
+            )(),
+            mock_open(read_data=create_mock_diff_content().encode())(),
+        ]
 
         path = main(
             "nixpkgs-review",

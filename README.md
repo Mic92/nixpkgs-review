@@ -150,10 +150,30 @@ nix-shell> nixpkgs-review post-result
 nix-shell> nixpkgs-review comments
 ```
 
+## Optional tools
+
+`nixpkgs-review` can integrate with several optional tools to enhance the user
+experience:
+
+### nix-output-monitor (nom)
+
 `nixpkgs-review` will by default use
 [nix-output-monitor](https://github.com/maralorn/nix-output-monitor) if found in
-`$PATH`. If you have `nom` installed but don't want to use it, you can pass
-`nix` to `--build-graph` to use `nix build` instead of `nom build`.
+`$PATH`. This provides a more user-friendly build output with progress tracking
+and cleaner formatting. If you have `nom` installed but don't want to use it,
+you can pass `nix` to `--build-graph` to use `nix build` instead of `nom build`.
+
+### glow
+
+When [glow](https://github.com/charmbracelet/glow) is installed and available in
+`$PATH`, `nixpkgs-review` will use it to render markdown content (such as PR
+descriptions) with syntax highlighting and formatting in the terminal.
+
+### delta
+
+When [delta](https://github.com/dandavison/delta) is installed and available in
+`$PATH`, `nixpkgs-review` will use it to display git diffs with enhanced
+visualization, including side-by-side comparisons and syntax highlighting.
 
 Some pull requests may require configuration for nixpkgs to test out. You can
 use the `--extra-nixpkgs-config` flag to supply extra configuration for nixpkgs.
@@ -413,11 +433,6 @@ $ nix-shell -p bubblewrap # or install it using NixOS/Home-Manager/etc.
 $ nixpkgs-review pr --sandbox 98734
 ```
 
-## Roadmap
-
-- [ ] test backports
-- [ ] show pull request description + diff during review
-
 ## Run tests
 
 To run tests use:
@@ -426,10 +441,10 @@ To run tests use:
 $ pytest
 ```
 
-We also use python3's type hints. To check them, use `mypy`:
+To format the code, use:
 
 ```console
-$ mypy nixpkgs_review
+$ nix fmt
 ```
 
 ## Maintainers
@@ -437,18 +452,8 @@ $ mypy nixpkgs_review
 The following persons have commit access to this repo:
 
 - [Artturin](https://github.com/Artturin)
+- [figsoda](https://github.com/figsoda)
 - [GaetanLepage](https://github.com/GaetanLepage)
 - [Mic92](https://github.com/Mic92)
 - [SuperSandro2000](https://github.com/SuperSandro2000)
-
-## Related projects:
-
-- [nox-review](https://github.com/madjar/nox):
-  - works but is as slow as a snail: the checkout process of nox-review is slow
-    since it requires multiple git fetches. Also it cannot make use of ofborg's
-    evaluation
-  - it only builds all packages without providing a `nix-shell` for review
-- [niff](https://github.com/FRidh/niff):
-  - only provides a list of packages that have changed, but does not build
-    packages
-  - also needs to evaluate changed attributes locally instead of using ofborg
+- [wolfgangwalther](https://github.com/wolfgangwalther)

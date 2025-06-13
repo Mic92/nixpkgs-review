@@ -115,6 +115,7 @@ def pr_command(args: argparse.Namespace) -> str:
                     num_parallel_evals=args.num_parallel_evals,
                     show_header=not args.no_headers,
                     show_logs=not args.no_logs,
+                    show_pr_info=not args.no_pr_info,
                 )
                 contexts.append(
                     (pr, builddir.path, review.build_pr(pr), review.head_commit)
