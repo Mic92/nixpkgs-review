@@ -1,15 +1,28 @@
 {
-  pkgs ? import <nixpkgs> { },
+  lib,
+  stdenv,
+  buildPlatform,
+  python3Packages,
+  nixVersions,
+  git,
+  bash,
+  coreutils,
+  bubblewrap,
+  nix-output-monitor,
+  installShellFiles,
+  cacert,
+  ghc,
+  pkgsStatic,
+  path,
   withSandboxSupport ? false,
   withAutocomplete ? true,
   withNom ? false,
 }:
 
-with pkgs;
 let
   withNom' =
     withNom
-    && (builtins.tryEval (builtins.elem buildPlatform.system pkgs.ghc.meta.platforms)).value or false;
+    && (builtins.tryEval (builtins.elem buildPlatform.system ghc.meta.platforms)).value or false;
 in
 python3Packages.buildPythonApplication {
   name = "nixpkgs-review";
@@ -34,7 +47,7 @@ python3Packages.buildPythonApplication {
       python3Packages.pytest
       python3Packages.pytest-xdist
 
-      pkgs.nixVersions.stable or nix_2_4
+      nixVersions.stable
       git
     ]
     ++ lib.optional withSandboxSupport bubblewrap
@@ -45,9 +58,9 @@ python3Packages.buildPythonApplication {
 
   checkPhase = ''
     # Set up test dependencies
-    export TEST_BASH_PATH="${if stdenv.isLinux then pkgsStatic.bash else pkgs.bash}"
-    export TEST_COREUTILS_PATH="${if stdenv.isLinux then pkgsStatic.coreutils else pkgs.coreutils}"
-    export TEST_NIXPKGS_PATH="${pkgs.path}"
+    export TEST_BASH_PATH="${if stdenv.isLinux then pkgsStatic.bash else bash}"
+    export TEST_COREUTILS_PATH="${if stdenv.isLinux then pkgsStatic.coreutils else coreutils}"
+    export TEST_NIXPKGS_PATH="${path}"
 
     # Run tests
     python -m pytest tests/ -x
@@ -56,7 +69,7 @@ python3Packages.buildPythonApplication {
     let
       binPath =
         [
-          pkgs.nixVersions.stable or nix_2_4
+          nixVersions.stable
           git
         ]
         ++ lib.optional withSandboxSupport bubblewrap
