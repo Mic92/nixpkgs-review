@@ -261,11 +261,12 @@ for detailed instructions. For posting generated reports, ensure the token is
 granted the `public_repo` scope.
 
 **Supplying the Token** You can provide your token to Nixpkgs-review using
-either the `GITHUB_TOKEN` environment variable or the `--token` parameter of the
-`pr` subcommand. Examples:
+either the `GITHUB_TOKEN` / `GITHUB_TOKEN_CMD` environment variable or the
+`--token` parameter of the `pr` subcommand. Examples:
 
 ```console
 $ GITHUB_TOKEN=ghp_WAI7vpi9wVHbxPOA185NwWvaMawDuCnMGc3E nixpkgs-review pr 37244 --post-result
+$ GITHUB_TOKEN_CMD="pass github-token" nixpkgs-review pr 37244 --post-result
 $ nixpkgs-review pr 37244 --token ghp_WAI7vpi9wVHbxPOA185NwWvaMawDuCnMGc3E --post-result
 ```
 
