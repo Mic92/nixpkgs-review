@@ -437,6 +437,8 @@ $ mypy nixpkgs_review
 The following persons have commit access to this repo:
 
 - [Artturin](https://github.com/Artturin)
+- [figsoda](https://github.com/figsoda)
 - [GaetanLepage](https://github.com/GaetanLepage)
 - [Mic92](https://github.com/Mic92)
 - [SuperSandro2000](https://github.com/SuperSandro2000)
+- [wolfgangwalther](https://github.com/wolfgangwalther)
