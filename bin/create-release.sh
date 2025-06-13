@@ -50,13 +50,17 @@ git branch -D "release-${version}" || true
 git checkout -b "release-${version}"
 git commit -m "bump version ${version}"
 git push origin "release-${version}"
-gh pr create \
+pr_url=$(gh pr create \
   --base master \
   --head "release-${version}" \
   --title "Release ${version}" \
-  --body "Release ${version} of nixpkgs-review"
+  --body "Release ${version} of nixpkgs-review")
 
-gh pr merge --auto "release-${version}"
+# Extract PR number from URL
+pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
+
+# Enable auto-merge with specific merge method and delete branch
+gh pr merge "$pr_number" --auto --merge --delete-branch
 git checkout master
 
 waitForPr "release-${version}"
