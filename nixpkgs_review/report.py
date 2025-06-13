@@ -337,6 +337,7 @@ class Report:
             {
                 "systems": list(self.system_reports.keys()),
                 "pr": pr,
+                "commit": self.commit,
                 "checkout": self.checkout,
                 "extra-nixpkgs-config": self.extra_nixpkgs_config,
                 "only_packages": list(self.only_packages),
