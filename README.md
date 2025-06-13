@@ -150,10 +150,30 @@ nix-shell> nixpkgs-review post-result
 nix-shell> nixpkgs-review comments
 ```
 
+## Optional tools
+
+`nixpkgs-review` can integrate with several optional tools to enhance the user
+experience:
+
+### nix-output-monitor (nom)
+
 `nixpkgs-review` will by default use
 [nix-output-monitor](https://github.com/maralorn/nix-output-monitor) if found in
-`$PATH`. If you have `nom` installed but don't want to use it, you can pass
-`nix` to `--build-graph` to use `nix build` instead of `nom build`.
+`$PATH`. This provides a more user-friendly build output with progress tracking
+and cleaner formatting. If you have `nom` installed but don't want to use it,
+you can pass `nix` to `--build-graph` to use `nix build` instead of `nom build`.
+
+### glow
+
+When [glow](https://github.com/charmbracelet/glow) is installed and available in
+`$PATH`, `nixpkgs-review` will use it to render markdown content (such as PR
+descriptions) with syntax highlighting and formatting in the terminal.
+
+### delta
+
+When [delta](https://github.com/dandavison/delta) is installed and available in
+`$PATH`, `nixpkgs-review` will use it to display git diffs with enhanced
+visualization, including side-by-side comparisons and syntax highlighting.
 
 Some pull requests may require configuration for nixpkgs to test out. You can
 use the `--extra-nixpkgs-config` flag to supply extra configuration for nixpkgs.
@@ -412,11 +432,6 @@ nixpkgs so we can try to fix this issue.
 $ nix-shell -p bubblewrap # or install it using NixOS/Home-Manager/etc.
 $ nixpkgs-review pr --sandbox 98734
 ```
-
-## Roadmap
-
-- [ ] test backports
-- [ ] show pull request description + diff during review
 
 ## Run tests
 

@@ -3,10 +3,12 @@ import concurrent.futures
 import fcntl
 import itertools
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 import time
+import urllib.request
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -113,6 +115,7 @@ class Review:
         num_parallel_evals: int = 1,
         show_header: bool = True,
         show_logs: bool = False,
+        show_pr_info: bool = True,
     ) -> None:
         if skip_packages_regex is None:
             skip_packages_regex = []
@@ -151,6 +154,7 @@ class Review:
         self.num_parallel_evals = num_parallel_evals
         self.show_header = show_header
         self.show_logs = show_logs
+        self.show_pr_info = show_pr_info
         self.head_commit: str | None = None
 
     def _process_aliases_for_systems(self, system: str) -> set[str]:
@@ -172,6 +176,103 @@ class Review:
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
+
+    def _render_markdown(self, content: str, max_length: int = 1000) -> None:
+        """Render markdown content using glow if available, otherwise plain text."""
+        is_truncated = len(content) > max_length
+        content = content[:max_length]
+
+        glow_cmd = shutil.which("glow")
+        if glow_cmd and os.isatty(sys.stdout.fileno()):
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+                f.write(content)
+                temp_file = f.name
+            try:
+                subprocess.run([glow_cmd, temp_file], check=False)
+            finally:
+                Path(temp_file).unlink()
+        else:
+            print(content)
+
+        if is_truncated:
+            print("\n... (truncated)")
+
+    def _display_diff_preview(self, diff_content: str) -> None:
+        """Display diff preview with delta if available."""
+        files_changed = set()
+        for line in diff_content.split("\n"):
+            if line.startswith("diff --git"):
+                parts = line.split()
+                if len(parts) >= 3:
+                    file_path = parts[2].lstrip("a/")
+                    files_changed.add(file_path)
+
+        if files_changed:
+            print(f"\nFiles changed ({len(files_changed)} files):")
+            for file_path in sorted(files_changed)[:20]:
+                print(f"  - {file_path}")
+            if len(files_changed) > 20:
+                print(f"  ... and {len(files_changed) - 20} more files")
+
+        delta_cmd = shutil.which("delta")
+        if delta_cmd and os.isatty(sys.stdout.fileno()):
+            print(f"\n{'-' * 40}")
+            print("Diff preview (showing first 500 lines):")
+            print(f"{'-' * 40}")
+
+            diff_lines = diff_content.split("\n")[:500]
+            limited_diff = "\n".join(diff_lines)
+
+            try:
+                delta_process = subprocess.Popen(
+                    [delta_cmd, "--side-by-side", "--line-numbers"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                stdout, _ = delta_process.communicate(input=limited_diff)
+                if delta_process.returncode == 0:
+                    print(stdout)
+                else:
+                    print(limited_diff)
+            except subprocess.SubprocessError:
+                print(limited_diff)
+
+            if len(diff_content.split("\n")) > 500:
+                print(
+                    f"\n... (diff truncated, showing first 500 lines of {len(diff_content.split('\n'))} total)"
+                )
+            print(f"{'-' * 40}")
+
+    def _display_pr_info(self, pr: dict, pr_number: int) -> None:
+        """Display PR description and diff information."""
+        print(f"\n{'=' * 80}")
+        print(f"PR #{pr_number}: {pr['title']}")
+        print(f"{'=' * 80}")
+        print(f"Author: {pr['user']['login']}")
+        print(f"Branch: {pr['head']['label']} -> {pr['base']['label']}")
+        print(f"State: {pr['state']}")
+        if pr.get("draft", False):
+            print("Status: Draft")
+
+        if pr["body"]:
+            print(f"\nDescription:\n{'-' * 40}")
+            self._render_markdown(pr["body"])
+            print(f"{'-' * 40}")
+
+        diff_url = pr.get("diff_url")
+        if not diff_url:
+            return
+
+        try:
+            with urllib.request.urlopen(diff_url) as response:  # noqa: S310
+                diff_content = response.read().decode("utf-8")
+            self._display_diff_preview(diff_content)
+        except (urllib.error.URLError, OSError):
+            pass
+
+        print(f"{'=' * 80}\n")
 
     def git_merge(self, commit: str) -> None:
         res = sh(
@@ -318,6 +419,9 @@ class Review:
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
         pr = self.github_client.pull_request(pr_number)
         self.head_commit = pr["head"]["sha"]
+
+        if self.show_pr_info:
+            self._display_pr_info(pr, pr_number)
 
         packages_per_system: dict[System, set[str]] | None = None
         if self.use_github_eval:
