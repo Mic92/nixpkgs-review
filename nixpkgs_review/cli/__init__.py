@@ -356,4 +356,4 @@ def main(command: str, raw_args: list[str]) -> str:
     args = parse_args(command, raw_args)
     if not check_common_flags(args):
         sys.exit(1)
-    return cast(str, args.func(args))
+    return cast("str", args.func(args))
