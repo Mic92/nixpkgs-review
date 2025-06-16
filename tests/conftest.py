@@ -172,7 +172,7 @@ class Helpers:
     @staticmethod
     def load_report(review_dir: str) -> dict[str, Any]:
         data = (Path(review_dir) / "report.json").read_text()
-        return cast(dict[str, Any], json.loads(data))
+        return cast("dict[str, Any]", json.loads(data))
 
     @staticmethod
     def assert_built(pkg_name: str, path: str) -> None:
