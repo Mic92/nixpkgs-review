@@ -60,6 +60,10 @@ First, change to your local nixpkgs repository directory, i.e.:
 cd ~/git/nixpkgs
 ```
 
+If you've shallow cloned nixpkgs (`git clone --depth`), `nixpkgs-review` may be
+unable to perform merges due to missing merge base commits. Reclone nixpkgs
+without the `--depth` flag.
+
 Note that your local checkout git will not be affected by `nixpkgs-review`,
 since it will use [git-worktree](https://git-scm.com/docs/git-worktree) to
 perform fast checkouts.
