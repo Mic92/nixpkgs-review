@@ -1,4 +1,5 @@
 import functools
+import html
 import json
 import os
 import re
@@ -90,8 +91,10 @@ def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
     res = ""
     seen_tails = set()
     for pkg in packages:
-        tail = remove_ansi_escape_sequences(
-            get_file_tail(logs_dir / get_log_filename(pkg, system))
+        tail = html.escape(
+            remove_ansi_escape_sequences(
+                get_file_tail(logs_dir / get_log_filename(pkg, system))
+            )
         )
         if tail:
             if not res:
