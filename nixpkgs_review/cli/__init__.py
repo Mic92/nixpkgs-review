@@ -151,7 +151,7 @@ def read_github_token() -> str | None:
         return token
     token_cmds = []
     if "GITHUB_TOKEN_CMD" in os.environ:
-        token_cmds.append(os.environ.get("GITHUB_TOKEN_CMD").split())
+        token_cmds.append(os.environ.get("GITHUB_TOKEN_CMD", "").split())
     if which("gh"):
         token_cmds.append(["gh", "auth", "token"])
     for token_cmd in token_cmds:
