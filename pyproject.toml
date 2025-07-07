@@ -43,8 +43,6 @@ lint.ignore = [
   # fixmes
   "FIX",
 
-  # Missing type annotation for `self` in method
-  "ANN101",
   # Dynamically typed expressions (typing.Any)
   "ANN401",
   # Trailing comma missing
