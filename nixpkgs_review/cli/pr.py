@@ -73,6 +73,11 @@ def pr_command(args: argparse.Namespace) -> str:
             warn(f"Invalid Pull Request JSON object provided: {obj}")
             sys.exit(1)
         pr_objects[obj["number"]] = obj
+    if args.no_pr_lookup and (missing := [pr for pr in prs if pr not in pr_objects]):
+        warn(
+            f"For the following PRs no JSON objects have been specified using the --pr-json flag, and API lookups are disabled using the --no-pr-lookup flag: {', '.join(map(str, missing))}"
+        )
+        sys.exit(1)
 
     if args.post_result or args.approve_pr:
         ensure_github_token(args.token)
