@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import tempfile
 import urllib.error
@@ -114,6 +115,12 @@ class GithubClient:
 
     def pull_request(self, number: int) -> Any:
         "Get a pull request"
+
+        if pr_json := os.environ.get("NIXPKGS_REVIEW_PULL_REQUEST_JSON"):
+            pr = json.loads(pr_json)
+            assert pr["number"] == number
+            return pr
+
         return self.get(f"repos/NixOS/nixpkgs/pulls/{number}")
 
     def get_json_from_artifact(self, workflow_id: int, json_filename: str) -> Any:
