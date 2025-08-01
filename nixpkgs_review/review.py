@@ -452,14 +452,14 @@ class Review:
         if self.checkout == CheckoutOption.MERGE:
             base_rev, pr_rev = fetch_refs(
                 self.remote,
-                pr["base"]["ref"],
-                f"pull/{pr['number']}/merge",
+                pr["base"]["sha"],
+                pr["merge_commit_sha"],
             )
         else:
             merge_rev, pr_rev = fetch_refs(
                 self.remote,
-                pr["base"]["ref"],
-                f"pull/{pr['number']}/head",
+                pr["base"]["sha"],
+                pr["head"]["sha"],
             )
             run = subprocess.run(
                 ["git", "merge-base", merge_rev, pr_rev],
