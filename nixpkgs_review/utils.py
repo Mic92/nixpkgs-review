@@ -1,4 +1,5 @@
 import functools
+import os
 import shlex
 import shutil
 import subprocess
@@ -36,16 +37,30 @@ def to_link(uri: str, text: str) -> str:
 
 
 def sh(
-    command: list[str], cwd: Path | str | None = None
+    command: list[str],
+    cwd: Path | str | None = None,
+    env: dict[str, str] | None = None,
+    stdin: str | None = None,
+    stdout: int | None = None,
+    stderr: int | None = None,
+    quiet: bool = False,
 ) -> "subprocess.CompletedProcess[str]":
-    info("$ " + shlex.join(command))
-    return subprocess.run(command, cwd=cwd, text=True, check=False)
-
-
-def verify_commit_hash(commit: str) -> str:
-    cmd = ["git", "rev-parse", "--verify", commit]
-    proc = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, text=True)
-    return proc.stdout.strip()
+    if not quiet:
+        info("$ " + shlex.join(command))
+    if env is not None:
+        full_env = os.environ.copy()
+        full_env.update(env)
+        env = full_env
+    return subprocess.run(
+        command,
+        cwd=cwd,
+        text=True,
+        check=False,
+        env=env,
+        input=stdin,
+        stdout=stdout,
+        stderr=stderr,
+    )
 
 
 def escape_attr(attr: str) -> str:
