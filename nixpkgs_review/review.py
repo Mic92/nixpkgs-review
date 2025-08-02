@@ -20,7 +20,7 @@ from xml.etree import ElementTree as ET
 
 from .allow import AllowedFeatures
 from .builddir import Builddir
-from .errors import NixpkgsReviewError
+from .errors import ArtifactExpiredError, NixpkgsReviewError
 from .github import GithubClient
 from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
@@ -423,29 +423,46 @@ class Review:
             assert all(system in PLATFORMS for system in self.systems)
             print("-> Fetching eval results from GitHub actions")
 
-            packages_per_system = self.github_client.get_github_action_eval_result(pr)
-            if packages_per_system is None:
-                timeout_s: int = 10
-                print(f"...Results are not (yet) available. Retrying in {timeout_s}s")
-                waiting_time_s: int = 0
-                while packages_per_system is None:
-                    waiting_time_s += timeout_s
-                    print(".", end="")
-                    sys.stdout.flush()
-                    time.sleep(timeout_s)
-                    packages_per_system = (
-                        self.github_client.get_github_action_eval_result(pr)
+            try:
+                packages_per_system = self.github_client.get_github_action_eval_result(
+                    pr
+                )
+                if packages_per_system is None:
+                    timeout_s: int = 10
+                    print(
+                        f"...Results are not (yet) available. Retrying in {timeout_s}s"
                     )
-                    if waiting_time_s > 10 * 60:
-                        warn(
-                            "\nTimeout exceeded: No evaluation seems to be available on GitHub."
-                            "\nLook for an eventual evaluation error issue on the PR web page."
-                            "\nAlternatively, use `--eval local` to do the evaluation locally."
-                        )
-                        sys.exit(1)
-                print()
+                    waiting_time_s: int = 0
+                    while packages_per_system is None:
+                        waiting_time_s += timeout_s
+                        print(".", end="")
+                        sys.stdout.flush()
+                        time.sleep(timeout_s)
+                        try:
+                            packages_per_system = (
+                                self.github_client.get_github_action_eval_result(pr)
+                            )
+                        except ArtifactExpiredError as e:
+                            warn(f"\n{e}. Falling back to local evaluation.")
+                            packages_per_system = None
+                            break
+                        if waiting_time_s > 10 * 60:
+                            warn(
+                                "\nTimeout exceeded: No evaluation seems to be available on GitHub."
+                                "\nLook for an eventual evaluation error issue on the PR web page."
+                                "\nAlternatively, use `--eval local` to do the evaluation locally."
+                            )
+                            sys.exit(1)
+                    if packages_per_system is not None:
+                        print()
 
-            print("-> Successfully fetched rebuilds: no local evaluation needed")
+                if packages_per_system is not None:
+                    print(
+                        "-> Successfully fetched rebuilds: no local evaluation needed"
+                    )
+            except ArtifactExpiredError as e:
+                warn(f"{e}. Falling back to local evaluation.")
+                packages_per_system = None
         else:
             packages_per_system = None
 
