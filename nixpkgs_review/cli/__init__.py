@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -30,6 +31,14 @@ def regex_type(s: str) -> Pattern[str]:
         return re.compile(s)
     except re.error as e:
         msg = f"'{s}' is not a valid regex: {e}"
+        raise argparse.ArgumentTypeError(msg) from e
+
+
+def json_type(s: str) -> Any:
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError as e:
+        msg = f"'{s}' is not a valid JSON object: {e}"
         raise argparse.ArgumentTypeError(msg) from e
 
 
@@ -80,6 +89,13 @@ def pr_flags(
         "--no-pr-info",
         action="store_true",
         help="Do not show pull request description and diff before building",
+    )
+    pr_parser.add_argument(
+        "--pr-json",
+        type=json_type,
+        action="append",
+        default=[],
+        help="The pull request JSON data returned by the /repos/{owner}/{repo}/pulls/{pull_number} endpoint of the GitHub REST API. Useful if multiple nixpkgs-review instances should operate on the exact same PR commits. If used, needs to be specified separately for each PR.",
     )
     pr_parser.set_defaults(func=pr_command)
     return pr_parser

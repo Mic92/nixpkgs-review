@@ -2,7 +2,7 @@ import argparse
 import re
 import sys
 from contextlib import ExitStack
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from nixpkgs_review.allow import AllowedFeatures
 from nixpkgs_review.builddir import Builddir
@@ -63,6 +63,22 @@ def pr_command(args: argparse.Namespace) -> str:
         CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
     )
 
+    pr_objects: dict[int, Any] = {}
+    for obj in args.pr_json:
+        if (
+            not isinstance(obj, dict)
+            or "number" not in obj
+            or not isinstance(obj["number"], int)
+        ):
+            warn(f"Invalid Pull Request JSON object provided: {obj}")
+            sys.exit(1)
+        pr_objects[obj["number"]] = obj
+    if args.pr_json and (missing := [pr for pr in prs if pr not in pr_objects]):
+        warn(
+            f"API lookups for PRs are disabled due to the use of the --pr-json flag, but no JSON objects have been specified for the following PRs: {', '.join(map(str, missing))}"
+        )
+        sys.exit(1)
+
     if args.post_result or args.approve_pr:
         ensure_github_token(args.token)
     if args.system:
@@ -116,6 +132,7 @@ def pr_command(args: argparse.Namespace) -> str:
                     show_header=not args.no_headers,
                     show_logs=not args.no_logs,
                     show_pr_info=not args.no_pr_info,
+                    pr_object=pr_objects.get(pr),
                 )
                 contexts.append(
                     (pr, builddir.path, review.build_pr(pr), review.head_commit)
