@@ -107,6 +107,7 @@ class Review:
         api_token: str | None = None,
         use_github_eval: bool | None = True,
         only_packages: set[str] | None = None,
+        additional_packages: set[str] | None = None,
         package_regexes: list[Pattern[str]] | None = None,
         skip_packages: set[str] | None = None,
         skip_packages_regex: list[Pattern[str]] | None = None,
@@ -134,6 +135,7 @@ class Review:
         self.use_github_eval = use_github_eval and not only_packages
         self.checkout = checkout
         self.only_packages = only_packages
+        self.additional_packages = additional_packages
         self.package_regex = package_regexes
         self.skip_packages = skip_packages
         self.skip_packages_regex = skip_packages_regex
@@ -398,7 +400,7 @@ class Review:
                 system,
                 self.allow,
                 self.builddir.nix_path,
-            )
+            ) | (self.additional_packages or set())
         return nix_build(
             packages_per_system,
             args,
@@ -898,6 +900,7 @@ def review_local_revision(
             run=args.run,
             remote=args.remote,
             only_packages=set(args.package),
+            additional_packages=set(args.additional_package),
             package_regexes=args.package_regex,
             skip_packages=set(args.skip_package),
             skip_packages_regex=args.skip_package_regex,
