@@ -359,10 +359,12 @@ def test_pr_github_action_eval(
                     str(nixpkgs.remote),
                     "--run",
                     "exit 0",
+                    "--additional-package",
+                    "bashInteractive",
                     "363128",
                 ],
             )
-            helpers.assert_built(path, "pkg1")
+            helpers.assert_built(path, "pkg1", "bashInteractive")
 
 
 @patch("urllib.request.urlopen")

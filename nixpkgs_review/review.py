@@ -107,6 +107,7 @@ class Review:
         api_token: str | None = None,
         use_github_eval: bool | None = True,
         only_packages: set[str] | None = None,
+        additional_packages: set[str] | None = None,
         package_regexes: list[Pattern[str]] | None = None,
         skip_packages: set[str] | None = None,
         skip_packages_regex: list[Pattern[str]] | None = None,
@@ -126,6 +127,8 @@ class Review:
             package_regexes = []
         if only_packages is None:
             only_packages = set()
+        if additional_packages is None:
+            additional_packages = set()
         self.builddir = builddir
         self.build_args = build_args
         self.no_shell = no_shell
@@ -135,6 +138,7 @@ class Review:
         self.use_github_eval = use_github_eval and not only_packages
         self.checkout = checkout
         self.only_packages = only_packages
+        self.additional_packages = additional_packages
         self.package_regex = package_regexes
         self.skip_packages = skip_packages
         self.skip_packages_regex = skip_packages_regex
@@ -391,7 +395,7 @@ class Review:
         self, packages_per_system: dict[System, set[str]], args: str
     ) -> dict[System, list[Attr]]:
         for system, packages in packages_per_system.items():
-            packages_per_system[system] = filter_packages(
+            packages_per_system[system] = self.additional_packages | filter_packages(
                 packages,
                 self.only_packages,
                 self.package_regex,
@@ -511,6 +515,7 @@ class Review:
             self.extra_nixpkgs_config,
             checkout=self.checkout.name.lower(),  # type: ignore[arg-type]
             only_packages=self.only_packages,
+            additional_packages=self.additional_packages,
             package_regex=self.package_regex,
             skip_packages=self.skip_packages,
             skip_packages_regex=self.skip_packages_regex,
@@ -900,6 +905,7 @@ def review_local_revision(
             run=args.run,
             remote=args.remote,
             only_packages=set(args.package),
+            additional_packages=set(args.additional_package),
             package_regexes=args.package_regex,
             skip_packages=set(args.skip_package),
             skip_packages_regex=args.skip_package_regex,
