@@ -116,6 +116,7 @@ class Review:
         show_header: bool = True,
         show_logs: bool = False,
         show_pr_info: bool = True,
+        pr_object: dict | None = None,
     ) -> None:
         if skip_packages_regex is None:
             skip_packages_regex = []
@@ -156,6 +157,7 @@ class Review:
         self.show_logs = show_logs
         self.show_pr_info = show_pr_info
         self.head_commit: str | None = None
+        self.pr_object = pr_object
 
     def _process_aliases_for_systems(self, system: str) -> set[str]:
         match system:
@@ -412,7 +414,7 @@ class Review:
         )
 
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
-        pr = self.github_client.pull_request(pr_number)
+        pr = self.pr_object or self.github_client.pull_request(pr_number)
         self.head_commit = pr["head"]["sha"]
 
         if self.show_pr_info:
