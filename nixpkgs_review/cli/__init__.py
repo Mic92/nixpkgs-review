@@ -195,6 +195,11 @@ def common_flags() -> list[CommonFlag]:
             help="Only evaluate and build without executing nix-shell",
         ),
         CommonFlag(
+            "--check-single-file-outputs",
+            action="store_true",
+            help="Ensure no attempted installation of single-file outputs for packages to build",
+        ),
+        CommonFlag(
             "--approve-pr",
             action="store_true",
             help="Approve PR on review success",

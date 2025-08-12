@@ -60,6 +60,7 @@ REVIEW_SHELL: Final[str] = str(ROOT.joinpath("nix/review-shell.nix"))
 def nix_shell(
     attrs_per_system: dict[System, list[str]],
     cache_directory: Path,
+    check_single_file_outputs: bool,
     local_system: str,
     build_graph: str,
     nix_path: str,
@@ -78,15 +79,16 @@ def nix_shell(
         attrs_per_system=attrs_per_system,
         local_system=local_system,
         nixpkgs_config=nixpkgs_config,
+        check_single_file_outputs=check_single_file_outputs,
     )
     if sandbox:
         args = _nix_shell_sandbox(
-            nix_shell,
-            shell_file_args,
-            cache_directory,
-            nix_path,
-            nixpkgs_config,
-            nixpkgs_overlay,
+            nix_shell=nix_shell,
+            shell_file_args=shell_file_args,
+            cache_directory=cache_directory,
+            nix_path=nix_path,
+            nixpkgs_config=nixpkgs_config,
+            nixpkgs_overlay=nixpkgs_overlay,
         )
     else:
         args = [nix_shell, *shell_file_args, "--nix-path", nix_path, REVIEW_SHELL]
@@ -304,6 +306,7 @@ def nix_build(
     attr_names_per_system: dict[System, set[str]],
     args: str,
     cache_directory: Path,
+    check_single_file_outputs: bool,
     local_system: System,
     allow: AllowedFeatures,
     build_graph: str,
@@ -361,6 +364,7 @@ def nix_build(
         attrs_per_system=filtered_per_system,
         local_system=local_system,
         nixpkgs_config=nixpkgs_config,
+        check_single_file_outputs=check_single_file_outputs,
     ) + shlex.split(args)
 
     sh(command)
@@ -372,6 +376,7 @@ def build_shell_file_args(
     attrs_per_system: dict[System, list[str]],
     local_system: str,
     nixpkgs_config: Path,
+    check_single_file_outputs: bool,
 ) -> list[str]:
     attrs_file = cache_dir.joinpath("attrs.nix")
     with attrs_file.open("w+") as f:
@@ -397,4 +402,7 @@ def build_shell_file_args(
         "--argstr",
         "attrs-path",
         str(attrs_file),
+        "--arg",
+        "ignoreSingleFileOutputs",
+        str(not check_single_file_outputs).lower(),
     ]

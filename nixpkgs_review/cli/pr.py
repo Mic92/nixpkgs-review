@@ -113,6 +113,7 @@ def pr_command(args: argparse.Namespace) -> str:
                     builddir=builddir,
                     build_args=args.build_args,
                     no_shell=args.no_shell,
+                    check_single_file_outputs=args.check_single_file_outputs,
                     run=args.run,
                     remote=args.remote,
                     api_token=args.token,
