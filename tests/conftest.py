@@ -175,9 +175,9 @@ class Helpers:
         return cast("dict[str, Any]", json.loads(data))
 
     @staticmethod
-    def assert_built(pkg_name: str, path: str) -> None:
+    def assert_built(path: str, *pkg_names: str) -> None:
         report = Helpers.load_report(path)
-        assert report["result"][current_system()]["built"] == [pkg_name]
+        assert {*report["result"][current_system()]["built"]} == {*pkg_names}
 
     @staticmethod
     @contextmanager

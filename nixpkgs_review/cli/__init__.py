@@ -207,6 +207,13 @@ def common_flags() -> list[CommonFlag]:
             help="Package to build (can be passed multiple times)",
         ),
         CommonFlag(
+            "-a",
+            "--additional-package",
+            action="append",
+            default=[],
+            help="Package to build in addition to those that have changed (can be passed multiple times)",
+        ),
+        CommonFlag(
             "--package-regex",
             action="append",
             default=[],

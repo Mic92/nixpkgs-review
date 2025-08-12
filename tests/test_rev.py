@@ -19,7 +19,7 @@ def test_rev_command(helpers: Helpers) -> None:
             "nixpkgs-review",
             ["rev", "HEAD", "--remote", str(nixpkgs.remote), "--run", "exit 0"],
         )
-        helpers.assert_built(pkg_name="pkg1", path=path)
+        helpers.assert_built(path, "pkg1")
 
 
 def test_rev_command_without_nom(helpers: Helpers) -> None:
@@ -40,7 +40,7 @@ def test_rev_command_without_nom(helpers: Helpers) -> None:
                 "nix",
             ],
         )
-        helpers.assert_built(pkg_name="pkg1", path=path)
+        helpers.assert_built(path, "pkg1")
 
 
 @patch("nixpkgs_review.review._list_packages_system")
@@ -69,4 +69,4 @@ def test_rev_only_packages_does_not_trigger_an_eval(
                 "pkg1",
             ],
         )
-        helpers.assert_built(pkg_name="pkg1", path=path)
+        helpers.assert_built(path, "pkg1")
