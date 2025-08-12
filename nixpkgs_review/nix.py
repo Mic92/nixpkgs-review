@@ -81,12 +81,12 @@ def nix_shell(
     )
     if sandbox:
         args = _nix_shell_sandbox(
-            nix_shell,
-            shell_file_args,
-            cache_directory,
-            nix_path,
-            nixpkgs_config,
-            nixpkgs_overlay,
+            nix_shell=nix_shell,
+            shell_file_args=shell_file_args,
+            cache_directory=cache_directory,
+            nix_path=nix_path,
+            nixpkgs_config=nixpkgs_config,
+            nixpkgs_overlay=nixpkgs_overlay,
         )
     else:
         args = [nix_shell, *shell_file_args, "--nix-path", nix_path, REVIEW_SHELL]
