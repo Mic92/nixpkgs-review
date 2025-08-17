@@ -114,7 +114,7 @@ def test_pr_local_eval(helpers: Helpers, capfd: pytest.CaptureFixture) -> None:
                 "1",
             ],
         )
-        helpers.assert_built(pkg_name="pkg1", path=path)
+        helpers.assert_built(path, "pkg1")
         captured = capfd.readouterr()
         assert "$ nom build" in captured.out
 
@@ -153,7 +153,7 @@ def test_pr_local_eval_missing_nom(
                 "1",
             ],
         )
-        helpers.assert_built(pkg_name="pkg1", path=path)
+        helpers.assert_built(path, "pkg1")
         mock_tool.assert_called_once()
         captured = capfd.readouterr()
         assert "$ nix build" in captured.out
@@ -191,7 +191,7 @@ def test_pr_local_eval_without_nom(
                 "nix",
             ],
         )
-        helpers.assert_built(pkg_name="pkg1", path=path)
+        helpers.assert_built(path, "pkg1")
         captured = capfd.readouterr()
         assert "$ nix build" in captured.out
 
@@ -219,7 +219,7 @@ def test_pr_local_eval_with_sandbox(helpers: Helpers) -> None:
                 "1",
             ],
         )
-        helpers.assert_built(pkg_name="pkg1", path=path)
+        helpers.assert_built(path, "pkg1")
 
 
 @patch("urllib.request.urlopen")
@@ -279,7 +279,7 @@ def test_pr_ofborg_eval(mock_urlopen: MagicMock, helpers: Helpers) -> None:
                 "37200",
             ],
         )
-        helpers.assert_built(pkg_name="pkg1", path=path)
+        helpers.assert_built(path, "pkg1")
 
 
 @patch("urllib.request.urlopen")
@@ -359,10 +359,12 @@ def test_pr_github_action_eval(
                     str(nixpkgs.remote),
                     "--run",
                     "exit 0",
+                    "--additional-package",
+                    "bashInteractive",
                     "363128",
                 ],
             )
-            helpers.assert_built(pkg_name="pkg1", path=path)
+            helpers.assert_built(path, "pkg1", "bashInteractive")
 
 
 @patch("urllib.request.urlopen")
@@ -410,4 +412,4 @@ def test_pr_only_packages_does_not_trigger_an_eval(
                 "363128",
             ],
         )
-        helpers.assert_built(pkg_name="pkg1", path=path)
+        helpers.assert_built(path, "pkg1")
