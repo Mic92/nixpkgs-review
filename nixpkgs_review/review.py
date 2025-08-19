@@ -97,6 +97,7 @@ class Review:
         builddir: Builddir,
         build_args: str,
         no_shell: bool,
+        check_single_file_outputs: bool,
         run: str,
         remote: str,
         systems: list[System],
@@ -132,6 +133,7 @@ class Review:
         self.builddir = builddir
         self.build_args = build_args
         self.no_shell = no_shell
+        self.check_single_file_outputs = (check_single_file_outputs,)
         self.run = run
         self.remote = remote
         self.github_client = GithubClient(api_token)
@@ -406,15 +408,16 @@ class Review:
                 self.builddir.nix_path,
             )
         return nix_build(
-            packages_per_system,
-            args,
-            self.builddir.path,
-            self.local_system,
-            self.allow,
-            self.build_graph,
-            self.builddir.nix_path,
-            self.nixpkgs_config,
-            self.num_parallel_evals,
+            attr_names_per_system=packages_per_system,
+            args=args,
+            cache_directory=self.builddir.path,
+            check_single_file_outputs=self.check_single_file_outputs,
+            local_system=self.local_system,
+            allow=self.allow,
+            build_graph=self.build_graph,
+            nix_path=self.builddir.nix_path,
+            nixpkgs_config=self.nixpkgs_config,
+            n_threads=self.num_parallel_evals,
         )
 
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
@@ -544,15 +547,16 @@ class Review:
 
         if not self.no_shell:
             nix_shell(
-                report.built_packages(),
-                path,
-                self.local_system,
-                self.build_graph,
-                self.builddir.nix_path,
-                self.nixpkgs_config,
-                self.builddir.overlay.path,
-                self.run,
-                self.sandbox,
+                attrs_per_system=report.built_packages(),
+                cache_directory=path,
+                check_single_file_outputs=self.check_single_file_outputs,
+                local_system=self.local_system,
+                build_graph=self.build_graph,
+                nix_path=self.builddir.nix_path,
+                nixpkgs_config=self.nixpkgs_config,
+                nixpkgs_overlay=self.builddir.overlay.path,
+                run=self.run,
+                sandbox=self.sandbox,
             )
 
         return success
@@ -902,6 +906,7 @@ def review_local_revision(
             builddir=builddir,
             build_args=args.build_args,
             no_shell=args.no_shell,
+            check_single_file_outputs=args.check_single_file_outputs,
             run=args.run,
             remote=args.remote,
             only_packages=set(args.package),
