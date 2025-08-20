@@ -18,6 +18,7 @@ from re import Pattern
 from typing import IO
 from xml.etree import ElementTree as ET
 
+from . import git
 from .allow import AllowedFeatures
 from .builddir import Builddir
 from .errors import NixpkgsReviewError
@@ -276,22 +277,21 @@ class Review:
         print(f"{'=' * 80}\n")
 
     def git_merge(self, commit: str) -> None:
-        res = sh(
-            ["git", "merge", "--no-commit", "--no-ff", commit], cwd=self.worktree_dir()
+        res = git.run(
+            ["merge", "--no-commit", "--no-ff", commit], cwd=self.worktree_dir()
         )
         if res.returncode != 0:
             msg = f"Failed to merge {commit} into {self.worktree_dir()}. git merge failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
 
     def git_checkout(self, commit: str) -> None:
-        res = sh(["git", "checkout", commit], cwd=self.worktree_dir())
+        res = git.run(["checkout", commit], cwd=self.worktree_dir())
         if res.returncode != 0:
             msg = f"Failed to checkout {commit} in {self.worktree_dir()}. git checkout failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
 
     def apply_unstaged(self, staged: bool = False) -> None:
         args = [
-            "git",
             "--no-pager",
             "diff",
             "--no-ext-diff",
@@ -299,18 +299,14 @@ class Review:
             "--dst-prefix=b/",
         ]
         args.extend(["--staged"] if staged else [])
-        with subprocess.Popen(args, stdout=subprocess.PIPE) as diff_proc:
-            assert diff_proc.stdout
-            diff = diff_proc.stdout.read()
+        diff = git.run(args, stdout=subprocess.PIPE).stdout
 
         if not diff:
             info("No diff detected, stopping review...")
             sys.exit(0)
 
         info("Applying `nixpkgs` diff...")
-        result = subprocess.run(
-            ["git", "apply"], cwd=self.worktree_dir(), input=diff, check=False
-        )
+        result = git.run(["apply"], cwd=self.worktree_dir(), stdin=diff)
 
         if result.returncode != 0:
             warn(f"Failed to apply diff in {self.worktree_dir()}")
@@ -386,7 +382,7 @@ class Review:
         return self.build(changed_attrs, self.build_args)
 
     def git_worktree(self, commit: str) -> None:
-        res = sh(["git", "worktree", "add", self.worktree_dir(), commit])
+        res = git.run(["worktree", "add", self.worktree_dir(), commit])
         if res.returncode != 0:
             msg = f"Failed to add worktree for {commit} in {self.worktree_dir()}. git worktree failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
