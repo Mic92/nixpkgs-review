@@ -29,16 +29,20 @@ class DisableKeyboardInterrupt:
 
 
 def create_cache_directory(name: str) -> Union[Path, "TemporaryDirectory[str]"]:
-    xdg_cache_raw = os.environ.get("XDG_CACHE_HOME")
-    if xdg_cache_raw is not None:
-        xdg_cache = Path(xdg_cache_raw)
+    app_cache_dir = os.environ.get("NIXPKGS_REVIEW_CACHE_DIR")
+    if app_cache_dir is not None:
+        xdg_cache = Path(app_cache_dir)
     else:
-        home = os.environ.get("HOME", None)
-        if home is None:
-            # we are in a temporary directory
-            return TemporaryDirectory()
+        xdg_cache_raw = os.environ.get("XDG_CACHE_HOME")
+        if xdg_cache_raw is not None:
+            xdg_cache = Path(xdg_cache_raw)
+        else:
+            home = os.environ.get("HOME", None)
+            if home is None:
+                # we are in a temporary directory
+                return TemporaryDirectory()
 
-        xdg_cache = Path(home).joinpath(".cache")
+            xdg_cache = Path(home).joinpath(".cache")
 
     # There is no guarantee that environment variables are set to absolute paths.
     xdg_cache = xdg_cache.absolute()
