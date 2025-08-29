@@ -421,6 +421,16 @@ class Review:
             self._display_pr_info(pr, pr_number)
 
         packages_per_system: dict[System, set[str]] | None = None
+
+        # GHA evaluation only evaluates nixpkgs with an empty config.
+        # Its results should not be used when a non-default nixpkgs config is requested
+        normalized_config = self.extra_nixpkgs_config.replace(" ", "")
+        if self.use_github_eval and (normalized_config != "{}"):
+            print(
+                "Non-default --extra-nixpkgs-config provided. Falling back to local evaluation"
+            )
+            self.use_github_eval = False
+
         if self.use_github_eval:
             assert all(system in PLATFORMS for system in self.systems)
             print("-> Fetching eval results from GitHub actions")
