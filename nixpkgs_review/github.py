@@ -7,8 +7,10 @@ import urllib.request
 import zipfile
 from http.client import HTTPMessage
 from pathlib import Path
+from textwrap import dedent
 from typing import IO, Any, override
 
+from .errors import ArtifactExpiredError
 from .utils import System, warn
 
 
@@ -132,6 +134,13 @@ class GithubClient:
             if e.code == 302:
                 new_url = e.headers["Location"]
                 # Handle the new URL as needed
+            elif e.code == 410:
+                msg = dedent(f"""
+                GitHub artifact {workflow_id} has expired or been removed
+                    * try passing --eval local
+                    * try re-running GitHub CI
+                """)
+                raise ArtifactExpiredError(msg) from e
             else:
                 raise
         else:
