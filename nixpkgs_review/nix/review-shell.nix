@@ -26,11 +26,17 @@ let
     in
     map (attrString: lib.attrByPath (lib.splitString "." attrString) null system-pkg) system-attrs;
   attrs = lib.flatten (lib.mapAttrsToList extractPackagesForSystem (import attrs-path));
-  env = local-pkgs.buildEnv {
-    name = "env";
-    paths = attrs;
-    ignoreCollisions = true;
-  };
+  supportIgnoreSingleFileOutputs = (lib.functionArgs local-pkgs.buildEnv) ? ignoreSingleFileOutputs;
+  env = local-pkgs.buildEnv (
+    {
+      name = "env";
+      paths = attrs;
+      ignoreCollisions = true;
+    }
+    // lib.optionalAttrs supportIgnoreSingleFileOutputs {
+      ignoreSingleFileOutputs = true;
+    }
+  );
 in
 (import nixpkgs-path { }).mkShell {
   name = "review-shell";
