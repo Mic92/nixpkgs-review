@@ -105,8 +105,8 @@ class Review:
         build_graph: str,
         nixpkgs_config: Path,
         extra_nixpkgs_config: str,
+        eval_type: str,
         api_token: str | None = None,
-        use_github_eval: bool | None = True,
         only_packages: set[str] | None = None,
         additional_packages: set[str] | None = None,
         package_regexes: list[Pattern[str]] | None = None,
@@ -135,8 +135,9 @@ class Review:
         self.no_shell = no_shell
         self.run = run
         self.remote = remote
+        self.api_token = api_token
         self.github_client = GithubClient(api_token)
-        self.use_github_eval = use_github_eval and not only_packages
+        self.eval_type = eval_type
         self.checkout = checkout
         self.only_packages = only_packages
         self.additional_packages = additional_packages
@@ -163,6 +164,54 @@ class Review:
         self.show_pr_info = show_pr_info
         self.head_commit: str | None = None
         self.pr_object = pr_object
+
+    @property
+    def _use_github_eval(self) -> bool:
+        # If the user explicitly asks for local eval, just do it
+        if self.eval_type == "local":
+            return False
+
+        if self.only_packages:
+            return False
+
+        # Handle the GH_TOKEN eventually not being provided
+        if not self.api_token:
+            warn("No GitHub token provided via GITHUB_TOKEN variable.")
+            match self.eval_type:
+                case "auto":
+                    warn(
+                        "Falling back to local evaluation.\n"
+                        "Tip: Install the `gh` command line tool and run `gh auth login` to authenticate."
+                    )
+                    return False
+                case "github":
+                    sys.exit(1)
+
+        # GHA evaluation only evaluates nixpkgs with an empty config.
+        # Its results might be incorrect when a non-default nixpkgs config is requested
+        normalized_config = self.extra_nixpkgs_config.replace(" ", "")
+
+        if normalized_config == "{}":
+            return True
+
+        warn("Non-default --extra-nixpkgs-config provided.")
+        match self.eval_type:
+            # By default, fall back to local evaluation
+            case "auto":
+                warn("Falling back to local evaluation")
+                return False
+
+            # If the user explicitly requires GitHub eval, warn him, but proceed
+            case "github":
+                warn(
+                    "Forcing `github` evaluation -> Be warned that the evaluation results might not correspond to the provided nixpkgs config"
+                )
+                return True
+
+            # This should never happen
+            case _:
+                warn("Invalid eval_type")
+                sys.exit(1)
 
     def _process_aliases_for_systems(self, system: str) -> set[str]:
         match system:
@@ -422,16 +471,7 @@ class Review:
 
         packages_per_system: dict[System, set[str]] | None = None
 
-        # GHA evaluation only evaluates nixpkgs with an empty config.
-        # Its results should not be used when a non-default nixpkgs config is requested
-        normalized_config = self.extra_nixpkgs_config.replace(" ", "")
-        if self.use_github_eval and (normalized_config != "{}"):
-            print(
-                "Non-default --extra-nixpkgs-config provided. Falling back to local evaluation"
-            )
-            self.use_github_eval = False
-
-        if self.use_github_eval:
+        if self._use_github_eval:
             assert all(system in PLATFORMS for system in self.systems)
             print("-> Fetching eval results from GitHub actions")
 
@@ -911,6 +951,7 @@ def review_local_revision(
             run=args.run,
             remote=args.remote,
             only_packages=set(args.package),
+            eval_type="local",
             additional_packages=set(args.additional_package),
             package_regexes=args.package_regex,
             skip_packages=set(args.skip_package),
