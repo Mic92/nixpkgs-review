@@ -109,6 +109,12 @@ def pr_flags(
         default=[],
         help="The pull request JSON data returned by the /repos/{owner}/{repo}/pulls/{pull_number} endpoint of the GitHub REST API. Useful if multiple nixpkgs-review instances should operate on the exact same PR commits. If used, needs to be specified separately for each PR.",
     )
+    pr_parser.add_argument(
+        "--include-pr",
+        action="append",
+        default=[],
+        help="Additional pull request to merge into the reviewed worktree. Can be passed multiple times.",
+    )
     pr_parser.set_defaults(func=pr_command)
     return pr_parser
 

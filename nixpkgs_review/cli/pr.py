@@ -72,6 +72,7 @@ def _handle_deprecated_args(args: argparse.Namespace) -> None:
 
 def pr_command(args: argparse.Namespace) -> str:
     prs: list[int] = parse_pr_numbers(args.number)
+    included_prs = list(dict.fromkeys(parse_pr_numbers(args.include_pr)))
     _handle_deprecated_args(args)
 
     checkout_option = CheckoutOption[args.checkout.upper()]
@@ -128,6 +129,7 @@ def pr_command(args: argparse.Namespace) -> str:
                         show_header=not args.no_headers,
                         show_logs=not args.no_logs,
                         show_pr_info=not args.no_pr_info,
+                        included_prs=[p for p in included_prs if p != pr],
                     ),
                     shell_options=ShellOptions(
                         no_shell=args.no_shell,
