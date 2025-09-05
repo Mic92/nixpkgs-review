@@ -83,6 +83,7 @@ class ReviewConfig:
     show_header: bool = True
     show_logs: bool = False
     show_pr_info: bool = True
+    included_prs: list[int] = field(default_factory=list)
 
 
 def _prefix_with_pkgs(packages: set[str], pkgs: str | None) -> set[str]:
@@ -330,10 +331,11 @@ class Review:
 
         print(f"{'=' * 80}\n")
 
-    def git_merge(self, commit: str) -> None:
-        res = git.run(
-            ["merge", "--no-commit", "--no-ff", commit], cwd=self.worktree_dir()
-        )
+    def git_merge(self, commit: str, *, create_commit: bool = False) -> None:
+        args = ["merge", "--no-ff"]
+        args.extend(["--no-edit"] if create_commit else ["--no-commit"])
+        args.append(commit)
+        res = git.run(args, cwd=self.worktree_dir())
         if res.returncode != 0:
             msg = f"Failed to merge {commit} into {self.worktree_dir()}. git merge failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
@@ -373,6 +375,59 @@ class Review:
         *,
         staged: bool = False,
     ) -> dict[System, list[Attr]]:
+        self._checkout_build_state(
+            base_commit,
+            head_commit,
+            merge_commit,
+            staged=staged,
+        )
+
+        changed_attrs = {
+            system: _prefix_with_pkgs(
+                set(self.package_filter.only_packages), self.build_config.pkgs
+            )
+            for system in self.systems
+        }
+
+        return self.build(changed_attrs, self.shell_options.build_args)
+
+    def _merge_included_prs(self) -> None:
+        for included_pr in self.review_config.included_prs:
+            print(f"Including changes from PR #{included_pr}...")
+            pr = self.github_client.pull_request(included_pr)
+            [pr_rev] = fetch_refs(
+                self.review_config.remote,
+                pr["head"]["sha"],
+                shallow_depth=2,
+            )
+            self.git_merge(pr_rev, create_commit=True)
+
+    def _checkout_eval_state(
+        self,
+        head_commit: str | None,
+        merge_commit: str | None = None,
+        *,
+        staged: bool = False,
+    ) -> None:
+        if head_commit is None:
+            self.apply_unstaged(staged=staged)
+        elif merge_commit:
+            self.git_checkout(merge_commit)
+        else:
+            self.git_merge(
+                head_commit,
+                create_commit=bool(self.review_config.included_prs),
+            )
+        self._merge_included_prs()
+
+    def _checkout_build_state(
+        self,
+        base_commit: str,
+        head_commit: str | None,
+        merge_commit: str | None = None,
+        *,
+        staged: bool = False,
+    ) -> None:
         if head_commit is None:
             self.apply_unstaged(staged=staged)
         else:
@@ -383,18 +438,13 @@ class Review:
                     if merge_commit:
                         self.git_checkout(merge_commit)
                     else:
-                        self.git_merge(head_commit)
+                        self.git_merge(
+                            head_commit,
+                            create_commit=bool(self.review_config.included_prs),
+                        )
                 case CheckoutOption.BASE:
                     self.git_checkout(base_commit)
-
-        changed_attrs = {
-            system: _prefix_with_pkgs(
-                set(self.package_filter.only_packages), self.build_config.pkgs
-            )
-            for system in self.systems
-        }
-
-        return self.build(changed_attrs, self.shell_options.build_args)
+        self._merge_included_prs()
 
     def build_commit(
         self,
@@ -408,6 +458,7 @@ class Review:
         Review a local git commit
         """
         self.git_worktree(base_commit)
+
         changed_attrs: dict[System, set[str]] = {}
 
         if self.package_filter.only_packages:
@@ -424,12 +475,7 @@ class Review:
             self.build_config.pkgs,
         )
 
-        if head_commit is None:
-            self.apply_unstaged(staged=staged)
-        elif merge_commit:
-            self.git_checkout(merge_commit)
-        else:
-            self.git_merge(head_commit)
+        self._checkout_eval_state(head_commit, merge_commit, staged=staged)
 
         merged_packages: dict[System, list[Package]] = list_packages(
             self.builddir.nix_path,
@@ -455,10 +501,8 @@ class Review:
 
             changed_attrs[system] = {p.attr_path for p in changed_pkgs}
 
-        if head_commit and self.review_config.checkout == CheckoutOption.COMMIT:
-            self.git_checkout(head_commit)
-        elif base_commit and self.review_config.checkout == CheckoutOption.BASE:
-            self.git_checkout(base_commit)
+        if head_commit and self.review_config.checkout != CheckoutOption.MERGE:
+            self._checkout_build_state(base_commit, head_commit, merge_commit)
 
         return self.build(changed_attrs, self.shell_options.build_args)
 
@@ -557,7 +601,10 @@ class Review:
                     self.git_worktree(merge_rev)
                 else:
                     self.git_worktree(base_rev)
-                    self.git_merge(head_rev)
+                    self.git_merge(
+                        head_rev,
+                        create_commit=bool(self.review_config.included_prs),
+                    )
             case CheckoutOption.COMMIT:
                 self.git_worktree(head_rev)
             case CheckoutOption.BASE:
@@ -598,6 +645,7 @@ class Review:
             return self.build_commit(base_rev, head_rev, merge_rev)
 
         self._checkout_pr_revision(base_rev, head_rev, merge_rev)
+        self._merge_included_prs()
 
         for system in list(packages_per_system.keys()):
             if system not in self.systems:
@@ -624,6 +672,7 @@ class Review:
             ReportOptions(
                 extra_nixpkgs_config=self.review_config.extra_nixpkgs_config,
                 checkout=self.review_config.checkout.name.lower(),  # type: ignore[arg-type]
+                included_prs=self.review_config.included_prs,
                 show_header=self.review_config.show_header,
                 show_logs=self.review_config.show_logs,
                 max_workers=min(32, os.cpu_count() or 1),
