@@ -40,25 +40,10 @@ def parse_pr_numbers(number_args: list[str]) -> list[int]:
 
 def pr_command(args: argparse.Namespace) -> str:
     prs: list[int] = parse_pr_numbers(args.number)
-    match args.eval:
-        case "ofborg":
-            warn("Warning: `--eval=ofborg` is deprecated. Use `--eval=github` instead.")
-            args.eval = "github"
-        case "auto":
-            if args.token:
-                args.eval = "github"
-            else:
-                if not args.package:
-                    warn(
-                        "No GitHub token provided via GITHUB_TOKEN variable. Falling back to local evaluation.\n"
-                        "Tip: Install the `gh` command line tool and run `gh auth login` to authenticate."
-                    )
-                args.eval = "local"
-        case "github":
-            if not args.token:
-                warn("No GitHub token provided")
-                sys.exit(1)
-    use_github_eval = args.eval == "github"
+    if args.eval == "ofborg":
+        warn("Warning: `--eval=ofborg` is deprecated. Use `--eval=github` instead.")
+        args.eval = "github"
+
     checkout_option = (
         CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
     )
@@ -116,7 +101,7 @@ def pr_command(args: argparse.Namespace) -> str:
                     run=args.run,
                     remote=args.remote,
                     api_token=args.token,
-                    use_github_eval=use_github_eval,
+                    eval_type=args.eval,
                     only_packages=set(args.package),
                     additional_packages=set(args.additional_package),
                     package_regexes=args.package_regex,
