@@ -40,6 +40,7 @@ def parse_pr_numbers(number_args: list[str]) -> list[int]:
 
 def pr_command(args: argparse.Namespace) -> str:
     prs: list[int] = parse_pr_numbers(args.number)
+    included_prs: set[int] = set(parse_pr_numbers(args.include_prs))
     match args.eval:
         case "ofborg":
             warn("Warning: `--eval=ofborg` is deprecated. Use `--eval=github` instead.")
@@ -134,6 +135,7 @@ def pr_command(args: argparse.Namespace) -> str:
                     show_logs=not args.no_logs,
                     show_pr_info=not args.no_pr_info,
                     pr_object=pr_objects.get(pr),
+                    included_prs=included_prs,
                 )
                 contexts.append(
                     (pr, builddir.path, review.build_pr(pr), review.head_commit)

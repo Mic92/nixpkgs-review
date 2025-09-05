@@ -119,6 +119,7 @@ class Review:
         show_logs: bool = False,
         show_pr_info: bool = True,
         pr_object: dict | None = None,
+        included_prs: set[int] | None = None,
     ) -> None:
         if skip_packages_regex is None:
             skip_packages_regex = []
@@ -163,6 +164,7 @@ class Review:
         self.show_pr_info = show_pr_info
         self.head_commit: str | None = None
         self.pr_object = pr_object
+        self.included_prs = included_prs or set()
 
     def _process_aliases_for_systems(self, system: str) -> set[str]:
         match system:
@@ -276,10 +278,11 @@ class Review:
 
         print(f"{'=' * 80}\n")
 
-    def git_merge(self, commit: str) -> None:
-        res = git.run(
-            ["merge", "--no-commit", "--no-ff", commit], cwd=self.worktree_dir()
-        )
+    def git_merge(self, commit: str, create_commit=False) -> None:
+        if create_commit:
+            res = git.run(["merge", "--no-edit", "--no-ff", commit], cwd=self.worktree_dir())
+        else:
+            res = git.run(["merge", "--no-commit", "--no-ff", commit], cwd=self.worktree_dir())
         if res.returncode != 0:
             msg = f"Failed to merge {commit} into {self.worktree_dir()}. git merge failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
@@ -312,6 +315,16 @@ class Review:
             warn(f"Failed to apply diff in {self.worktree_dir()}")
             sys.exit(1)
 
+    def _merge_included_prs(self) -> None:
+        for included_pr in self.included_prs:
+            print(f"Including changes from PR #{included_pr}...")
+            pr = self.github_client.pull_request(included_pr)
+            pr_rev = fetch_refs(
+                self.remote,
+                pr["head"]["sha"],
+            )[0]
+            self.git_merge(pr_rev, create_commit=True)
+
     def build_commit(
         self, base_commit: str, reviewed_commit: str | None, staged: bool = False
     ) -> dict[System, list[Attr]]:
@@ -319,6 +332,8 @@ class Review:
         Review a local git commit
         """
         self.git_worktree(base_commit)
+        self._merge_included_prs()
+
         changed_attrs: dict[System, set[str]] = {}
 
         if self.only_packages:
@@ -495,6 +510,7 @@ class Review:
             return self.build_commit(base_rev, pr_rev)
 
         self.git_worktree(pr_rev)
+        self._merge_included_prs()
 
         for system in list(packages_per_system.keys()):
             if system not in self.systems:
