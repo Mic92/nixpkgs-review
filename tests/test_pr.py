@@ -12,7 +12,7 @@ import pytest
 from nixpkgs_review.cli import main
 from nixpkgs_review.utils import nix_nom_tool
 
-from .conftest import Helpers
+from .conftest import Helpers, Nixpkgs
 
 
 def create_mock_pr_response(
@@ -85,6 +85,21 @@ def git_rev_parse(ref: str) -> str:
     ).stdout.strip()
 
 
+def setup_repo(nixpkgs: Nixpkgs) -> tuple[str, str, str]:
+    subprocess.run(["git", "checkout", "-b", "pull/1/head"], check=True)
+    nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
+    subprocess.run(["git", "add", "."], check=True)
+    subprocess.run(["git", "commit", "-m", "example-change"], check=True)
+    subprocess.run(["git", "checkout", "-b", "pull/1/merge", "master"], check=True)
+    subprocess.run(["git", "merge", "--no-ff", "pull/1/head"], check=True)
+    subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"], check=True)
+
+    base = git_rev_parse("HEAD^1")
+    head = git_rev_parse("HEAD^2")
+    merge = git_rev_parse("HEAD")
+    return base, head, merge
+
+
 @patch("nixpkgs_review.utils.shutil.which", return_value=None)
 def test_default_to_nix_if_nom_not_found(mock_shutil: Mock) -> None:
     return_value = nix_nom_tool()
@@ -128,16 +143,9 @@ def test_pr_local_eval_missing_nom(
     capfd: pytest.CaptureFixture,
 ) -> None:
     with helpers.nixpkgs() as nixpkgs:
-        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
-        subprocess.run(["git", "add", "."], check=True)
-        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
-        subprocess.run(["git", "checkout", "-b", "pull/1/merge"], check=True)
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"], check=True)
-
-        head = git_rev_parse("HEAD")
-        base = git_rev_parse("HEAD^")
+        base, head, merge = setup_repo(nixpkgs)
         setup_pr_mocks(
-            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=head
+            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=merge
         )
 
         path = main(
@@ -164,16 +172,9 @@ def test_pr_local_eval_without_nom(
     mock_urlopen: MagicMock, helpers: Helpers, capfd: pytest.CaptureFixture
 ) -> None:
     with helpers.nixpkgs() as nixpkgs:
-        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
-        subprocess.run(["git", "add", "."], check=True)
-        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
-        subprocess.run(["git", "checkout", "-b", "pull/1/merge"], check=True)
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"], check=True)
-
-        head = git_rev_parse("HEAD")
-        base = git_rev_parse("HEAD^")
+        base, head, merge = setup_repo(nixpkgs)
         setup_pr_mocks(
-            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=head
+            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=merge
         )
 
         path = main(
@@ -199,11 +200,7 @@ def test_pr_local_eval_without_nom(
 @pytest.mark.skipif(not shutil.which("bwrap"), reason="`bwrap` not found in PATH")
 def test_pr_local_eval_with_sandbox(helpers: Helpers) -> None:
     with helpers.nixpkgs() as nixpkgs:
-        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
-        subprocess.run(["git", "add", "."], check=True)
-        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
-        subprocess.run(["git", "checkout", "-b", "pull/1/merge"], check=True)
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"], check=True)
+        setup_repo(nixpkgs)
 
         path = main(
             "nixpkgs-review",
@@ -225,20 +222,12 @@ def test_pr_local_eval_with_sandbox(helpers: Helpers) -> None:
 @patch("urllib.request.urlopen")
 def test_pr_ofborg_eval(mock_urlopen: MagicMock, helpers: Helpers) -> None:
     with helpers.nixpkgs() as nixpkgs:
-        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
-        subprocess.run(["git", "add", "."], check=True)
-        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
-        subprocess.run(["git", "checkout", "-b", "pull/37200/merge"], check=True)
-        subprocess.run(
-            ["git", "push", str(nixpkgs.remote), "pull/37200/merge"], check=True
-        )
+        base, head, merge = setup_repo(nixpkgs)
 
-        head = git_rev_parse("HEAD")
-        base = git_rev_parse("HEAD^")
         pr = json.loads(
             helpers.read_asset("test_pr_ofborg_eval/github-pull-37200.json")
         )
-        pr["merge_commit_sha"] = head
+        pr["merge_commit_sha"] = merge
         pr["base"]["sha"] = base
         pr["head"]["sha"] = head
 
@@ -288,20 +277,12 @@ def test_pr_github_action_eval(
     helpers: Helpers,
 ) -> None:
     with helpers.nixpkgs() as nixpkgs:
-        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
-        subprocess.run(["git", "add", "."], check=True)
-        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
-        subprocess.run(["git", "checkout", "-b", "pull/363128/merge"], check=True)
-        subprocess.run(
-            ["git", "push", str(nixpkgs.remote), "pull/363128/merge"], check=True
-        )
+        base, head, merge = setup_repo(nixpkgs)
 
-        head = git_rev_parse("HEAD")
-        base = git_rev_parse("HEAD^")
         pr = json.loads(
             helpers.read_asset("test_pr_github_action_eval/github-pull-363128.json")
         )
-        pr["merge_commit_sha"] = head
+        pr["merge_commit_sha"] = merge
         pr["base"]["sha"] = base
         pr["head"]["sha"] = head
 
@@ -376,20 +357,12 @@ def test_pr_only_packages_does_not_trigger_an_eval(
 ) -> None:
     mock_eval.side_effect = RuntimeError
     with helpers.nixpkgs() as nixpkgs:
-        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
-        subprocess.run(["git", "add", "."], check=True)
-        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
-        subprocess.run(["git", "checkout", "-b", "pull/363128/merge"], check=True)
-        subprocess.run(
-            ["git", "push", str(nixpkgs.remote), "pull/363128/merge"], check=True
-        )
+        base, head, merge = setup_repo(nixpkgs)
 
-        head = git_rev_parse("HEAD")
-        base = git_rev_parse("HEAD^")
         pr = json.loads(
             helpers.read_asset("test_pr_github_action_eval/github-pull-363128.json")
         )
-        pr["merge_commit_sha"] = head
+        pr["merge_commit_sha"] = merge
         pr["base"]["sha"] = base
         pr["head"]["sha"] = head
 
