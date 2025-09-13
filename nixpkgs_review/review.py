@@ -362,7 +362,11 @@ class Review:
             sys.exit(1)
 
     def build_commit(
-        self, base_commit: str, reviewed_commit: str | None, staged: bool = False
+        self,
+        base_commit: str,
+        head_commit: str | None,
+        merge_commit: str | None = None,
+        staged: bool = False,
     ) -> dict[System, list[Attr]]:
         """
         Review a local git commit
@@ -371,12 +375,14 @@ class Review:
         changed_attrs: dict[System, set[str]] = {}
 
         if self.only_packages:
-            if reviewed_commit is None:
+            if head_commit is None:
                 self.apply_unstaged(staged)
             elif self.checkout == CheckoutOption.COMMIT:
-                self.git_checkout(reviewed_commit)
+                self.git_checkout(head_commit)
+            elif merge_commit:
+                self.git_checkout(merge_commit)
             else:
-                self.git_merge(reviewed_commit)
+                self.git_merge(head_commit)
 
             changed_attrs = {}
             for system in self.systems:
@@ -396,12 +402,12 @@ class Review:
             n_threads=self.num_parallel_evals,
         )
 
-        if reviewed_commit is None:
+        if head_commit is None:
             self.apply_unstaged(staged)
-        elif self.checkout == CheckoutOption.COMMIT:
-            self.git_checkout(reviewed_commit)
+        elif merge_commit:
+            self.git_checkout(merge_commit)
         else:
-            self.git_merge(reviewed_commit)
+            self.git_merge(head_commit)
 
         # TODO: nix-eval-jobs ?
         merged_packages: dict[System, list[Package]] = list_packages(
@@ -427,6 +433,9 @@ class Review:
             print_updates(changed_pkgs, removed_pkgs)
 
             changed_attrs[system] = {p.attr_path for p in changed_pkgs}
+
+        if head_commit and self.checkout == CheckoutOption.COMMIT:
+            self.git_checkout(head_commit)
 
         return self.build(changed_attrs, self.build_args)
 
@@ -501,28 +510,9 @@ class Review:
         else:
             packages_per_system = None
 
-        if self.checkout == CheckoutOption.MERGE:
-            base_rev, pr_rev = fetch_refs(
-                self.remote,
-                pr["base"]["sha"],
-                pr["merge_commit_sha"],
-            )
-        else:
-            merge_rev, pr_rev = fetch_refs(
-                self.remote,
-                pr["base"]["sha"],
-                pr["head"]["sha"],
-            )
-            run = subprocess.run(
-                ["git", "merge-base", merge_rev, pr_rev],
-                stdout=subprocess.PIPE,
-                text=True,
-                check=False,
-            )
-            if run.returncode != 0:
-                msg = f"Failed to get the merge base of {merge_rev} with PR {pr_rev}"
-                raise NixpkgsReviewError(msg)
-            base_rev = run.stdout.strip()
+        [merge_rev] = fetch_refs(self.remote, pr["merge_commit_sha"], shallow_depth=2)
+        base_rev = git.verify_commit_hash(f"{merge_rev}^1")
+        head_rev = git.verify_commit_hash(f"{merge_rev}^2")
 
         if self.only_packages:
             packages_per_system = {}
@@ -532,9 +522,12 @@ class Review:
                     packages_per_system[system].add(package)
 
         if packages_per_system is None:
-            return self.build_commit(base_rev, pr_rev)
+            return self.build_commit(base_rev, head_rev, merge_rev)
 
-        self.git_worktree(pr_rev)
+        if self.checkout == CheckoutOption.MERGE:
+            self.git_worktree(merge_rev)
+        else:
+            self.git_worktree(head_rev)
 
         for system in list(packages_per_system.keys()):
             if system not in self.systems:
@@ -615,7 +608,7 @@ class Review:
         branch_rev = fetch_refs(self.remote, branch)[0]
         self.start_review(
             reviewed_commit,
-            self.build_commit(branch_rev, reviewed_commit, staged),
+            self.build_commit(branch_rev, reviewed_commit, staged=staged),
             path,
             print_result=print_result,
             approve_pr=approve_pr,
@@ -875,7 +868,7 @@ def resolve_git_dir() -> Path:
     raise NixpkgsReviewError(msg)
 
 
-def fetch_refs(repo: str, *refs: str) -> list[str]:
+def fetch_refs(repo: str, *refs: str, shallow_depth: int = 1) -> list[str]:
     shallow = subprocess.run(
         ["git", "rev-parse", "--is-shallow-repository"],
         text=True,
@@ -896,7 +889,7 @@ def fetch_refs(repo: str, *refs: str) -> list[str]:
         repo,
     ]
     if shallow.stdout.strip() == "true":
-        fetch_cmd.append("--depth=1")
+        fetch_cmd.append(f"--depth={shallow_depth}")
     for i, ref in enumerate(refs):
         fetch_cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
     dotgit = resolve_git_dir()
