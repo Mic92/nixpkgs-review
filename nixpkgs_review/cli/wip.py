@@ -16,6 +16,6 @@ def wip_command(args: argparse.Namespace) -> Path:
             allow,
             nixpkgs_config,
             None,
-            args.staged,
-            args.print_result,
+            staged=args.staged,
+            print_result=args.print_result,
         )

@@ -11,6 +11,7 @@ def run(
     stdin: str | None = None,
     stdout: int | None = None,
     stderr: int | None = None,
+    *,
     quiet: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Run a git command with nixpkgs-review identity."""

@@ -133,9 +133,9 @@ def pr_command(args: argparse.Namespace) -> str:
                 attrs,
                 path,
                 pr,
-                args.post_result,
-                args.print_result,
-                args.approve_pr,
+                post_result=args.post_result,
+                print_result=args.print_result,
+                approve_pr=args.approve_pr,
             )
             for pr, path, attrs, commit in contexts
         )

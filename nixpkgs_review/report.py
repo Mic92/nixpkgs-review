@@ -293,10 +293,10 @@ class Report:
         package_regex: list[Pattern[str]],
         skip_packages: set[str],
         skip_packages_regex: list[Pattern[str]],
+        *,
         show_header: bool = True,
         show_logs: bool = False,
         max_workers: int | None = 1,
-        *,
         checkout: Literal["merge", "commit"] = "merge",
     ) -> None:
         self.commit = commit

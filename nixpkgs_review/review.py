@@ -113,6 +113,7 @@ class Review:
         skip_packages: set[str] | None = None,
         skip_packages_regex: list[Pattern[str]] | None = None,
         checkout: CheckoutOption = CheckoutOption.MERGE,
+        *,
         sandbox: bool = False,
         num_parallel_evals: int = 1,
         show_header: bool = True,
@@ -340,7 +341,7 @@ class Review:
             msg = f"Failed to checkout {commit} in {self.worktree_dir()}. git checkout failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
 
-    def apply_unstaged(self, staged: bool = False) -> None:
+    def apply_unstaged(self, *, staged: bool = False) -> None:
         args = [
             "--no-pager",
             "diff",
@@ -367,6 +368,7 @@ class Review:
         base_commit: str,
         head_commit: str | None,
         merge_commit: str | None = None,
+        *,
         staged: bool = False,
     ) -> dict[System, list[Attr]]:
         """
@@ -377,7 +379,7 @@ class Review:
 
         if self.only_packages:
             if head_commit is None:
-                self.apply_unstaged(staged)
+                self.apply_unstaged(staged=staged)
             elif self.checkout == CheckoutOption.COMMIT:
                 self.git_checkout(head_commit)
             elif merge_commit:
@@ -404,7 +406,7 @@ class Review:
         )
 
         if head_commit is None:
-            self.apply_unstaged(staged)
+            self.apply_unstaged(staged=staged)
         elif merge_commit:
             self.git_checkout(merge_commit)
         else:
@@ -545,6 +547,7 @@ class Review:
         attrs_per_system: dict[System, list[Attr]],
         path: Path,
         pr: int | None = None,
+        *,
         post_result: bool | None = False,
         print_result: bool = False,
         approve_pr: bool = False,
@@ -596,7 +599,7 @@ class Review:
                 self.nixpkgs_config,
                 self.builddir.overlay.path,
                 self.run,
-                self.sandbox,
+                sandbox=self.sandbox,
             )
 
         return success
@@ -606,6 +609,7 @@ class Review:
         path: Path,
         branch: str,
         reviewed_commit: str | None,
+        *,
         staged: bool = False,
         print_result: bool = False,
         approve_pr: bool = False,
@@ -675,6 +679,7 @@ def _list_packages_system(
     system: System,
     nix_path: str,
     allow: AllowedFeatures,
+    *,
     check_meta: bool = False,
 ) -> list[Package]:
     cmd = [
@@ -714,6 +719,7 @@ def list_packages(
     systems: set[System],
     allow: AllowedFeatures,
     n_threads: int,
+    *,
     check_meta: bool = False,
 ) -> dict[System, list[Package]]:
     results: dict[System, list[Package]] = {}
@@ -740,6 +746,7 @@ def package_attrs(
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
+    *,
     ignore_nonexisting: bool = True,
 ) -> dict[Path, Attr]:
     attrs: dict[Path, Attr] = {}
@@ -938,6 +945,7 @@ def review_local_revision(
     allow: AllowedFeatures,
     nixpkgs_config: Path,
     commit: str | None,
+    *,
     staged: bool = False,
     print_result: bool = False,
 ) -> Path:
@@ -963,5 +971,6 @@ def review_local_revision(
             num_parallel_evals=args.num_parallel_evals,
         )
         review.review_commit(
-            builddir.path, args.branch, commit, staged, print_result)
+            builddir.path, args.branch, commit, staged=staged, print_result=print_result
+        )
         return builddir.path

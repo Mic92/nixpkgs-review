@@ -43,6 +43,7 @@ def sh(
     stdin: str | None = None,
     stdout: int | None = None,
     stderr: int | None = None,
+    *,
     quiet: bool = False,
 ) -> "subprocess.CompletedProcess[str]":
     if not quiet:

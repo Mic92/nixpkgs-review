@@ -66,6 +66,7 @@ def nix_shell(
     nixpkgs_config: Path,
     nixpkgs_overlay: Path,
     run: str | None = None,
+    *,
     sandbox: bool = False,
 ) -> None:
     nix_shell = shutil.which(build_graph + "-shell")
@@ -116,6 +117,7 @@ def _nix_shell_sandbox(
 
     def bind(
         path: Path | str,
+        *,
         ro: bool = True,
         dev: bool = False,
         try_: bool = False,
@@ -131,7 +133,7 @@ def _nix_shell_sandbox(
 
         return [prefix + "bind" + suffix, str(path), str(path)]
 
-    def tmpfs(path: Path | str, is_dir: bool = True) -> list[str]:
+    def tmpfs(path: Path | str, *, is_dir: bool = True) -> list[str]:
         dir_cmd = []
         if is_dir:
             dir_cmd = ["--dir", str(path)]
