@@ -200,7 +200,6 @@ class GithubClient:
         except urllib.error.HTTPError as e:
             if e.code == 302:
                 new_url = e.headers["Location"]
-                # Handle the new URL as needed
             elif e.code == 410:
                 msg = dedent(f"""
                 GitHub artifact {workflow_id} has expired or been removed
@@ -241,19 +240,14 @@ class GithubClient:
         workflow_runs_resp = self.get(
             f"repos/NixOS/nixpkgs/actions/runs?head_sha={commit_sha}"
         )
-        if not isinstance(workflow_runs_resp, dict):
-            msg = f"Expected workflow runs response to be a dict, got {type(workflow_runs_resp)}"
-            raise TypeError(msg)
-
-        if "workflow_runs" not in workflow_runs_resp:
-            return None
-
-        workflow_runs_list = workflow_runs_resp["workflow_runs"]
-        if not isinstance(workflow_runs_list, list):
-            msg = f"Expected workflow_runs to be a list, got {type(workflow_runs_list)}"
-            raise TypeError(msg)
-
-        workflow_runs = cast("list[GitHubWorkflowRun]", workflow_runs_list)
+        match workflow_runs_resp:
+            case dict() as resp if "workflow_runs" not in resp:
+                return None
+            case {"workflow_runs": list() as runs}:
+                workflow_runs = cast("list[GitHubWorkflowRun]", runs)
+            case _:
+                msg = f"Expected workflow runs response to be a dict with 'workflow_runs' list, got {type(workflow_runs_resp)}"
+                raise TypeError(msg)
 
         if not workflow_runs:
             return None
@@ -286,18 +280,19 @@ class GithubClient:
                     workflow_id=artifact["id"],
                     json_filename="changed-paths.json",
                 )
-                if not isinstance(changed_paths, dict):
-                    msg = f"Expected changed_paths to be a dict, got {type(changed_paths)}"
-                    raise TypeError(msg)
-
-                if (path := changed_paths.get("rebuildsByPlatform")) is not None:
-                    if not isinstance(path, dict):
-                        msg = f"Expected rebuildsByPlatform to be a dict, got {type(path)}"
+                match changed_paths:
+                    case dict() as paths if (
+                        path := paths.get("rebuildsByPlatform")
+                    ) is not None and isinstance(path, dict):
+                        return {
+                            # Convert package lists to package sets
+                            system: set(packages_list)
+                            for system, packages_list in path.items()
+                        }
+                    case dict():
+                        pass  # continue to next artifact
+                    case _:
+                        msg = f"Expected changed_paths to be a dict, got {type(changed_paths)}"
                         raise TypeError(msg)
-                    return {
-                        # Convert package lists to package sets
-                        system: set(packages_list)
-                        for system, packages_list in path.items()
-                    }
 
         return None
