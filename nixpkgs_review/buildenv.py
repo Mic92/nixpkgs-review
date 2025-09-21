@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 def find_nixpkgs_root() -> Path | None:
-    root_path = Path()
+    root_path = Path.cwd()
     while True:
         if (root_path / "nixos" / "release.nix").exists():
             return root_path
@@ -31,6 +31,8 @@ class Buildenv:
             raise RuntimeError(msg)
 
         self.nixpkgs_config = NamedTemporaryFile(suffix=".nix")  # noqa: SIM115
+        self.old_cwd: Path | None = None
+        self.environ: dict[str, str] | None = None
         aliases_config = "allowAliases = false;" if not allow_aliases else ""
         config_content = f"""{{
   allowUnfree = true;
