@@ -15,14 +15,14 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from re import Pattern
-from typing import IO
+from typing import IO, cast
 from xml.etree import ElementTree as ET
 
 from . import git
 from .allow import AllowedFeatures
 from .builddir import Builddir
 from .errors import NixpkgsReviewError
-from .github import GithubClient
+from .github import GithubClient, GitHubPullRequest
 from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
 from .utils import System, current_system, info, sh, system_order_key, warn
@@ -296,7 +296,7 @@ class Review:
                 )
             print(f"{'-' * 40}")
 
-    def _display_pr_info(self, pr: dict, pr_number: int) -> None:
+    def _display_pr_info(self, pr: GitHubPullRequest, pr_number: int) -> None:
         """Display PR description and diff information."""
         print(f"\n{'=' * 80}")
         print(f"PR #{pr_number}: {pr['title']}")
@@ -304,6 +304,7 @@ class Review:
         print(f"Author: {pr['user']['login']}")
         print(f"Branch: {pr['head']['label']} -> {pr['base']['label']}")
         print(f"State: {pr['state']}")
+
         if pr.get("draft", False):
             print("Status: Draft")
 
@@ -312,7 +313,7 @@ class Review:
             self._render_markdown(pr["body"])
             print(f"{'-' * 40}")
 
-        diff_url = pr.get("diff_url")
+        diff_url = pr["diff_url"]
         if not diff_url:
             return
 
@@ -472,7 +473,11 @@ class Review:
         )
 
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
-        pr = self.pr_object or self.github_client.pull_request(pr_number)
+        pr = (
+            cast("GitHubPullRequest", self.pr_object)
+            if self.pr_object
+            else self.github_client.pull_request(pr_number)
+        )
         self.head_commit = pr["head"]["sha"]
 
         if self.show_pr_info:
@@ -957,5 +962,6 @@ def review_local_revision(
             extra_nixpkgs_config=args.extra_nixpkgs_config,
             num_parallel_evals=args.num_parallel_evals,
         )
-        review.review_commit(builddir.path, args.branch, commit, staged, print_result)
+        review.review_commit(
+            builddir.path, args.branch, commit, staged, print_result)
         return builddir.path

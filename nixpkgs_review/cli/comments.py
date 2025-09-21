@@ -2,11 +2,58 @@ import argparse
 import string
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Required, TypedDict, cast
 
 from nixpkgs_review.github import GithubClient
 
 from .utils import ensure_github_token, get_current_pr
+
+
+# GraphQL Response TypedDicts
+class GitHubGraphQLAuthor(TypedDict):
+    login: Required[str]
+
+
+class GitHubGraphQLComment(TypedDict):
+    author: Required[GitHubGraphQLAuthor]
+    body: Required[str]
+    createdAt: Required[str]
+
+
+class GitHubGraphQLReviewComment(TypedDict):
+    id: Required[str]
+    author: Required[GitHubGraphQLAuthor]
+    body: Required[str]
+    createdAt: Required[str]
+    diffHunk: Required[str]
+    replyTo: dict[str, str] | None
+
+
+class GitHubGraphQLReviewCommentsNode(TypedDict):
+    nodes: Required[list[GitHubGraphQLReviewComment]]
+
+
+class GitHubGraphQLReview(TypedDict):
+    author: Required[GitHubGraphQLAuthor]
+    body: Required[str]
+    createdAt: Required[str]
+    comments: Required[GitHubGraphQLReviewCommentsNode]
+
+
+class GitHubGraphQLReviewsNode(TypedDict):
+    nodes: Required[list[GitHubGraphQLReview]]
+
+
+class GitHubGraphQLPullRequest(GitHubGraphQLComment):
+    reviews: Required[GitHubGraphQLReviewsNode]
+
+
+class GitHubGraphQLRepository(TypedDict):
+    pullRequest: Required[GitHubGraphQLPullRequest]
+
+
+class GitHubGraphQLResponse(TypedDict):
+    repository: Required[GitHubGraphQLRepository]
 
 
 def comments_query(pr: int) -> str:
@@ -58,7 +105,7 @@ class Comment:
     created_at: datetime
 
     @staticmethod
-    def from_json(data: dict[str, Any]) -> "Comment":
+    def from_json(data: GitHubGraphQLComment) -> "Comment":
         return Comment(
             author=data["author"]["login"],
             body=data["body"],
@@ -74,11 +121,10 @@ class ReviewComment(Comment):
     replies: "list[ReviewComment]" = field(default_factory=list)
 
     @staticmethod
-    def from_json(data: dict[str, Any]) -> "ReviewComment":
+    def from_review_comment_json(data: GitHubGraphQLReviewComment) -> "ReviewComment":
         reply_to = data.get("replyTo")
-        reply_to_id = None
-        if reply_to is not None:
-            reply_to_id = reply_to.get("id")
+        reply_to_id = reply_to.get("id") if reply_to else None
+
         return ReviewComment(
             author=data["author"]["login"],
             body=data["body"],
@@ -97,7 +143,7 @@ class Review:
     comments: list[ReviewComment]
 
     @staticmethod
-    def from_json(data: dict[str, Any], comments: list[ReviewComment]) -> "Review":
+    def from_json(data: GitHubGraphQLReview, comments: list[ReviewComment]) -> "Review":
         return Review(
             author=data["author"]["login"],
             body=data["body"],
@@ -119,17 +165,24 @@ def get_comments(github_token: str, pr_num: int) -> list[Comment | Review]:
     github_client = GithubClient(github_token)
     query = comments_query(pr_num)
     data = github_client.graphql(query)
-    pr = data["repository"]["pullRequest"]
+
+    response = cast("GitHubGraphQLResponse", data)
+    pr = response["repository"]["pullRequest"]
 
     comments: list[Comment | Review] = [Comment.from_json(pr)]
 
-    comments.extend(ReviewComment.from_json(c) for c in pr["reviews"]["nodes"])
+    reviews_nodes = pr["reviews"]["nodes"]
+
+    # Note: reviews_nodes contains reviews, not review comments
+    # We'll process them below when iterating through reviews
 
     review_comments_by_ids: dict[str, ReviewComment] = {}
-    for review in pr["reviews"]["nodes"]:
+    for review in reviews_nodes:
+        review_comments_nodes = review["comments"]["nodes"]
+
         review_comments = []
-        for comment in review["comments"]["nodes"]:
-            c = ReviewComment.from_json(comment)
+        for comment in review_comments_nodes:
+            c = ReviewComment.from_review_comment_json(comment)
             if c.reply_to:
                 referred = review_comments_by_ids.get(c.reply_to, None)
                 if referred is not None:

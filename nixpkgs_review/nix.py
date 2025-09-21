@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from sys import platform
 from tempfile import NamedTemporaryFile
-from typing import Any, Final
+from typing import Final, Required, TypedDict, cast
 
 from .allow import AllowedFeatures
 from .errors import NixpkgsReviewError
@@ -187,7 +187,17 @@ def _nix_shell_sandbox(
     ]
 
 
-def _nix_eval_filter(json: dict[str, Any]) -> list[Attr]:
+class NixEvalProps(TypedDict):
+    path: str | None
+    exists: Required[bool]
+    broken: Required[bool]
+    drvPath: Required[str]
+
+
+NixEvalResult = dict[str, NixEvalProps]
+
+
+def _nix_eval_filter(json: NixEvalResult) -> list[Attr]:
     # workaround https://github.com/NixOS/ofborg/issues/269
     blacklist = {
         "appimage-run-tests",
@@ -204,9 +214,8 @@ def _nix_eval_filter(json: dict[str, Any]) -> list[Attr]:
     attr_by_path: dict[Path, Attr] = {}
     broken = []
     for name, props in json.items():
-        path = props.get("path", None)
-        if path is not None:
-            path = Path(path)
+        path_str = props.get("path")
+        path = Path(path_str) if path_str is not None else None
 
         attr = Attr(
             name=name,
@@ -268,7 +277,11 @@ def nix_eval(
             )
             raise NixpkgsReviewError(msg)
 
-        return _nix_eval_filter(json.loads(nix_eval.stdout))
+        eval_result = json.loads(nix_eval.stdout)
+        if not isinstance(eval_result, dict):
+            msg = f"Expected eval result to be a dict, got {type(eval_result)}"
+            raise TypeError(msg)
+        return _nix_eval_filter(cast("NixEvalResult", eval_result))
     finally:
         attr_json.close()
         if delete:

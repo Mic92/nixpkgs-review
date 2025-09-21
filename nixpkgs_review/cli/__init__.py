@@ -10,6 +10,7 @@ from re import Pattern
 from shutil import which
 from typing import Any, cast
 
+from nixpkgs_review.github import JSONType
 from nixpkgs_review.utils import nix_nom_tool
 
 from .approve import approve_command
@@ -34,12 +35,16 @@ def regex_type(s: str) -> Pattern[str]:
         raise argparse.ArgumentTypeError(msg) from e
 
 
-def json_type(s: str) -> Any:
+def json_type(
+    s: str,
+) -> JSONType:
     try:
-        return json.loads(s)
+        result: JSONType = json.loads(s)
     except json.JSONDecodeError as e:
         msg = f"'{s}' is not a valid JSON object: {e}"
         raise argparse.ArgumentTypeError(msg) from e
+    else:
+        return result
 
 
 def pr_flags(
@@ -142,7 +147,7 @@ def wip_flags(
 
 
 class CommonFlag:
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: str, **kwargs: Any) -> None:  # noqa: ANN401
         self.args = args
         self.kwargs = kwargs
 

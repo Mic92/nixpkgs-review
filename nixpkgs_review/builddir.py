@@ -3,7 +3,7 @@ import signal
 import types
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Union
+from typing import Union
 
 from . import git
 from .overlay import Overlay
@@ -14,7 +14,7 @@ class DisableKeyboardInterrupt:
     def __enter__(self) -> None:
         self.signal_received = False
 
-        def handler(_sig: Any, _frame: Any) -> None:
+        def handler(_sig: int, _frame: types.FrameType | None) -> None:
             warn("Ignore Ctrl-C: Cleanup in progress... Don't be so impatient, human!")
 
         self.old_handler = signal.signal(signal.SIGINT, handler)

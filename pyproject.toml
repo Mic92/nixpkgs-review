@@ -43,8 +43,6 @@ lint.ignore = [
   # fixmes
   "FIX",
 
-  # Dynamically typed expressions (typing.Any)
-  "ANN401",
   # Trailing comma missing
   "COM812",
   # Unnecessary `dict` call (rewrite as a literal)
