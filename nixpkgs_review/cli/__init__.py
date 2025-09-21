@@ -159,26 +159,20 @@ class CommonFlag:
 
 
 def hub_config_path() -> Path:
-    raw_hub_path = os.environ.get("HUB_CONFIG", None)
-    if raw_hub_path:
+    if raw_hub_path := os.environ.get("HUB_CONFIG"):
         return Path(raw_hub_path)
-
-    raw_config_home = os.environ.get("XDG_CONFIG_HOME", None)
-    if raw_config_home is None:
-        config_home = Path.home().joinpath(".config")
-    else:
-        config_home = Path(raw_config_home)
-    return config_home.joinpath("hub")
+    raw_config_home = os.environ.get("XDG_CONFIG_HOME")
+    config_home = Path(raw_config_home) if raw_config_home else Path.home() / ".config"
+    return config_home / "hub"
 
 
 def read_github_token() -> str | None:
     # for backwards compatibility we also accept GITHUB_OAUTH_TOKEN.
-    token = os.environ.get("GITHUB_OAUTH_TOKEN", os.environ.get("GITHUB_TOKEN"))
-    if token:
+    if token := os.environ.get("GITHUB_OAUTH_TOKEN") or os.environ.get("GITHUB_TOKEN"):
         return token
     token_cmds = []
-    if "GITHUB_TOKEN_CMD" in os.environ:
-        token_cmds.append(os.environ.get("GITHUB_TOKEN_CMD", "").split())
+    if cmd := os.environ.get("GITHUB_TOKEN_CMD"):
+        token_cmds.append(cmd.split())
     if which("gh"):
         token_cmds.append(["gh", "auth", "token"])
     for token_cmd in token_cmds:

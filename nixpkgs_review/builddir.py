@@ -33,58 +33,56 @@ class DisableKeyboardInterrupt:
 
 
 def create_cache_directory(name: str) -> Path | TemporaryDirectory[str]:
-    app_cache_dir = os.environ.get("NIXPKGS_REVIEW_CACHE_DIR")
-    if app_cache_dir is not None:
+    if app_cache_dir := os.environ.get("NIXPKGS_REVIEW_CACHE_DIR"):
         xdg_cache = Path(app_cache_dir)
+    elif xdg_cache_raw := os.environ.get("XDG_CACHE_HOME"):
+        xdg_cache = Path(xdg_cache_raw)
+    elif home := os.environ.get("HOME"):
+        xdg_cache = Path(home) / ".cache"
     else:
-        xdg_cache_raw = os.environ.get("XDG_CACHE_HOME")
-        if xdg_cache_raw is not None:
-            xdg_cache = Path(xdg_cache_raw)
-        else:
-            home = os.environ.get("HOME", None)
-            if home is None:
-                # we are in a temporary directory
-                return TemporaryDirectory()
-
-            xdg_cache = Path(home).joinpath(".cache")
+        # we are in a temporary directory
+        return TemporaryDirectory()
 
     # There is no guarantee that environment variables are set to absolute paths.
     xdg_cache = xdg_cache.absolute()
 
-    counter = 0
-    while True:
+    for counter in range(1000):  # Prevent infinite loop
+        final_name = name if counter == 0 else f"{name}-{counter}"
+        cache_home = xdg_cache / "nixpkgs-review" / final_name
         try:
-            final_name = name if counter == 0 else f"{name}-{counter}"
-            cache_home = xdg_cache.joinpath("nixpkgs-review", final_name)
             cache_home.mkdir(parents=True)
         except FileExistsError:
-            counter += 1
+            continue
         else:
             return cache_home
+    msg = f"Could not create cache directory after 1000 attempts: {name}"
+    raise RuntimeError(msg)
 
 
 class Builddir:
     def __init__(self, name: str) -> None:
         self.environ = os.environ.copy()
         self.directory = create_cache_directory(name)
+        self._temp_directory: TemporaryDirectory[str] | None = None
         if isinstance(self.directory, TemporaryDirectory):
+            self._temp_directory = self.directory
             self.path = Path(self.directory.name)
         else:
             self.path = self.directory
 
         self.overlay = Overlay()
 
-        self.worktree_dir = self.path.joinpath("nixpkgs")
+        self.worktree_dir = self.path / "nixpkgs"
         self.worktree_dir.mkdir()
-        nix_path = [
+        self._nix_path_parts = [
             f"nixpkgs={self.worktree_dir}",
             f"nixpkgs-overlays={self.overlay.path}",
         ]
-        # we don't actually use this, but its handy for users who want to try out things with the current nixpkgs version.
-        os.environ["NIX_PATH"] = ":".join(nix_path)
-        self.nix_path = " ".join(nix_path)
+        self.nix_path = " ".join(self._nix_path_parts)
 
     def __enter__(self) -> Self:
+        # we don't actually use this, but its handy for users who want to try out things with the current nixpkgs version.
+        os.environ["NIX_PATH"] = ":".join(self._nix_path_parts)
         return self
 
     def __exit__(
@@ -97,7 +95,7 @@ class Builddir:
         os.environ.update(self.environ)
 
         with DisableKeyboardInterrupt():
-            if Path.exists(self.worktree_dir / ".git"):
+            if (self.worktree_dir / ".git").exists():
                 res = git.run(["worktree", "remove", "-f", str(self.worktree_dir)])
                 if res.returncode != 0:
                     warn(
@@ -105,3 +103,7 @@ class Builddir:
                     )
 
         self.overlay.cleanup()
+
+        # Clean up the temporary directory if we created one
+        if self._temp_directory is not None:
+            self._temp_directory.cleanup()

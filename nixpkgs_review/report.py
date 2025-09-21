@@ -96,18 +96,17 @@ def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
     res = ""
     seen_tails = set()
     for pkg in packages:
-        tail = html.escape(
+        if tail := html.escape(
             remove_ansi_escape_sequences(
                 get_file_tail(logs_dir / get_log_filename(pkg, system))
             )
-        )
-        if tail:
+        ):
             if not res:
                 res = "\n---\n"
                 res += f"<details>\n<summary>Error logs: `{system}`</summary>\n"
             if tail in seen_tails:
                 continue
-            res += f"<details>\n<summary>{pkg.name}</summary>\n<pre>{tail}</pre>\n</details>\n"
+            res += f"<details>\n<summary>{html.escape(pkg.name)}</summary>\n<pre>{tail}</pre>\n</details>\n"
             seen_tails.add(tail)
     if res:
         res += "</details>\n"
@@ -161,6 +160,67 @@ def get_nix_config(name: str | None = None) -> dict[str, str]:
     return {}
 
 
+def _get_nix_log_args() -> list[str]:
+    # filter https://cache.nixos.org from acting as build-log substituters
+    # to avoid hammering it
+    substituters = get_nix_config("substituters").get("substituters")
+    if substituters is None:
+        return []
+    return [
+        "--option",
+        "substituters",
+        " ".join(
+            i for i in substituters.split() if i and i != "https://cache.nixos.org"
+        ),
+    ]
+
+
+def _create_symlink_for_attr(
+    attr: Attr,
+    attr_name: str,
+    results: LazyDirectory,
+    failed_results: LazyDirectory,
+) -> None:
+    if attr.path is None or not attr.path.exists():
+        return
+
+    if attr.was_build():
+        symlink_source = results.ensure().joinpath(attr_name)
+    else:
+        symlink_source = failed_results.ensure().joinpath(attr_name)
+
+    if os.path.lexists(symlink_source):
+        symlink_source.unlink()
+    symlink_source.symlink_to(attr.path)
+
+
+def _write_log_for_attr(
+    attr: Attr,
+    system: str,
+    logs: LazyDirectory,
+    extra_nix_log_args: list[str],
+) -> None:
+    for path in [f"{attr.drv_path}^*", attr.path]:
+        if not path:
+            continue
+
+        with logs.ensure().joinpath(get_log_filename(attr, system)).open("w+") as f:
+            nix_log = subprocess.run(
+                [
+                    "nix",
+                    "--extra-experimental-features",
+                    "nix-command",
+                    "log",
+                    path,
+                    *extra_nix_log_args,
+                ],
+                stdout=f,
+                check=False,
+            )
+            if nix_log.returncode == 0:
+                break
+
+
 def write_error_logs(
     attrs_per_system: dict[str, list[Attr]],
     directory: Path,
@@ -170,24 +230,10 @@ def write_error_logs(
     logs = LazyDirectory(get_log_dir(directory))
     results = LazyDirectory(directory.joinpath("results"))
     failed_results = LazyDirectory(directory.joinpath("failed_results"))
-
-    extra_nix_log_args = []
-
-    # filter https://cache.nixos.org from acting as build-log substituters
-    # to avoid hammering it
-    # IDEA: also add the remote builders if user has not already configured this
-    # TODO: should this option respect '--build-args'? 'nix log' accepts most, but not all
-    substituters = get_nix_config("substituters").get("substituters")
-    if substituters is not None:
-        extra_nix_log_args += [
-            "--option",
-            "substituters",
-            " ".join(
-                i for i in substituters.split() if i and i != "https://cache.nixos.org"
-            ),
-        ]
+    nix_log_args = _get_nix_log_args()
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = []
         for system, attrs in attrs_per_system.items():
             for attr in attrs:
                 # Broken attrs have no drv_path.
@@ -195,41 +241,12 @@ def write_error_logs(
                     continue
 
                 attr_name: str = f"{attr.name}-{system}"
-
-                if attr.path is not None and attr.path.exists():
-                    if attr.was_build():
-                        symlink_source = results.ensure().joinpath(attr_name)
-                    else:
-                        symlink_source = failed_results.ensure().joinpath(attr_name)
-                    if os.path.lexists(symlink_source):
-                        symlink_source.unlink()
-                    symlink_source.symlink_to(attr.path)
-
-                @pool.submit
-                def future(attr: Attr = attr, system: str = system) -> None:
-                    for path in [f"{attr.drv_path}^*", attr.path]:
-                        if not path:
-                            continue
-
-                        with (
-                            logs.ensure()
-                            .joinpath(get_log_filename(attr, system))
-                            .open("w+") as f
-                        ):
-                            nix_log = subprocess.run(
-                                [
-                                    "nix",
-                                    "--extra-experimental-features",
-                                    "nix-command",
-                                    "log",
-                                    path,
-                                    *extra_nix_log_args,
-                                ],
-                                stdout=f,
-                                check=False,
-                            )
-                            if nix_log.returncode == 0:
-                                break
+                _create_symlink_for_attr(attr, attr_name, results, failed_results)
+                futures.append(
+                    pool.submit(_write_log_for_attr, attr, system, logs, nix_log_args)
+                )
+        for fut in futures:
+            fut.result()
 
 
 def _serialize_attrs(attrs: list[Attr]) -> list[str]:
@@ -246,18 +263,19 @@ class SystemReport:
         self.built: list[Attr] = []
 
         for attr in attrs:
-            if attr.broken:
-                self.broken.append(attr)
-            elif attr.blacklisted:
-                self.blacklisted.append(attr)
-            elif not attr.exists:
-                self.non_existent.append(attr)
-            elif not attr.was_build():
-                self.failed.append(attr)
-            elif attr.name.startswith("nixosTests."):
-                self.tests.append(attr)
-            else:
-                self.built.append(attr)
+            match attr:
+                case _ if attr.broken:
+                    self.broken.append(attr)
+                case _ if attr.blacklisted:
+                    self.blacklisted.append(attr)
+                case _ if not attr.exists:
+                    self.non_existent.append(attr)
+                case _ if not attr.was_build():
+                    self.failed.append(attr)
+                case _ if attr.is_test():
+                    self.tests.append(attr)
+                case _:
+                    self.built.append(attr)
 
     def serialize(self) -> dict[str, list[str]]:
         return {
@@ -316,10 +334,9 @@ class Report:
         self.skip_packages = skip_packages
         self.skip_packages_regex = [r.pattern for r in skip_packages_regex]
 
-        if extra_nixpkgs_config != "{ }":
-            self.extra_nixpkgs_config: str | None = extra_nixpkgs_config
-        else:
-            self.extra_nixpkgs_config = None
+        self.extra_nixpkgs_config = (
+            extra_nixpkgs_config if extra_nixpkgs_config != "{ }" else None
+        )
 
         reports: dict[System, SystemReport] = {}
         for system, attrs in attrs_per_system.items():
@@ -364,71 +381,81 @@ class Report:
             indent=4,
         )
 
+    def _generate_command_string(self, pr: int | None) -> str:
+        cmd = "nixpkgs-review"
+        if pr is not None:
+            cmd += f" pr {pr}"
+        if self.extra_nixpkgs_config:
+            cmd += f" --extra-nixpkgs-config '{self.extra_nixpkgs_config}'"
+        if self.checkout != "merge":
+            cmd += f" --checkout {self.checkout}"
+
+        options = {
+            "package": self.only_packages,
+            "additional-package": self.additional_packages,
+            "package-regex": self.package_regex,
+            "skip-package": self.skip_packages,
+            "skip-package-regex": self.skip_packages_regex,
+        }
+        for option_name, option_value in options.items():
+            if option_value:
+                cmd += f" --{option_name} " + f" --{option_name} ".join(option_value)
+        return cmd
+
+    def _generate_header(self, pr: int | None) -> str:
+        msg = "## `nixpkgs-review` result\n\n"
+        msg += "Generated using [`nixpkgs-review`](https://github.com/Mic92/nixpkgs-review).\n\n"
+        msg += f"Command: `{self._generate_command_string(pr)}`\n"
+        if self.commit:
+            msg += f"Commit: `{self.commit}`\n"
+        return msg
+
+    def _generate_system_report(self, system: str, report: SystemReport) -> str:
+        msg = "\n---\n"
+        msg += f"### `{system}`\n"
+        msg += html_pkgs_section(
+            ":fast_forward:", report.broken, "marked as broken and skipped"
+        )
+        msg += html_pkgs_section(
+            ":fast_forward:",
+            report.non_existent,
+            "present in ofBorg's evaluation, but not found in the checkout",
+        )
+        msg += html_pkgs_section(":fast_forward:", report.blacklisted, "blacklisted")
+        msg += html_pkgs_section(":x:", report.failed, "failed to build")
+        msg += html_pkgs_section(
+            ":white_check_mark:", report.tests, "built", what="test"
+        )
+        msg += html_pkgs_section(":white_check_mark:", report.built, "built")
+        return msg
+
+    def _append_logs(self, msg: str, root: Path) -> str:
+        if not self.show_logs:
+            return msg
+
+        truncated_msg = (
+            "\n---\n"
+            "WARNING: Some logs were not included in this report: there were too many."
+        )
+        for system, report in self.system_reports.items():
+            if not report.failed:
+                continue
+            full_msg = msg
+            full_msg += html_logs_section(get_log_dir(root), report.failed, system)
+            if len(full_msg) > MAX_GITHUB_COMMENT_LENGTH - len(truncated_msg):
+                return msg + truncated_msg
+            msg = full_msg
+        return msg
+
     def markdown(self, root: Path, pr: int | None) -> str:
         msg = ""
         if self.show_header:
-            msg += "## `nixpkgs-review` result\n\n"
-            msg += "Generated using [`nixpkgs-review`](https://github.com/Mic92/nixpkgs-review).\n\n"
-
-            cmd = "nixpkgs-review"
-            if pr is not None:
-                cmd += f" pr {pr}"
-            if self.extra_nixpkgs_config:
-                cmd += f" --extra-nixpkgs-config '{self.extra_nixpkgs_config}'"
-            if self.checkout != "merge":
-                cmd += f" --checkout {self.checkout}"
-            for option_name, option_value in {
-                "package": self.only_packages,
-                "additional-package": self.additional_packages,
-                "package-regex": self.package_regex,
-                "skip-package": self.skip_packages,
-                "skip-package-regex": self.skip_packages_regex,
-            }.items():
-                if option_value:
-                    cmd += f" --{option_name} " + f" --{option_name} ".join(
-                        option_value
-                    )
-            msg += f"Command: `{cmd}`\n"
-            if self.commit:
-                msg += f"Commit: `{self.commit}`\n"
+            msg += self._generate_header(pr)
 
         for system, report in self.system_reports.items():
-            msg += "\n---\n"
-            msg += f"### `{system}`\n"
-            msg += html_pkgs_section(
-                ":fast_forward:", report.broken, "marked as broken and skipped"
-            )
-            msg += html_pkgs_section(
-                ":fast_forward:",
-                report.non_existent,
-                "present in ofBorgs evaluation, but not found in the checkout",
-            )
-            msg += html_pkgs_section(
-                ":fast_forward:", report.blacklisted, "blacklisted"
-            )
-            msg += html_pkgs_section(":x:", report.failed, "failed to build")
-            msg += html_pkgs_section(
-                ":white_check_mark:", report.tests, "built", what="test"
-            )
-            msg += html_pkgs_section(":white_check_mark:", report.built, "built")
+            msg += self._generate_system_report(system, report)
 
-        if self.show_logs:
-            truncated_msg = (
-                "\n---\n"
-                "WARNING: Some logs were not included in this report: there were too many."
-            )
-            for system, report in self.system_reports.items():
-                if not report.failed:
-                    continue
-                full_msg = msg
-                full_msg += html_logs_section(get_log_dir(root), report.failed, system)
-                # if the final message won't fit a single github comment, stop
-                if len(full_msg) > MAX_GITHUB_COMMENT_LENGTH - len(truncated_msg):
-                    msg += truncated_msg
-                    break
-                msg = full_msg
-
-        return msg
+        return self._append_logs(msg, root)
 
     def print_console(self, root: Path, pr: int | None) -> None:
         if pr is not None:

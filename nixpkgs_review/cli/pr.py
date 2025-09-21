@@ -10,7 +10,7 @@ from nixpkgs_review.builddir import Builddir
 from nixpkgs_review.buildenv import Buildenv
 from nixpkgs_review.errors import NixpkgsReviewError
 from nixpkgs_review.review import CheckoutOption, Review
-from nixpkgs_review.utils import System, warn
+from nixpkgs_review.utils import System, die, warn
 
 from .utils import ensure_github_token
 
@@ -24,53 +24,56 @@ if TYPE_CHECKING:
 def parse_pr_numbers(number_args: list[str]) -> list[int]:
     prs: list[int] = []
     for arg in number_args:
-        m = re.match(r"(\d+)-(\d+)", arg)
-        if m:
+        if m := re.match(r"(\d+)-(\d+)", arg):
             prs.extend(range(int(m.group(1)), int(m.group(2))))
+        elif m := re.match(r"https://github.com/NixOS/nixpkgs/pull/(\d+)/?.*", arg):
+            prs.append(int(m.group(1)))
         else:
-            m = re.match(r"https://github.com/NixOS/nixpkgs/pull/(\d+)/?.*", arg)
-            if m:
-                prs.append(int(m.group(1)))
-            else:
-                try:
-                    prs.append(int(arg))
-                except ValueError:
-                    warn(f"expected number or URL, got {m}")
-                    sys.exit(1)
+            try:
+                prs.append(int(arg))
+            except ValueError:
+                die(f"expected number or URL, got {arg!r}")
     return prs
 
 
-def pr_command(args: argparse.Namespace) -> str:
-    prs: list[int] = parse_pr_numbers(args.number)
-    if args.eval == "ofborg":
-        warn("Warning: `--eval=ofborg` is deprecated. Use `--eval=github` instead.")
-        args.eval = "github"
-
-    checkout_option = (
-        CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
-    )
-
+def _validate_pr_json(args: argparse.Namespace, prs: list[int]) -> dict[int, Any]:
     pr_objects: dict[int, Any] = {}
     for obj in args.pr_json:
         if (
             not isinstance(obj, dict)
             or "number" not in obj
-            or not isinstance(obj["number"], int)
+            or not isinstance((number := obj["number"]), int)
         ):
-            warn(f"Invalid Pull Request JSON object provided: {obj}")
-            sys.exit(1)
-        pr_objects[obj["number"]] = obj
+            die(f"Invalid Pull Request JSON object provided: {obj}")
+        pr_objects[number] = obj
     if args.pr_json and (missing := [pr for pr in prs if pr not in pr_objects]):
-        warn(
+        die(
             f"API lookups for PRs are disabled due to the use of the --pr-json flag, but no JSON objects have been specified for the following PRs: {', '.join(map(str, missing))}"
         )
-        sys.exit(1)
+    return pr_objects
 
-    if args.post_result or args.approve_pr:
-        ensure_github_token(args.token)
+
+def _handle_deprecated_args(args: argparse.Namespace) -> None:
+    if args.eval == "ofborg":
+        warn("Warning: `--eval=ofborg` is deprecated. Use `--eval=github` instead.")
+        args.eval = "github"
     if args.system:
         warn("Warning: The `--system` is deprecated. Use `--systems` instead.")
         args.systems = args.system
+
+
+def pr_command(args: argparse.Namespace) -> str:
+    prs: list[int] = parse_pr_numbers(args.number)
+    _handle_deprecated_args(args)
+
+    checkout_option = (
+        CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
+    )
+
+    pr_objects = _validate_pr_json(args, prs)
+
+    if args.post_result or args.approve_pr:
+        ensure_github_token(args.token)
 
     contexts: list[
         tuple[

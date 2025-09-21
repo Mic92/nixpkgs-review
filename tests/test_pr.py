@@ -138,7 +138,7 @@ def test_pr_local_eval(helpers: Helpers, capfd: pytest.CaptureFixture[Any]) -> N
         assert "$ nom build" in captured.out
 
 
-@patch("urllib.request.urlopen")
+@patch("nixpkgs_review.http_requests.urlopen")
 @patch("nixpkgs_review.cli.nix_nom_tool", return_value="nix")
 def test_pr_local_eval_missing_nom(
     mock_tool: Mock,
@@ -171,7 +171,7 @@ def test_pr_local_eval_missing_nom(
         assert "$ nix build" in captured.out
 
 
-@patch("urllib.request.urlopen")
+@patch("nixpkgs_review.http_requests.urlopen")
 def test_pr_local_eval_without_nom(
     mock_urlopen: MagicMock, helpers: Helpers, capfd: pytest.CaptureFixture[Any]
 ) -> None:
@@ -223,7 +223,7 @@ def test_pr_local_eval_with_sandbox(helpers: Helpers) -> None:
         helpers.assert_built(path, "pkg1")
 
 
-@patch("urllib.request.urlopen")
+@patch("nixpkgs_review.http_requests.urlopen")
 def test_pr_ofborg_eval(mock_urlopen: MagicMock, helpers: Helpers) -> None:
     with helpers.nixpkgs() as nixpkgs:
         base, head, merge = setup_repo(nixpkgs)
@@ -275,7 +275,7 @@ def test_pr_ofborg_eval(mock_urlopen: MagicMock, helpers: Helpers) -> None:
         helpers.assert_built(path, "pkg1")
 
 
-@patch("urllib.request.urlopen")
+@patch("nixpkgs_review.http_requests.urlopen")
 def test_pr_github_action_eval(
     mock_urlopen: MagicMock,
     helpers: Helpers,
@@ -352,7 +352,7 @@ def test_pr_github_action_eval(
             helpers.assert_built(path, "pkg1", "bashInteractive")
 
 
-@patch("urllib.request.urlopen")
+@patch("nixpkgs_review.http_requests.urlopen")
 @patch("nixpkgs_review.review._list_packages_system")
 def test_pr_only_packages_does_not_trigger_an_eval(
     mock_eval: MagicMock,

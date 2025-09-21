@@ -48,8 +48,13 @@ class GitHubGraphQLReviewsNode(TypedDict):
     nodes: Required[list[GitHubGraphQLReview]]
 
 
+class GitHubGraphQLCommentsNode(TypedDict):
+    nodes: Required[list[GitHubGraphQLComment]]
+
+
 class GitHubGraphQLPullRequest(GitHubGraphQLComment):
     reviews: Required[GitHubGraphQLReviewsNode]
+    comments: Required[GitHubGraphQLCommentsNode]
 
 
 class GitHubGraphQLRepository(TypedDict):
@@ -126,8 +131,7 @@ class ReviewComment(Comment):
 
     @staticmethod
     def from_review_comment_json(data: GitHubGraphQLReviewComment) -> ReviewComment:
-        reply_to = data.get("replyTo")
-        reply_to_id = reply_to.get("id") if reply_to else None
+        reply_to_id = reply_to.get("id") if (reply_to := data.get("replyTo")) else None
 
         return ReviewComment(
             author=data["author"]["login"],
@@ -175,28 +179,26 @@ def get_comments(github_token: str, pr_num: int) -> list[Comment | Review]:
 
     comments: list[Comment | Review] = [Comment.from_json(pr)]
 
+    # Include PR issue comments (separate from review threads)
+    comments.extend(Comment.from_json(c) for c in pr["comments"]["nodes"])
+
     reviews_nodes = pr["reviews"]["nodes"]
 
     # Note: reviews_nodes contains reviews, not review comments
     # We'll process them below when iterating through reviews
 
-    review_comments_by_ids: dict[str, ReviewComment] = {}
     for review in reviews_nodes:
-        review_comments_nodes = review["comments"]["nodes"]
+        nodes = review["comments"]["nodes"]
+        all_comments = [ReviewComment.from_review_comment_json(n) for n in nodes]
+        by_id = {c.id: c for c in all_comments}
 
-        review_comments = []
-        for comment in review_comments_nodes:
-            c = ReviewComment.from_review_comment_json(comment)
-            if c.reply_to:
-                referred = review_comments_by_ids.get(c.reply_to, None)
-                if referred is not None:
-                    referred.replies.append(c)
-                else:
-                    review_comments.append(c)
+        roots: list[ReviewComment] = []
+        for c in all_comments:
+            if c.reply_to and c.reply_to in by_id:
+                by_id[c.reply_to].replies.append(c)
             else:
-                review_comments.append(c)
-            review_comments_by_ids[c.id] = c
-        comments.append(Review.from_json(review, review_comments))
+                roots.append(c)
+        comments.append(Review.from_json(review, roots))
 
     return sorted(comments, key=lambda x: x.created_at)
 
@@ -204,13 +206,15 @@ def get_comments(github_token: str, pr_num: int) -> list[Comment | Review]:
 def colorize_diff(diff: str) -> str:
     lines = []
     for line in diff.split("\n"):
-        color = ""
         if line.startswith("-"):
             color = "\x1b[31m"
         elif line.startswith("+"):
             color = "\x1b[32m"
         elif line.startswith("@"):
             color = "\x1b[34m"
+        else:
+            lines.append(line)
+            continue
         lines.append(f"{color}{line}\x1b[0m")
     return "\n".join(lines)
 
@@ -219,10 +223,7 @@ def show_comments(args: argparse.Namespace) -> None:
     comments = get_comments(ensure_github_token(args.token), get_current_pr())
 
     for comment in comments:
-        if isinstance(comment, Review):
-            if comment.body == "" and len(comment.comments) == 0:
-                # skip replies
-                continue
+        if isinstance(comment, Review) and (comment.body or comment.comments):
             print(
                 f"[{comment.created_at}] {bold(comment.author)} reviewed: {comment.body}\n"
             )
@@ -231,9 +232,9 @@ def show_comments(args: argparse.Namespace) -> None:
                 print(f"  {bold(review_comment.author)}: {review_comment.body}")
                 for reply in review_comment.replies:
                     print(f"  {bold(reply.author)}: {reply.body}\n")
-                if len(review_comment.replies) == 0:
-                    print("\n")
-        else:
+                if not review_comment.replies:
+                    print()
+        elif isinstance(comment, Comment):
             print(
                 f"[{comment.created_at}] {bold(comment.author)} said: {comment.body}\n"
             )

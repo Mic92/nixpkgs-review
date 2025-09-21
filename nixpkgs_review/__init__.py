@@ -8,8 +8,6 @@ from . import cli
 
 def main() -> None:
     try:
-        command = Path(sys.argv[0]).name
-        args = sys.argv[1:]
-        cli.main(command, args)
+        cli.main(Path(sys.argv[0]).name, sys.argv[1:])
     except KeyboardInterrupt:
-        pass
+        sys.exit(130)  # Standard exit code for SIGINT

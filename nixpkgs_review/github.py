@@ -11,6 +11,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import IO, TYPE_CHECKING, Any, Required, TypedDict, cast, override
 
+from . import http_requests
 from .errors import ArtifactExpiredError
 from .utils import System, warn
 
@@ -114,7 +115,7 @@ class GithubClient:
             method=method,
             data=body,
         )
-        with urllib.request.urlopen(req) as resp:  # noqa: S310
+        with http_requests.urlopen(req) as resp:
             result: JSONType = json.loads(resp.read())
             return result
 
@@ -199,7 +200,6 @@ class GithubClient:
         except urllib.error.HTTPError as e:
             if e.code == 302:
                 new_url = e.headers["Location"]
-                # Handle the new URL as needed
             elif e.code == 410:
                 msg = dedent(f"""
                 GitHub artifact {workflow_id} has expired or been removed
@@ -213,13 +213,9 @@ class GithubClient:
             msg = f"Expected 302, got {resp.status}"
             raise RuntimeError(msg)
 
-        if not new_url.startswith(("http:", "https:")):
-            msg = "URL must start with 'http:' or 'https:'"
-            raise ValueError(msg)
-
         req = urllib.request.Request(new_url)  # noqa: S310
         with (
-            urllib.request.urlopen(req) as new_resp,  # noqa: S310
+            http_requests.urlopen(req) as new_resp,
             tempfile.TemporaryDirectory() as _temp_dir,
         ):
             temp_dir = Path(_temp_dir)
@@ -236,11 +232,7 @@ class GithubClient:
                 result: JSONType = json.load(json_file)
                 return result
 
-    def get_github_action_eval_result(
-        self, pr: GitHubPullRequest
-    ) -> dict[System, set[str]] | None:
-        commit_sha = pr["head"]["sha"]
-
+    def _get_workflow_runs(self, commit_sha: str) -> list[Any] | None:
         workflow_runs_resp = self.get(
             f"repos/NixOS/nixpkgs/actions/runs?head_sha={commit_sha}"
         )
@@ -256,7 +248,35 @@ class GithubClient:
             msg = f"Expected workflow_runs to be a list, got {type(workflow_runs_list)}"
             raise TypeError(msg)
 
-        workflow_runs = cast("list[GitHubWorkflowRun]", workflow_runs_list)
+        return cast("list[GitHubWorkflowRun]", workflow_runs_list)
+
+    def _process_comparison_artifact(
+        self, artifact_id: int
+    ) -> dict[System, set[str]] | None:
+        changed_paths = self.get_json_from_artifact(
+            workflow_id=artifact_id,
+            json_filename="changed-paths.json",
+        )
+        if not isinstance(changed_paths, dict):
+            msg = f"Expected changed_paths to be a dict, got {type(changed_paths)}"
+            raise TypeError(msg)
+
+        if (path := changed_paths.get("rebuildsByPlatform")) is not None:
+            if not isinstance(path, dict):
+                msg = f"Expected rebuildsByPlatform to be a dict, got {type(path)}"
+                raise TypeError(msg)
+            return {
+                # Convert package lists to package sets
+                system: set(packages_list)
+                for system, packages_list in path.items()
+            }
+        return None
+
+    def get_github_action_eval_result(
+        self, pr: GitHubPullRequest
+    ) -> dict[System, set[str]] | None:
+        commit_sha = pr["head"]["sha"]
+        workflow_runs = self._get_workflow_runs(commit_sha)
 
         if not workflow_runs:
             return None
@@ -266,6 +286,7 @@ class GithubClient:
             # all pull requests run with the new PR workflow.
             if workflow_run["name"] not in ("Eval", "PR"):
                 continue
+
             artifacts_resp = self.get(workflow_run["artifacts_url"])
             if not isinstance(artifacts_resp, dict):
                 msg = f"Expected artifacts response to be a dict, got {type(artifacts_resp)}"
@@ -285,22 +306,8 @@ class GithubClient:
             for artifact in artifacts:
                 if artifact["name"] != "comparison":
                     continue
-                changed_paths = self.get_json_from_artifact(
-                    workflow_id=artifact["id"],
-                    json_filename="changed-paths.json",
-                )
-                if not isinstance(changed_paths, dict):
-                    msg = f"Expected changed_paths to be a dict, got {type(changed_paths)}"
-                    raise TypeError(msg)
-
-                if (path := changed_paths.get("rebuildsByPlatform")) is not None:
-                    if not isinstance(path, dict):
-                        msg = f"Expected rebuildsByPlatform to be a dict, got {type(path)}"
-                        raise TypeError(msg)
-                    return {
-                        # Convert package lists to package sets
-                        system: set(packages_list)
-                        for system, packages_list in path.items()
-                    }
+                result = self._process_comparison_artifact(artifact["id"])
+                if result:
+                    return result
 
         return None

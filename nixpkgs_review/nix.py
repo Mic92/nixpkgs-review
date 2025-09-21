@@ -187,9 +187,9 @@ def _nix_shell_sandbox(
         "--",
         nix_shell,
         *shell_file_args,
-        REVIEW_SHELL,
         "--nix-path",
         nix_path,
+        REVIEW_SHELL,
     ]
 
 
@@ -232,8 +232,7 @@ def _nix_eval_filter(json: NixEvalResult) -> list[Attr]:
             drv_path=props["drvPath"],
         )
         if attr.path is not None:
-            other = attr_by_path.get(attr.path, None)
-            if other is None:
+            if (other := attr_by_path.get(attr.path)) is None:
                 attr_by_path[attr.path] = attr
             elif len(other.name) > len(attr.name):
                 attr_by_path[attr.path] = attr
@@ -341,12 +340,10 @@ def nix_build(
         n_threads=n_threads,
     )
 
-    filtered_per_system: dict[System, list[str]] = {}
-    for system, attrs in attrs_per_system.items():
-        filtered_per_system[system] = []
-        for attr in attrs:
-            if not (attr.broken or attr.blacklisted):
-                filtered_per_system[system].append(attr.name)
+    filtered_per_system = {
+        system: [attr.name for attr in attrs if not (attr.broken or attr.blacklisted)]
+        for system, attrs in attrs_per_system.items()
+    }
 
     if all(len(filtered) == 0 for filtered in filtered_per_system.values()):
         return attrs_per_system
@@ -401,7 +398,6 @@ def build_shell_file_args(
                 f.write(f'    "{attr}"\n')
             f.write("  ];\n")
         f.write("}")
-        print(f.read())
 
     return [
         "--argstr",

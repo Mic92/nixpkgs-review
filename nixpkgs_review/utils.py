@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any
+from typing import IO, TYPE_CHECKING, Any, NoReturn
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -34,6 +34,17 @@ skipped = color_text(33)
 link = color_text(34)
 
 
+def die(msg: str, exit_code: int = 1) -> NoReturn:
+    warn(msg)
+    sys.exit(exit_code)
+
+
+def require_env(var_name: str, error_msg: str) -> str:
+    if value := os.environ.get(var_name):
+        return value
+    die(error_msg)
+
+
 def to_link(uri: str, text: str) -> str:
     if HAS_TTY:
         return f"\u001b]8;;{uri}\u001b\\{text}\u001b]8;;\u001b\\"
@@ -52,10 +63,7 @@ def sh(
 ) -> subprocess.CompletedProcess[str]:
     if not quiet:
         info("$ " + shlex.join(command))
-    if env is not None:
-        full_env = os.environ.copy()
-        full_env.update(env)
-        env = full_env
+    env = os.environ | env if env else None
     return subprocess.run(
         command,
         cwd=cwd,
@@ -69,10 +77,8 @@ def sh(
 
 
 def escape_attr(attr: str) -> str:
-    attr_parts = attr.split(".")
-    first = attr_parts[0]
-    rest = [f'"{item}"' for item in attr_parts[1:]]
-    return ".".join([first, *rest])
+    parts = attr.split(".")
+    return ".".join([parts[0], *(f'"{p}"' for p in parts[1:])])
 
 
 @functools.lru_cache(maxsize=1)
@@ -97,10 +103,7 @@ def current_system() -> str:
 
 def nix_nom_tool() -> str:
     "Return `nom` and `nom-shell` if found in $PATH"
-    if shutil.which("nom") and shutil.which("nom-shell"):
-        return "nom"
-
-    return "nix"
+    return "nom" if shutil.which("nom") and shutil.which("nom-shell") else "nix"
 
 
 def system_order_key(system: System) -> str:

@@ -9,21 +9,21 @@ import subprocess
 import sys
 import tempfile
 import time
-import urllib.request
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, cast
+from urllib.error import URLError
 from xml.etree import ElementTree as ET
 
-from . import git
+from . import git, http_requests
 from .builddir import Builddir
 from .errors import NixpkgsReviewError
 from .github import GithubClient, GitHubPullRequest
 from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
-from .utils import System, current_system, info, sh, system_order_key, warn
+from .utils import System, current_system, die, info, sh, system_order_key, warn
 
 if TYPE_CHECKING:
     import argparse
@@ -55,7 +55,7 @@ def print_packages(
     names: list[str],
     msg: str,
 ) -> None:
-    if len(names) == 0:
+    if not names:
         return
     plural = "s" if len(names) > 1 else ""
 
@@ -81,10 +81,9 @@ def print_updates(changed_pkgs: list[Package], removed_pkgs: list[Package]) -> N
     updated = []
     for pkg in changed_pkgs:
         if pkg.old_pkg is None:
-            if pkg.version != "":
-                new.append(f"{pkg.attr_path} (init at {pkg.version})")
-            else:
-                new.append(pkg.pname)
+            new.append(
+                f"{pkg.attr_path} (init at {pkg.version})" if pkg.version else pkg.pname
+            )
         elif pkg.old_pkg.version != pkg.version:
             updated.append(f"{pkg.attr_path} ({pkg.old_pkg.version} → {pkg.version})")
         else:
@@ -126,16 +125,6 @@ class Review:
         show_pr_info: bool = True,
         pr_object: dict[str, Any] | None = None,
     ) -> None:
-        if skip_packages_regex is None:
-            skip_packages_regex = []
-        if skip_packages is None:
-            skip_packages = set()
-        if package_regexes is None:
-            package_regexes = []
-        if only_packages is None:
-            only_packages = set()
-        if additional_packages is None:
-            additional_packages = set()
         self.builddir = builddir
         self.build_args = build_args
         self.no_shell = no_shell
@@ -145,11 +134,11 @@ class Review:
         self.github_client = GithubClient(api_token)
         self.eval_type = eval_type
         self.checkout = checkout
-        self.only_packages = only_packages
-        self.additional_packages = additional_packages
-        self.package_regex = package_regexes
-        self.skip_packages = skip_packages
-        self.skip_packages_regex = skip_packages_regex
+        self.only_packages = only_packages or set()
+        self.additional_packages = additional_packages or set()
+        self.package_regex = package_regexes or []
+        self.skip_packages = skip_packages or set()
+        self.skip_packages_regex = skip_packages_regex or []
         self.local_system = current_system()
         if not systems:
             msg = "Systems is empty"
@@ -216,8 +205,8 @@ class Review:
 
             # This should never happen
             case _:
-                warn("Invalid eval_type")
-                sys.exit(1)
+                die("Invalid eval_type")
+        return None
 
     def _process_aliases_for_systems(self, system: str) -> set[str]:
         match system:
@@ -244,8 +233,7 @@ class Review:
         is_truncated = len(content) > max_length
         content = content[:max_length]
 
-        glow_cmd = shutil.which("glow")
-        if glow_cmd and os.isatty(sys.stdout.fileno()):
+        if (glow_cmd := shutil.which("glow")) and os.isatty(sys.stdout.fileno()):
             with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
                 f.write(content)
                 temp_file = f.name
@@ -263,11 +251,13 @@ class Review:
         """Display diff preview with delta if available."""
         files_changed = set()
         for line in diff_content.split("\n"):
-            if line.startswith("diff --git"):
-                parts = line.split()
-                if len(parts) >= 3:
-                    file_path = parts[2].lstrip("a/")
-                    files_changed.add(file_path)
+            if (
+                line.startswith("diff --git")
+                and (parts := line.split())
+                and len(parts) >= 3
+            ):
+                file_path = parts[2].lstrip("a/")
+                files_changed.add(file_path)
 
         if files_changed:
             print(f"\nFiles changed ({len(files_changed)} files):")
@@ -276,19 +266,18 @@ class Review:
             if len(files_changed) > 20:
                 print(f"  ... and {len(files_changed) - 20} more files")
 
-        delta_cmd = shutil.which("delta")
-        if delta_cmd and os.isatty(sys.stdout.fileno()):
+        if (delta_cmd := shutil.which("delta")) and os.isatty(sys.stdout.fileno()):
             print(f"\n{'-' * 40}")
             print("Diff preview (showing first 500 lines):")
             print(f"{'-' * 40}")
 
-            diff_lines = diff_content.split("\n")[:500]
-            limited_diff = "\n".join(diff_lines)
+            diff_lines = diff_content.split("\n")
+            limited_diff = "\n".join(diff_lines[:500])
 
             try:
                 subprocess.run(
                     [delta_cmd, "--side-by-side", "--line-numbers", "--paging=never"],
-                    stdin=subprocess.PIPE,
+                    input=limited_diff,
                     stderr=subprocess.PIPE,
                     text=True,
                     check=True,
@@ -296,9 +285,9 @@ class Review:
             except subprocess.SubprocessError:
                 print(limited_diff)
 
-            if len(diff_content.split("\n")) > 500:
+            if len(diff_lines) > 500:
                 print(
-                    f"\n... (diff truncated, showing first 500 lines of {len(diff_content.split('\n'))} total)"
+                    f"\n... (diff truncated, showing first 500 lines of {len(diff_lines)} total)"
                 )
             print(f"{'-' * 40}")
 
@@ -324,10 +313,10 @@ class Review:
             return
 
         try:
-            with urllib.request.urlopen(diff_url) as response:  # noqa: S310
+            with http_requests.urlopen(diff_url) as response:
                 diff_content = response.read().decode("utf-8")
             self._display_diff_preview(diff_content)
-        except (urllib.error.URLError, OSError):
+        except (URLError, OSError):
             pass
 
         print(f"{'=' * 80}\n")
@@ -365,8 +354,7 @@ class Review:
         result = git.run(["apply"], cwd=self.worktree_dir(), stdin=diff)
 
         if result.returncode != 0:
-            warn(f"Failed to apply diff in {self.worktree_dir()}")
-            sys.exit(1)
+            die(f"Failed to apply diff in {self.worktree_dir()}")
 
     def build_commit(
         self,
@@ -385,18 +373,17 @@ class Review:
         if self.only_packages:
             if head_commit is None:
                 self.apply_unstaged(staged=staged)
-            elif self.checkout == CheckoutOption.COMMIT:
-                self.git_checkout(head_commit)
-            elif merge_commit:
-                self.git_checkout(merge_commit)
             else:
-                self.git_merge(head_commit)
+                match self.checkout:
+                    case CheckoutOption.COMMIT:
+                        self.git_checkout(head_commit)
+                    case CheckoutOption.MERGE:
+                        if merge_commit:
+                            self.git_checkout(merge_commit)
+                        else:
+                            self.git_merge(head_commit)
 
-            changed_attrs = {}
-            for system in self.systems:
-                changed_attrs[system] = set()
-                for package in self.only_packages:
-                    changed_attrs[system].add(package)
+            changed_attrs = {system: set(self.only_packages) for system in self.systems}
 
             return self.build(changed_attrs, self.build_args)
 
@@ -456,8 +443,9 @@ class Review:
     def build(
         self, packages_per_system: dict[System, set[str]], args: str
     ) -> dict[System, list[Attr]]:
-        for system, packages in packages_per_system.items():
-            packages_per_system[system] = self.additional_packages | filter_packages(
+        packages_per_system = {
+            system: self.additional_packages
+            | filter_packages(
                 packages,
                 self.only_packages,
                 self.package_regex,
@@ -467,6 +455,8 @@ class Review:
                 self.allow,
                 self.builddir.nix_path,
             )
+            for system, packages in packages_per_system.items()
+        }
         return nix_build(
             packages_per_system,
             args,
@@ -479,6 +469,35 @@ class Review:
             self.num_parallel_evals,
         )
 
+    def _fetch_packages_from_github_eval(
+        self, pr: GitHubPullRequest
+    ) -> dict[System, set[str]] | None:
+        assert all(system in PLATFORMS for system in self.systems)
+        print("-> Fetching eval results from GitHub actions")
+        packages_per_system = self.github_client.get_github_action_eval_result(pr)
+        if packages_per_system is not None:
+            return packages_per_system
+
+        timeout_s: int = 10
+        print(f"...Results are not (yet) available. Retrying in {timeout_s}s")
+        waiting_time_s: int = 0
+
+        while packages_per_system is None:
+            waiting_time_s += timeout_s
+            print(".", end="")
+            sys.stdout.flush()
+            time.sleep(timeout_s)
+            packages_per_system = self.github_client.get_github_action_eval_result(pr)
+            if waiting_time_s > 10 * 60:
+                die(
+                    "\nTimeout exceeded: No evaluation seems to be available on GitHub."
+                    "\nLook for an eventual evaluation error issue on the PR web page."
+                    "\nAlternatively, use `--eval local` to do the evaluation locally."
+                )
+        print()
+        print("-> Successfully fetched rebuilds: no local evaluation needed")
+        return packages_per_system
+
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
         pr = (
             cast("GitHubPullRequest", self.pr_object)
@@ -490,56 +509,27 @@ class Review:
         if self.show_pr_info:
             self._display_pr_info(pr, pr_number)
 
-        packages_per_system: dict[System, set[str]] | None = None
-
-        if self._use_github_eval:
-            assert all(system in PLATFORMS for system in self.systems)
-            print("-> Fetching eval results from GitHub actions")
-
-            packages_per_system = self.github_client.get_github_action_eval_result(pr)
-            if packages_per_system is None:
-                timeout_s: int = 10
-                print(f"...Results are not (yet) available. Retrying in {timeout_s}s")
-                waiting_time_s: int = 0
-                while packages_per_system is None:
-                    waiting_time_s += timeout_s
-                    print(".", end="")
-                    sys.stdout.flush()
-                    time.sleep(timeout_s)
-                    packages_per_system = (
-                        self.github_client.get_github_action_eval_result(pr)
-                    )
-                    if waiting_time_s > 10 * 60:
-                        warn(
-                            "\nTimeout exceeded: No evaluation seems to be available on GitHub."
-                            "\nLook for an eventual evaluation error issue on the PR web page."
-                            "\nAlternatively, use `--eval local` to do the evaluation locally."
-                        )
-                        sys.exit(1)
-                print()
-
-            print("-> Successfully fetched rebuilds: no local evaluation needed")
-        else:
-            packages_per_system = None
+        packages_per_system = (
+            self._fetch_packages_from_github_eval(pr) if self._use_github_eval else None
+        )
 
         [merge_rev] = fetch_refs(self.remote, pr["merge_commit_sha"], shallow_depth=2)
         base_rev = git.verify_commit_hash(f"{merge_rev}^1")
         head_rev = git.verify_commit_hash(f"{merge_rev}^2")
 
         if self.only_packages:
-            packages_per_system = {}
-            for system in self.systems:
-                packages_per_system[system] = set()
-                for package in self.only_packages:
-                    packages_per_system[system].add(package)
+            packages_per_system = {
+                system: set(self.only_packages) for system in self.systems
+            }
 
         if packages_per_system is None:
             return self.build_commit(base_rev, head_rev, merge_rev)
 
-        if self.checkout == CheckoutOption.MERGE:
-            self.git_worktree(merge_rev)
-        else:
-            self.git_worktree(head_rev)
+        match self.checkout:
+            case CheckoutOption.MERGE:
+                self.git_worktree(merge_rev)
+            case CheckoutOption.COMMIT:
+                self.git_worktree(head_rev)
 
         for system in list(packages_per_system.keys()):
             if system not in self.systems:
@@ -629,54 +619,52 @@ class Review:
         )
 
 
+def _extract_meta_value(elem: ET.Element) -> str:
+    if elem.attrib["type"] == "strings":
+        return ", ".join(e.attrib["value"] for e in elem)
+    return elem.attrib["value"]
+
+
 def parse_packages_xml(stdout: IO[str]) -> list[Package]:
     packages: list[Package] = []
-    path = None
-    attrs = None
-    homepage = None
-    description = None
-    position = None
+    current_pkg: Package | None = None
+
     context = ET.iterparse(stdout, events=("start", "end"))  # noqa: S314
     for event, elem in context:
-        if elem.tag == "item":
-            if event == "start":
-                attrs = elem.attrib
-                homepage = None
-                description = None
-                position = None
-                path = None
-            else:
-                assert attrs is not None
-                if path is None:
-                    # architecture not supported
-                    continue
-                pkg = Package(
-                    pname=attrs["pname"],
-                    version=attrs["version"],
-                    attr_path=attrs["attrPath"],
-                    store_path=path,
-                    homepage=homepage,
-                    description=description,
-                    position=position,
-                )
-                packages.append(pkg)
-        elif event == "start" and elem.tag == "output" and elem.attrib["name"] == "out":
-            path = elem.attrib["path"]
-        elif event == "start" and elem.tag == "meta":
+        if elem.tag == "item" and event == "start":
+            attrs = elem.attrib
+            current_pkg = Package(
+                pname=attrs["pname"],
+                version=attrs["version"],
+                attr_path=attrs["attrPath"],
+                store_path=None,
+                homepage=None,
+                description=None,
+                position=None,
+            )
+        elif (
+            elem.tag == "item"
+            and event == "end"
+            and current_pkg
+            and current_pkg.store_path
+        ):
+            packages.append(current_pkg)
+        elif (
+            elem.tag == "output"
+            and event == "start"
+            and elem.attrib["name"] == "out"
+            and current_pkg
+        ):
+            current_pkg.store_path = elem.attrib["path"]
+        elif elem.tag == "meta" and event == "end" and current_pkg:
             name = elem.attrib["name"]
-            if name not in ["homepage", "description", "position"]:
-                continue
-            if elem.attrib["type"] == "strings":
-                values = (e.attrib["value"] for e in elem)
-                value = ", ".join(values)
-            else:
-                value = elem.attrib["value"]
-            if name == "homepage":
-                homepage = value
-            elif name == "description":
-                description = value
-            elif name == "position":
-                position = value
+            match name:
+                case "homepage":
+                    current_pkg.homepage = _extract_meta_value(elem)
+                case "description":
+                    current_pkg.description = _extract_meta_value(elem)
+                case "position":
+                    current_pkg.position = _extract_meta_value(elem)
     return packages
 
 
@@ -766,9 +754,7 @@ def package_attrs(
             attrs[attr.path] = attr
 
     if not ignore_nonexisting and len(nonexisting) > 0:
-        warn("These packages do not exist:")
-        warn(" ".join(nonexisting))
-        sys.exit(1)
+        die(f"These packages do not exist: {' '.join(nonexisting)}")
     return attrs
 
 
@@ -794,14 +780,44 @@ def join_packages(
     nonexistent = specified_attrs.keys() - changed_attrs.keys() - tests.keys()
 
     if len(nonexistent) != 0:
-        warn(
-            "The following packages specified with `-p` are not rebuilt by the pull request"
+        die(
+            f"The following packages specified with `-p` are not rebuilt by the pull request: "
+            f"{' '.join(specified_attrs[path].name for path in nonexistent)}"
         )
-        warn(" ".join(specified_attrs[path].name for path in nonexistent))
-        sys.exit(1)
     union_paths = (changed_attrs.keys() & specified_attrs.keys()) | tests.keys()
 
     return {specified_attrs[path].name for path in union_paths}
+
+
+def _apply_package_filters(
+    packages: set[str],
+    skip_packages: set[str],
+    skip_package_regexes: list[Pattern[str]],
+) -> set[str]:
+    """Apply skip filters to the package set."""
+    if skip_packages:
+        packages = packages - skip_packages
+
+    for attr in packages.copy():
+        for regex in skip_package_regexes:
+            if regex.match(attr):
+                packages.discard(attr)
+
+    return packages
+
+
+def _match_package_regexes(
+    changed_packages: set[str],
+    package_regexes: list[Pattern[str]],
+) -> set[str]:
+    """Find packages matching any of the given regex patterns."""
+    packages = set()
+    for attr in changed_packages:
+        for regex in package_regexes:
+            if regex.match(attr):
+                packages.add(attr)
+                break  # No need to check other regexes for this attr
+    return packages
 
 
 def filter_packages(
@@ -814,47 +830,32 @@ def filter_packages(
     allow: AllowedFeatures,
     nix_path: str,
 ) -> set[str]:
-    packages: set[str] = set()
     assert isinstance(changed_packages, set)
 
-    if (
-        len(specified_packages) == 0
-        and len(package_regexes) == 0
-        and len(skip_packages) == 0
-        and len(skip_package_regexes) == 0
+    # Short-circuit if no filtering is needed
+    if not any(
+        [specified_packages, package_regexes, skip_packages, skip_package_regexes]
     ):
         return changed_packages
 
-    if len(specified_packages) > 0:
+    packages: set[str] = set()
+
+    # Join specified packages with changed packages
+    if specified_packages:
         packages = join_packages(
-            changed_packages,
-            specified_packages,
-            system,
-            allow,
-            nix_path,
+            changed_packages, specified_packages, system, allow, nix_path
         )
 
-    for attr in changed_packages:
-        for regex in package_regexes:
-            if regex.match(attr):
-                packages.add(attr)
+    # Add packages matching regex patterns
+    if package_regexes:
+        packages |= _match_package_regexes(changed_packages, package_regexes)
 
-    # if no packages are build explicitly then treat
-    # like like all changed packages are supplied via --package
-    # otherwise we can't discard the ones we do not like to build
+    # If no packages selected yet, use all changed packages
     if not packages:
-        packages = changed_packages
+        packages = changed_packages.copy()
 
-    if len(skip_packages) > 0:
-        for package in skip_packages:
-            packages.discard(package)
-
-    for attr in packages.copy():
-        for regex in skip_package_regexes:
-            if regex.match(attr):
-                packages.discard(attr)
-
-    return packages
+    # Apply skip filters
+    return _apply_package_filters(packages, skip_packages, skip_package_regexes)
 
 
 @contextmanager
@@ -871,18 +872,18 @@ def locked_open(filename: Path, mode: str = "r") -> Iterator[IO[str]]:
 
 def resolve_git_dir() -> Path:
     dotgit = Path(".git")
-    if dotgit.is_file():
-        actual_git_dir = dotgit.read_text().strip()
-        if not actual_git_dir.startswith("gitdir: "):
-            msg = f"Invalid .git file: {actual_git_dir} found in current directory"
+    match (dotgit.is_file(), dotgit.is_dir()):
+        case (True, False):
+            actual_git_dir = dotgit.read_text().strip()
+            if not actual_git_dir.startswith("gitdir: "):
+                msg = f"Invalid .git file: {actual_git_dir} found in current directory"
+                raise NixpkgsReviewError(msg)
+            return Path() / actual_git_dir[8:]
+        case (False, True):
+            return dotgit
+        case _:
+            msg = "Cannot find .git file or directory in current directory"
             raise NixpkgsReviewError(msg)
-        return Path() / actual_git_dir[len("gitdir: ") :]
-
-    if dotgit.is_dir():
-        return dotgit
-
-    msg = "Cannot find .git file or directory in current directory"
-    raise NixpkgsReviewError(msg)
 
 
 def fetch_refs(repo: str, *refs: str, shallow_depth: int = 1) -> list[str]:

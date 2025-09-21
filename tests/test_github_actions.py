@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from .conftest import Helpers
 
 
-@patch("urllib.request.urlopen")
+@patch("nixpkgs_review.http_requests.urlopen")
 def test_post_result(mock_urlopen: MagicMock, helpers: Helpers) -> None:
     with helpers.nixpkgs() as nixpkgs:
         root = nixpkgs.path.parent
@@ -24,7 +24,7 @@ def test_post_result(mock_urlopen: MagicMock, helpers: Helpers) -> None:
         main("nixpkgs-review", ["post-result"])
 
 
-@patch("urllib.request.urlopen")
+@patch("nixpkgs_review.http_requests.urlopen")
 def test_merge(mock_urlopen: MagicMock, helpers: Helpers) -> None:
     with helpers.save_environ():
         os.environ["PR"] = "1"
@@ -33,7 +33,7 @@ def test_merge(mock_urlopen: MagicMock, helpers: Helpers) -> None:
         main("nixpkgs-review", ["merge"])
 
 
-@patch("urllib.request.urlopen")
+@patch("nixpkgs_review.http_requests.urlopen")
 def test_approve(mock_urlopen: MagicMock, helpers: Helpers) -> None:
     with helpers.save_environ():
         os.environ["PR"] = "1"
