@@ -35,7 +35,7 @@ def parse_pr_numbers(number_args: list[str]) -> list[int]:
                 try:
                     prs.append(int(arg))
                 except ValueError:
-                    warn(f"expected number or URL, got {m}")
+                    warn(f"expected number or URL, got {arg!r}")
                     sys.exit(1)
     return prs
 
