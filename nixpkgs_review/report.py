@@ -272,7 +272,7 @@ class SystemReport:
                     self.non_existent.append(attr)
                 case _ if not attr.was_build():
                     self.failed.append(attr)
-                case _ if attr.name.startswith("nixosTests."):
+                case _ if attr.is_test():
                     self.tests.append(attr)
                 case _:
                     self.built.append(attr)
