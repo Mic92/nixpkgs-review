@@ -73,7 +73,7 @@ class Package:
     homepage: str | None
     description: str | None
     position: str | None
-    old_pkg: Package | None = field(init=False)
+    old_pkg: Package | None = field(default=None, init=False)
 
 
 def print_updates(changed_pkgs: list[Package], removed_pkgs: list[Package]) -> None:
