@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -23,14 +24,13 @@ from .rev import rev_command
 from .wip import wip_command
 
 if TYPE_CHECKING:
-    from types import ModuleType
-
     from nixpkgs_review.github import JSONType
 
-try:
-    import argcomplete
-except ImportError:
-    argcomplete = None  # type: ignore[assignment]
+argcomplete: Any = None
+with contextlib.suppress(ImportError):
+    import argcomplete as _argcomplete
+
+    argcomplete = _argcomplete
 
 
 def regex_type(s: str) -> Pattern[str]:

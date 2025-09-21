@@ -83,8 +83,6 @@ addopts = "-n auto"
 python_version = "3.12"
 strict = true
 no_implicit_optional = true
-# Missing type parameters for generic type "CaptureFixture"  [type-arg]
-disallow_any_generics = false
 
 [[tool.mypy.overrides]]
 module = "argcomplete"

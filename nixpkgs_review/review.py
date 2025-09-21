@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, cast
+from typing import IO, TYPE_CHECKING, Any, cast
 from xml.etree import ElementTree as ET
 
 from . import git
@@ -124,7 +124,7 @@ class Review:
         show_header: bool = True,
         show_logs: bool = False,
         show_pr_info: bool = True,
-        pr_object: dict | None = None,
+        pr_object: dict[str, Any] | None = None,
     ) -> None:
         if skip_packages_regex is None:
             skip_packages_regex = []
