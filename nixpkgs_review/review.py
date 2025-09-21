@@ -25,6 +25,11 @@ from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
 from .utils import System, current_system, info, sh, system_order_key, warn
 
+# Configure global User-Agent for urllib
+opener = urllib.request.build_opener()
+opener.addheaders = [("User-Agent", "nixpkgs-review")]
+urllib.request.install_opener(opener)
+
 if TYPE_CHECKING:
     import argparse
     from collections.abc import Iterator
