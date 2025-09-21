@@ -187,9 +187,9 @@ def _nix_shell_sandbox(
         "--",
         nix_shell,
         *shell_file_args,
-        REVIEW_SHELL,
         "--nix-path",
         nix_path,
+        REVIEW_SHELL,
     ]
 
 
