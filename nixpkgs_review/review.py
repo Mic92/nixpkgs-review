@@ -271,13 +271,13 @@ class Review:
             print("Diff preview (showing first 500 lines):")
             print(f"{'-' * 40}")
 
-            diff_lines = diff_content.split("\n")[:500]
-            limited_diff = "\n".join(diff_lines)
+            diff_lines = diff_content.split("\n")
+            limited_diff = "\n".join(diff_lines[:500])
 
             try:
                 subprocess.run(
                     [delta_cmd, "--side-by-side", "--line-numbers", "--paging=never"],
-                    stdin=subprocess.PIPE,
+                    input=limited_diff,
                     stderr=subprocess.PIPE,
                     text=True,
                     check=True,
@@ -285,9 +285,9 @@ class Review:
             except subprocess.SubprocessError:
                 print(limited_diff)
 
-            if len(diff_content.split("\n")) > 500:
+            if len(diff_lines) > 500:
                 print(
-                    f"\n... (diff truncated, showing first 500 lines of {len(diff_content.split('\n'))} total)"
+                    f"\n... (diff truncated, showing first 500 lines of {len(diff_lines)} total)"
                 )
             print(f"{'-' * 40}")
 
