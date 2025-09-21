@@ -63,7 +63,9 @@ class Builddir:
     def __init__(self, name: str) -> None:
         self.environ = os.environ.copy()
         self.directory = create_cache_directory(name)
+        self._temp_directory: TemporaryDirectory[str] | None = None
         if isinstance(self.directory, TemporaryDirectory):
+            self._temp_directory = self.directory
             self.path = Path(self.directory.name)
         else:
             self.path = self.directory
@@ -101,3 +103,7 @@ class Builddir:
                     )
 
         self.overlay.cleanup()
+
+        # Clean up the temporary directory if we created one
+        if self._temp_directory is not None:
+            self._temp_directory.cleanup()
