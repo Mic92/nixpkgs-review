@@ -105,7 +105,12 @@ def setup_nixpkgs(target: Path) -> Path:
 
     # Copy coreutils directory
     coreutils_dest = test_bin_dir / "coreutils"
-    shutil.copytree(Path(coreutils_source) / "bin", coreutils_dest, dirs_exist_ok=True)
+    shutil.copytree(
+        Path(coreutils_source) / "bin",
+        coreutils_dest,
+        dirs_exist_ok=True,
+        symlinks=True,
+    )
 
     # Make all coreutils executable
     for exe in coreutils_dest.glob("*"):
