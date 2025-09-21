@@ -187,22 +187,18 @@ def get_comments(github_token: str, pr_num: int) -> list[Comment | Review]:
     # Note: reviews_nodes contains reviews, not review comments
     # We'll process them below when iterating through reviews
 
-    review_comments_by_ids: dict[str, ReviewComment] = {}
     for review in reviews_nodes:
-        review_comments_nodes = review["comments"]["nodes"]
+        nodes = review["comments"]["nodes"]
+        all_comments = [ReviewComment.from_review_comment_json(n) for n in nodes]
+        by_id = {c.id: c for c in all_comments}
 
-        review_comments = []
-        for comment in review_comments_nodes:
-            c = ReviewComment.from_review_comment_json(comment)
-            if c.reply_to:
-                if (referred := review_comments_by_ids.get(c.reply_to)) is not None:
-                    referred.replies.append(c)
-                else:
-                    review_comments.append(c)
+        roots: list[ReviewComment] = []
+        for c in all_comments:
+            if c.reply_to and c.reply_to in by_id:
+                by_id[c.reply_to].replies.append(c)
             else:
-                review_comments.append(c)
-            review_comments_by_ids[c.id] = c
-        comments.append(Review.from_json(review, review_comments))
+                roots.append(c)
+        comments.append(Review.from_json(review, roots))
 
     return sorted(comments, key=lambda x: x.created_at)
 
@@ -217,7 +213,8 @@ def colorize_diff(diff: str) -> str:
         elif line.startswith("@"):
             color = "\x1b[34m"
         else:
-            color = ""
+            lines.append(line)
+            continue
         lines.append(f"{color}{line}\x1b[0m")
     return "\n".join(lines)
 
@@ -236,7 +233,7 @@ def show_comments(args: argparse.Namespace) -> None:
                 for reply in review_comment.replies:
                     print(f"  {bold(reply.author)}: {reply.body}\n")
                 if not review_comment.replies:
-                    print("\n")
+                    print()
         elif isinstance(comment, Comment):
             print(
                 f"[{comment.created_at}] {bold(comment.author)} said: {comment.body}\n"
