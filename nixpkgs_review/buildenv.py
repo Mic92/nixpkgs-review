@@ -14,11 +14,9 @@ if TYPE_CHECKING:
 
 
 def find_nixpkgs_root() -> Path | None:
-    prefix = ["."]
+    root_path = Path()
     while True:
-        root_path = Path(*prefix)
-        release_nix_path = root_path / "nixos" / "release.nix"
-        if release_nix_path.exists():
+        if (root_path / "nixos" / "release.nix").exists():
             return root_path
         if root_path == root_path.parent:
             return None
@@ -34,31 +32,27 @@ class Buildenv:
             raise RuntimeError(msg)
 
         self.nixpkgs_config = NamedTemporaryFile(suffix=".nix")  # noqa: SIM115
-        self.nixpkgs_config.write(
-            str.encode(
-                f"""{{
+        aliases_config = "allowAliases = false;" if not allow_aliases else ""
+        config_content = f"""{{
   allowUnfree = true;
   allowBroken = true;
-  {"allowAliases = false;" if not allow_aliases else ""}
+  {aliases_config}
   checkMeta = true;
   ## TODO: also build packages marked as insecure
   # allowInsecurePredicate = x: true;
 }} // {extra_nixpkgs_config}
 """
-            )
-        )
+        self.nixpkgs_config.write(config_content.encode())
         self.nixpkgs_config.flush()
 
     def __enter__(self) -> Path:
         self.environ = os.environ.copy()
         self.old_cwd = Path.cwd()
 
-        root = find_nixpkgs_root()
-        if root is None:
+        if (root := find_nixpkgs_root()) is None:
             warn("Has to be executed from nixpkgs repository")
             sys.exit(1)
-        else:
-            os.chdir(root)
+        os.chdir(root)
 
         os.environ["NIXPKGS_CONFIG"] = self.nixpkgs_config.name
         return Path(self.nixpkgs_config.name)
