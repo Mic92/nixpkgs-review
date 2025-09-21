@@ -131,8 +131,7 @@ class ReviewComment(Comment):
 
     @staticmethod
     def from_review_comment_json(data: GitHubGraphQLReviewComment) -> ReviewComment:
-        reply_to = data.get("replyTo")
-        reply_to_id = reply_to.get("id") if reply_to else None
+        reply_to_id = reply_to.get("id") if (reply_to := data.get("replyTo")) else None
 
         return ReviewComment(
             author=data["author"]["login"],
@@ -196,8 +195,7 @@ def get_comments(github_token: str, pr_num: int) -> list[Comment | Review]:
         for comment in review_comments_nodes:
             c = ReviewComment.from_review_comment_json(comment)
             if c.reply_to:
-                referred = review_comments_by_ids.get(c.reply_to, None)
-                if referred is not None:
+                if (referred := review_comments_by_ids.get(c.reply_to)) is not None:
                     referred.replies.append(c)
                 else:
                     review_comments.append(c)
@@ -212,13 +210,14 @@ def get_comments(github_token: str, pr_num: int) -> list[Comment | Review]:
 def colorize_diff(diff: str) -> str:
     lines = []
     for line in diff.split("\n"):
-        color = ""
         if line.startswith("-"):
             color = "\x1b[31m"
         elif line.startswith("+"):
             color = "\x1b[32m"
         elif line.startswith("@"):
             color = "\x1b[34m"
+        else:
+            color = ""
         lines.append(f"{color}{line}\x1b[0m")
     return "\n".join(lines)
 
@@ -227,10 +226,7 @@ def show_comments(args: argparse.Namespace) -> None:
     comments = get_comments(ensure_github_token(args.token), get_current_pr())
 
     for comment in comments:
-        if isinstance(comment, Review):
-            if comment.body == "" and len(comment.comments) == 0:
-                # skip replies
-                continue
+        if isinstance(comment, Review) and (comment.body or comment.comments):
             print(
                 f"[{comment.created_at}] {bold(comment.author)} reviewed: {comment.body}\n"
             )
@@ -239,9 +235,9 @@ def show_comments(args: argparse.Namespace) -> None:
                 print(f"  {bold(review_comment.author)}: {review_comment.body}")
                 for reply in review_comment.replies:
                     print(f"  {bold(reply.author)}: {reply.body}\n")
-                if len(review_comment.replies) == 0:
+                if not review_comment.replies:
                     print("\n")
-        else:
+        elif isinstance(comment, Comment):
             print(
                 f"[{comment.created_at}] {bold(comment.author)} said: {comment.body}\n"
             )

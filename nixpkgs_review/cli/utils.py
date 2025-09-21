@@ -16,8 +16,7 @@ def ensure_github_token(token: str | None) -> str:
 
 
 def get_current_pr() -> int:
-    pr = os.environ.get("PR", None)
-    if pr is None:
+    if not (pr := os.environ.get("PR")):
         warn("PR environment variable not set. Are you in a nixpkgs-review nix-shell?")
         sys.exit(1)
     return int(pr)

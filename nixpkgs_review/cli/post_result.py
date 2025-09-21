@@ -16,14 +16,12 @@ if TYPE_CHECKING:
 
 def post_result_command(args: argparse.Namespace) -> None:
     github_client = GithubClient(ensure_github_token(args.token))
-    pr_env = os.environ.get("PR", None)
-    if pr_env is None:
+    if not (pr_env := os.environ.get("PR")):
         warn("PR environment variable not set. Are you in a nixpkgs-review nix-shell?")
         sys.exit(1)
     pr = int(pr_env)
 
-    report = Path(os.environ["NIXPKGS_REVIEW_ROOT"]) / "report.md"
-    if not report.exists():
+    if not (report := Path(os.environ["NIXPKGS_REVIEW_ROOT"]) / "report.md").exists():
         warn(f"Report not found in {report}. Are you in a nixpkgs-review nix-shell?")
         sys.exit(1)
 

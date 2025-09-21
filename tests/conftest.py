@@ -61,8 +61,8 @@ def get_static_package(package: str) -> str:
 
 
 def real_nixpkgs() -> str:
-    if "TEST_NIXPKGS_PATH" in os.environ:
-        return os.environ["TEST_NIXPKGS_PATH"]
+    if path := os.environ.get("TEST_NIXPKGS_PATH"):
+        return path
 
     proc = subprocess.run(
         [
@@ -94,22 +94,18 @@ def setup_nixpkgs(target: Path) -> Path:
     coreutils_source = get_static_package("coreutils")
     nixpkgs_path = real_nixpkgs()
 
-    # Store original paths for isolated store setup
-    bash_source_path = bash_source
-    coreutils_source_path = coreutils_source
-
     # Copy bash and coreutils to a writable location for tests
     test_bin_dir = target.joinpath("bin")
     test_bin_dir.mkdir(exist_ok=True)
 
     # Copy bash executable
     bash_dest = test_bin_dir / "bash"
-    shutil.copy2(f"{bash_source}/bin/bash", bash_dest)
+    shutil.copy2(Path(bash_source) / "bin" / "bash", bash_dest)
     bash_dest.chmod(0o755)
 
     # Copy coreutils directory
     coreutils_dest = test_bin_dir / "coreutils"
-    shutil.copytree(f"{coreutils_source}/bin", coreutils_dest, dirs_exist_ok=True)
+    shutil.copytree(Path(coreutils_source) / "bin", coreutils_dest, dirs_exist_ok=True)
 
     # Make all coreutils executable
     for exe in coreutils_dest.glob("*"):
@@ -117,8 +113,8 @@ def setup_nixpkgs(target: Path) -> Path:
             exe.chmod(0o755)
 
     # Store the source paths in the target for later use by nixpkgs context
-    (target / ".bash_source").write_text(bash_source_path)
-    (target / ".coreutils_source").write_text(coreutils_source_path)
+    (target / ".bash_source").write_text(bash_source)
+    (target / ".coreutils_source").write_text(coreutils_source)
 
     # Substitute the config.nix.in template
     config_in = target.joinpath("config.nix.in")
@@ -127,8 +123,8 @@ def setup_nixpkgs(target: Path) -> Path:
     if config_in.exists():
         content = config_in.read_text()
         # Use paths without quotes so Nix treats them as paths and copies them to the store
-        content = content.replace("@bash@", f"{bash_source_path}/bin/bash")
-        content = content.replace("@coreutils@", f"{coreutils_source_path}/bin")
+        content = content.replace("@bash@", f"{bash_source}/bin/bash")
+        content = content.replace("@coreutils@", f"{coreutils_source}/bin")
         content = content.replace("@lib@", f"(import {nixpkgs_path} {{}}).lib")
         config_out.write_text(content)
 

@@ -24,19 +24,16 @@ if TYPE_CHECKING:
 def parse_pr_numbers(number_args: list[str]) -> list[int]:
     prs: list[int] = []
     for arg in number_args:
-        m = re.match(r"(\d+)-(\d+)", arg)
-        if m:
+        if m := re.match(r"(\d+)-(\d+)", arg):
             prs.extend(range(int(m.group(1)), int(m.group(2))))
+        elif m := re.match(r"https://github.com/NixOS/nixpkgs/pull/(\d+)/?.*", arg):
+            prs.append(int(m.group(1)))
         else:
-            m = re.match(r"https://github.com/NixOS/nixpkgs/pull/(\d+)/?.*", arg)
-            if m:
-                prs.append(int(m.group(1)))
-            else:
-                try:
-                    prs.append(int(arg))
-                except ValueError:
-                    warn(f"expected number or URL, got {arg!r}")
-                    sys.exit(1)
+            try:
+                prs.append(int(arg))
+            except ValueError:
+                warn(f"expected number or URL, got {arg!r}")
+                sys.exit(1)
     return prs
 
 
@@ -55,11 +52,11 @@ def pr_command(args: argparse.Namespace) -> str:
         if (
             not isinstance(obj, dict)
             or "number" not in obj
-            or not isinstance(obj["number"], int)
+            or not isinstance((number := obj["number"]), int)
         ):
             warn(f"Invalid Pull Request JSON object provided: {obj}")
             sys.exit(1)
-        pr_objects[obj["number"]] = obj
+        pr_objects[number] = obj
     if args.pr_json and (missing := [pr for pr in prs if pr not in pr_objects]):
         warn(
             f"API lookups for PRs are disabled due to the use of the --pr-json flag, but no JSON objects have been specified for the following PRs: {', '.join(map(str, missing))}"
