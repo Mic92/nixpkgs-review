@@ -36,16 +36,7 @@ def parse_pr_numbers(number_args: list[str]) -> list[int]:
     return prs
 
 
-def pr_command(args: argparse.Namespace) -> str:
-    prs: list[int] = parse_pr_numbers(args.number)
-    if args.eval == "ofborg":
-        warn("Warning: `--eval=ofborg` is deprecated. Use `--eval=github` instead.")
-        args.eval = "github"
-
-    checkout_option = (
-        CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
-    )
-
+def _validate_pr_json(args: argparse.Namespace, prs: list[int]) -> dict[int, Any]:
     pr_objects: dict[int, Any] = {}
     for obj in args.pr_json:
         if (
@@ -59,12 +50,30 @@ def pr_command(args: argparse.Namespace) -> str:
         die(
             f"API lookups for PRs are disabled due to the use of the --pr-json flag, but no JSON objects have been specified for the following PRs: {', '.join(map(str, missing))}"
         )
+    return pr_objects
 
-    if args.post_result or args.approve_pr:
-        ensure_github_token(args.token)
+
+def _handle_deprecated_args(args: argparse.Namespace) -> None:
+    if args.eval == "ofborg":
+        warn("Warning: `--eval=ofborg` is deprecated. Use `--eval=github` instead.")
+        args.eval = "github"
     if args.system:
         warn("Warning: The `--system` is deprecated. Use `--systems` instead.")
         args.systems = args.system
+
+
+def pr_command(args: argparse.Namespace) -> str:
+    prs: list[int] = parse_pr_numbers(args.number)
+    _handle_deprecated_args(args)
+
+    checkout_option = (
+        CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
+    )
+
+    pr_objects = _validate_pr_json(args, prs)
+
+    if args.post_result or args.approve_pr:
+        ensure_github_token(args.token)
 
     contexts: list[
         tuple[

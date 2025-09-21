@@ -232,22 +232,51 @@ class GithubClient:
                 result: JSONType = json.load(json_file)
                 return result
 
+    def _get_workflow_runs(self, commit_sha: str) -> list[Any] | None:
+        workflow_runs_resp = self.get(
+            f"repos/NixOS/nixpkgs/actions/runs?head_sha={commit_sha}"
+        )
+        if not isinstance(workflow_runs_resp, dict):
+            msg = f"Expected workflow runs response to be a dict, got {type(workflow_runs_resp)}"
+            raise TypeError(msg)
+
+        if "workflow_runs" not in workflow_runs_resp:
+            return None
+
+        workflow_runs_list = workflow_runs_resp["workflow_runs"]
+        if not isinstance(workflow_runs_list, list):
+            msg = f"Expected workflow_runs to be a list, got {type(workflow_runs_list)}"
+            raise TypeError(msg)
+
+        return cast("list[GitHubWorkflowRun]", workflow_runs_list)
+
+    def _process_comparison_artifact(
+        self, artifact_id: int
+    ) -> dict[System, set[str]] | None:
+        changed_paths = self.get_json_from_artifact(
+            workflow_id=artifact_id,
+            json_filename="changed-paths.json",
+        )
+        if not isinstance(changed_paths, dict):
+            msg = f"Expected changed_paths to be a dict, got {type(changed_paths)}"
+            raise TypeError(msg)
+
+        if (path := changed_paths.get("rebuildsByPlatform")) is not None:
+            if not isinstance(path, dict):
+                msg = f"Expected rebuildsByPlatform to be a dict, got {type(path)}"
+                raise TypeError(msg)
+            return {
+                # Convert package lists to package sets
+                system: set(packages_list)
+                for system, packages_list in path.items()
+            }
+        return None
+
     def get_github_action_eval_result(
         self, pr: GitHubPullRequest
     ) -> dict[System, set[str]] | None:
         commit_sha = pr["head"]["sha"]
-
-        workflow_runs_resp = self.get(
-            f"repos/NixOS/nixpkgs/actions/runs?head_sha={commit_sha}"
-        )
-        match workflow_runs_resp:
-            case dict() as resp if "workflow_runs" not in resp:
-                return None
-            case {"workflow_runs": list() as runs}:
-                workflow_runs = cast("list[GitHubWorkflowRun]", runs)
-            case _:
-                msg = f"Expected workflow runs response to be a dict with 'workflow_runs' list, got {type(workflow_runs_resp)}"
-                raise TypeError(msg)
+        workflow_runs = self._get_workflow_runs(commit_sha)
 
         if not workflow_runs:
             return None
@@ -257,6 +286,7 @@ class GithubClient:
             # all pull requests run with the new PR workflow.
             if workflow_run["name"] not in ("Eval", "PR"):
                 continue
+
             artifacts_resp = self.get(workflow_run["artifacts_url"])
             if not isinstance(artifacts_resp, dict):
                 msg = f"Expected artifacts response to be a dict, got {type(artifacts_resp)}"
@@ -276,23 +306,8 @@ class GithubClient:
             for artifact in artifacts:
                 if artifact["name"] != "comparison":
                     continue
-                changed_paths = self.get_json_from_artifact(
-                    workflow_id=artifact["id"],
-                    json_filename="changed-paths.json",
-                )
-                match changed_paths:
-                    case dict() as paths if (
-                        path := paths.get("rebuildsByPlatform")
-                    ) is not None and isinstance(path, dict):
-                        return {
-                            # Convert package lists to package sets
-                            system: set(packages_list)
-                            for system, packages_list in path.items()
-                        }
-                    case dict():
-                        pass  # continue to next artifact
-                    case _:
-                        msg = f"Expected changed_paths to be a dict, got {type(changed_paths)}"
-                        raise TypeError(msg)
+                result = self._process_comparison_artifact(artifact["id"])
+                if result:
+                    return result
 
         return None

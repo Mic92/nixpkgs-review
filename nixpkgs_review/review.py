@@ -469,6 +469,35 @@ class Review:
             self.num_parallel_evals,
         )
 
+    def _fetch_packages_from_github_eval(
+        self, pr: GitHubPullRequest
+    ) -> dict[System, set[str]] | None:
+        assert all(system in PLATFORMS for system in self.systems)
+        print("-> Fetching eval results from GitHub actions")
+        packages_per_system = self.github_client.get_github_action_eval_result(pr)
+        if packages_per_system is not None:
+            return packages_per_system
+
+        timeout_s: int = 10
+        print(f"...Results are not (yet) available. Retrying in {timeout_s}s")
+        waiting_time_s: int = 0
+
+        while packages_per_system is None:
+            waiting_time_s += timeout_s
+            print(".", end="")
+            sys.stdout.flush()
+            time.sleep(timeout_s)
+            packages_per_system = self.github_client.get_github_action_eval_result(pr)
+            if waiting_time_s > 10 * 60:
+                die(
+                    "\nTimeout exceeded: No evaluation seems to be available on GitHub."
+                    "\nLook for an eventual evaluation error issue on the PR web page."
+                    "\nAlternatively, use `--eval local` to do the evaluation locally."
+                )
+        print()
+        print("-> Successfully fetched rebuilds: no local evaluation needed")
+        return packages_per_system
+
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
         pr = (
             cast("GitHubPullRequest", self.pr_object)
@@ -480,36 +509,9 @@ class Review:
         if self.show_pr_info:
             self._display_pr_info(pr, pr_number)
 
-        packages_per_system: dict[System, set[str]] | None = None
-
-        if self._use_github_eval:
-            assert all(system in PLATFORMS for system in self.systems)
-            print("-> Fetching eval results from GitHub actions")
-
-            packages_per_system = self.github_client.get_github_action_eval_result(pr)
-            if packages_per_system is None:
-                timeout_s: int = 10
-                print(f"...Results are not (yet) available. Retrying in {timeout_s}s")
-                waiting_time_s: int = 0
-                while packages_per_system is None:
-                    waiting_time_s += timeout_s
-                    print(".", end="")
-                    sys.stdout.flush()
-                    time.sleep(timeout_s)
-                    packages_per_system = (
-                        self.github_client.get_github_action_eval_result(pr)
-                    )
-                    if waiting_time_s > 10 * 60:
-                        die(
-                            "\nTimeout exceeded: No evaluation seems to be available on GitHub."
-                            "\nLook for an eventual evaluation error issue on the PR web page."
-                            "\nAlternatively, use `--eval local` to do the evaluation locally."
-                        )
-                print()
-
-            print("-> Successfully fetched rebuilds: no local evaluation needed")
-        else:
-            packages_per_system = None
+        packages_per_system = (
+            self._fetch_packages_from_github_eval(pr) if self._use_github_eval else None
+        )
 
         [merge_rev] = fetch_refs(self.remote, pr["merge_commit_sha"], shallow_depth=2)
         base_rev = git.verify_commit_hash(f"{merge_rev}^1")
@@ -617,56 +619,52 @@ class Review:
         )
 
 
+def _extract_meta_value(elem: ET.Element) -> str:
+    if elem.attrib["type"] == "strings":
+        return ", ".join(e.attrib["value"] for e in elem)
+    return elem.attrib["value"]
+
+
 def parse_packages_xml(stdout: IO[str]) -> list[Package]:
     packages: list[Package] = []
-    path = None
-    attrs = None
-    homepage = None
-    description = None
-    position = None
+    current_pkg: Package | None = None
+
     context = ET.iterparse(stdout, events=("start", "end"))  # noqa: S314
     for event, elem in context:
-        match elem.tag:
-            case "item":
-                match event:
-                    case "start":
-                        attrs = elem.attrib
-                        homepage = None
-                        description = None
-                        position = None
-                        path = None
-                    case "end":
-                        assert attrs is not None
-                        if path is None:
-                            # architecture not supported
-                            continue
-                        pkg = Package(
-                            pname=attrs["pname"],
-                            version=attrs["version"],
-                            attr_path=attrs["attrPath"],
-                            store_path=path,
-                            homepage=homepage,
-                            description=description,
-                            position=position,
-                        )
-                        packages.append(pkg)
-            case "output" if event == "start" and elem.attrib["name"] == "out":
-                path = elem.attrib["path"]
-            case "meta" if event == "start":
-                name = elem.attrib["name"]
-                if name in ["homepage", "description", "position"]:
-                    value = (
-                        ", ".join(e.attrib["value"] for e in elem)
-                        if elem.attrib["type"] == "strings"
-                        else elem.attrib["value"]
-                    )
-                    match name:
-                        case "homepage":
-                            homepage = value
-                        case "description":
-                            description = value
-                        case "position":
-                            position = value
+        if elem.tag == "item" and event == "start":
+            attrs = elem.attrib
+            current_pkg = Package(
+                pname=attrs["pname"],
+                version=attrs["version"],
+                attr_path=attrs["attrPath"],
+                store_path=None,
+                homepage=None,
+                description=None,
+                position=None,
+            )
+        elif (
+            elem.tag == "item"
+            and event == "end"
+            and current_pkg
+            and current_pkg.store_path
+        ):
+            packages.append(current_pkg)
+        elif (
+            elem.tag == "output"
+            and event == "start"
+            and elem.attrib["name"] == "out"
+            and current_pkg
+        ):
+            current_pkg.store_path = elem.attrib["path"]
+        elif elem.tag == "meta" and event == "end" and current_pkg:
+            name = elem.attrib["name"]
+            match name:
+                case "homepage":
+                    current_pkg.homepage = _extract_meta_value(elem)
+                case "description":
+                    current_pkg.description = _extract_meta_value(elem)
+                case "position":
+                    current_pkg.position = _extract_meta_value(elem)
     return packages
 
 
@@ -791,6 +789,37 @@ def join_packages(
     return {specified_attrs[path].name for path in union_paths}
 
 
+def _apply_package_filters(
+    packages: set[str],
+    skip_packages: set[str],
+    skip_package_regexes: list[Pattern[str]],
+) -> set[str]:
+    """Apply skip filters to the package set."""
+    if skip_packages:
+        packages = packages - skip_packages
+
+    for attr in packages.copy():
+        for regex in skip_package_regexes:
+            if regex.match(attr):
+                packages.discard(attr)
+
+    return packages
+
+
+def _match_package_regexes(
+    changed_packages: set[str],
+    package_regexes: list[Pattern[str]],
+) -> set[str]:
+    """Find packages matching any of the given regex patterns."""
+    packages = set()
+    for attr in changed_packages:
+        for regex in package_regexes:
+            if regex.match(attr):
+                packages.add(attr)
+                break  # No need to check other regexes for this attr
+    return packages
+
+
 def filter_packages(
     changed_packages: set[str],
     specified_packages: set[str],
@@ -801,43 +830,32 @@ def filter_packages(
     allow: AllowedFeatures,
     nix_path: str,
 ) -> set[str]:
-    packages: set[str] = set()
     assert isinstance(changed_packages, set)
 
-    if not (
-        specified_packages or package_regexes or skip_packages or skip_package_regexes
+    # Short-circuit if no filtering is needed
+    if not any(
+        [specified_packages, package_regexes, skip_packages, skip_package_regexes]
     ):
         return changed_packages
 
+    packages: set[str] = set()
+
+    # Join specified packages with changed packages
     if specified_packages:
         packages = join_packages(
-            changed_packages,
-            specified_packages,
-            system,
-            allow,
-            nix_path,
+            changed_packages, specified_packages, system, allow, nix_path
         )
 
-    for attr in changed_packages:
-        for regex in package_regexes:
-            if regex.match(attr):
-                packages.add(attr)
+    # Add packages matching regex patterns
+    if package_regexes:
+        packages |= _match_package_regexes(changed_packages, package_regexes)
 
-    # if no packages are build explicitly then treat
-    # like like all changed packages are supplied via --package
-    # otherwise we can't discard the ones we do not like to build
+    # If no packages selected yet, use all changed packages
     if not packages:
         packages = changed_packages.copy()
 
-    if skip_packages:
-        packages -= skip_packages
-
-    for attr in packages.copy():
-        for regex in skip_package_regexes:
-            if regex.match(attr):
-                packages.discard(attr)
-
-    return packages
+    # Apply skip filters
+    return _apply_package_filters(packages, skip_packages, skip_package_regexes)
 
 
 @contextmanager
