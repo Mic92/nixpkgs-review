@@ -10,7 +10,7 @@ from nixpkgs_review.builddir import Builddir
 from nixpkgs_review.buildenv import Buildenv
 from nixpkgs_review.errors import NixpkgsReviewError
 from nixpkgs_review.review import CheckoutOption, Review
-from nixpkgs_review.utils import System, warn
+from nixpkgs_review.utils import System, die, warn
 
 from .utils import ensure_github_token
 
@@ -32,8 +32,7 @@ def parse_pr_numbers(number_args: list[str]) -> list[int]:
             try:
                 prs.append(int(arg))
             except ValueError:
-                warn(f"expected number or URL, got {arg!r}")
-                sys.exit(1)
+                die(f"expected number or URL, got {arg!r}")
     return prs
 
 
@@ -54,14 +53,12 @@ def pr_command(args: argparse.Namespace) -> str:
             or "number" not in obj
             or not isinstance((number := obj["number"]), int)
         ):
-            warn(f"Invalid Pull Request JSON object provided: {obj}")
-            sys.exit(1)
+            die(f"Invalid Pull Request JSON object provided: {obj}")
         pr_objects[number] = obj
     if args.pr_json and (missing := [pr for pr in prs if pr not in pr_objects]):
-        warn(
+        die(
             f"API lookups for PRs are disabled due to the use of the --pr-json flag, but no JSON objects have been specified for the following PRs: {', '.join(map(str, missing))}"
         )
-        sys.exit(1)
 
     if args.post_result or args.approve_pr:
         ensure_github_token(args.token)

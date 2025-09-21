@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import contextlib
 import os
-import sys
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING
 
-from .utils import warn
+from .utils import die
 
 if TYPE_CHECKING:
     import types
@@ -50,8 +49,7 @@ class Buildenv:
         self.old_cwd = Path.cwd()
 
         if (root := find_nixpkgs_root()) is None:
-            warn("Has to be executed from nixpkgs repository")
-            sys.exit(1)
+            die("Has to be executed from nixpkgs repository")
         os.chdir(root)
 
         os.environ["NIXPKGS_CONFIG"] = self.nixpkgs_config.name

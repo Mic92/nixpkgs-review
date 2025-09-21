@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any
+from typing import IO, TYPE_CHECKING, Any, NoReturn
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -32,6 +32,17 @@ warn = color_text(31, file=sys.stderr)
 info = color_text(32)
 skipped = color_text(33)
 link = color_text(34)
+
+
+def die(msg: str, exit_code: int = 1) -> NoReturn:
+    warn(msg)
+    sys.exit(exit_code)
+
+
+def require_env(var_name: str, error_msg: str) -> str:
+    if value := os.environ.get(var_name):
+        return value
+    die(error_msg)
 
 
 def to_link(uri: str, text: str) -> str:

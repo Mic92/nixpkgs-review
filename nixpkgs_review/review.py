@@ -23,7 +23,7 @@ from .errors import NixpkgsReviewError
 from .github import GithubClient, GitHubPullRequest
 from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
-from .utils import System, current_system, info, sh, system_order_key, warn
+from .utils import System, current_system, die, info, sh, system_order_key, warn
 
 if TYPE_CHECKING:
     import argparse
@@ -205,8 +205,8 @@ class Review:
 
             # This should never happen
             case _:
-                warn("Invalid eval_type")
-                sys.exit(1)
+                die("Invalid eval_type")
+        return None
 
     def _process_aliases_for_systems(self, system: str) -> set[str]:
         match system:
@@ -354,8 +354,7 @@ class Review:
         result = git.run(["apply"], cwd=self.worktree_dir(), stdin=diff)
 
         if result.returncode != 0:
-            warn(f"Failed to apply diff in {self.worktree_dir()}")
-            sys.exit(1)
+            die(f"Failed to apply diff in {self.worktree_dir()}")
 
     def build_commit(
         self,
@@ -501,12 +500,11 @@ class Review:
                         self.github_client.get_github_action_eval_result(pr)
                     )
                     if waiting_time_s > 10 * 60:
-                        warn(
+                        die(
                             "\nTimeout exceeded: No evaluation seems to be available on GitHub."
                             "\nLook for an eventual evaluation error issue on the PR web page."
                             "\nAlternatively, use `--eval local` to do the evaluation locally."
                         )
-                        sys.exit(1)
                 print()
 
             print("-> Successfully fetched rebuilds: no local evaluation needed")
@@ -758,9 +756,7 @@ def package_attrs(
             attrs[attr.path] = attr
 
     if not ignore_nonexisting and len(nonexisting) > 0:
-        warn("These packages do not exist:")
-        warn(" ".join(nonexisting))
-        sys.exit(1)
+        die(f"These packages do not exist: {' '.join(nonexisting)}")
     return attrs
 
 
@@ -786,11 +782,10 @@ def join_packages(
     nonexistent = specified_attrs.keys() - changed_attrs.keys() - tests.keys()
 
     if len(nonexistent) != 0:
-        warn(
-            "The following packages specified with `-p` are not rebuilt by the pull request"
+        die(
+            f"The following packages specified with `-p` are not rebuilt by the pull request: "
+            f"{' '.join(specified_attrs[path].name for path in nonexistent)}"
         )
-        warn(" ".join(specified_attrs[path].name for path in nonexistent))
-        sys.exit(1)
     union_paths = (changed_attrs.keys() & specified_attrs.keys()) | tests.keys()
 
     return {specified_attrs[path].name for path in union_paths}
