@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import io
 import json
 import shutil
 import subprocess
 import zipfile
 from http.client import HTTPMessage
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, Mock, mock_open, patch
 from urllib.error import HTTPError
 
@@ -12,7 +15,8 @@ import pytest
 from nixpkgs_review.cli import main
 from nixpkgs_review.utils import nix_nom_tool
 
-from .conftest import Helpers, Nixpkgs
+if TYPE_CHECKING:
+    from .conftest import Helpers, Nixpkgs
 
 
 def create_mock_pr_response(
@@ -22,7 +26,7 @@ def create_mock_pr_response(
     base_rev: str = "0000000000000000000000000000000000000000",
     head_rev: str = "0000000000000000000000000000000000000000",
     merge_rev: str = "0000000000000000000000000000000000000000",
-) -> dict:
+) -> dict[str, Any]:
     """Create a mock GitHub PR response."""
     return {
         "number": pr_number,
@@ -60,7 +64,7 @@ def setup_pr_mocks(
     base_rev: str = "0000000000000000000000000000000000000000",
     head_rev: str = "0000000000000000000000000000000000000000",
     merge_rev: str = "0000000000000000000000000000000000000000",
-    additional_mocks: list | None = None,
+    additional_mocks: list[Any] | None = None,
 ) -> None:
     """Set up standard mock responses for PR tests."""
     pr_response = create_mock_pr_response(
@@ -108,7 +112,7 @@ def test_default_to_nix_if_nom_not_found(mock_shutil: Mock) -> None:
 
 
 @pytest.mark.skipif(not shutil.which("nom"), reason="`nom` not found in PATH")
-def test_pr_local_eval(helpers: Helpers, capfd: pytest.CaptureFixture) -> None:
+def test_pr_local_eval(helpers: Helpers, capfd: pytest.CaptureFixture[Any]) -> None:
     with helpers.nixpkgs() as nixpkgs:
         nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
         subprocess.run(["git", "add", "."], check=True)
@@ -140,7 +144,7 @@ def test_pr_local_eval_missing_nom(
     mock_tool: Mock,
     mock_urlopen: MagicMock,
     helpers: Helpers,
-    capfd: pytest.CaptureFixture,
+    capfd: pytest.CaptureFixture[Any],
 ) -> None:
     with helpers.nixpkgs() as nixpkgs:
         base, head, merge = setup_repo(nixpkgs)
@@ -169,7 +173,7 @@ def test_pr_local_eval_missing_nom(
 
 @patch("urllib.request.urlopen")
 def test_pr_local_eval_without_nom(
-    mock_urlopen: MagicMock, helpers: Helpers, capfd: pytest.CaptureFixture
+    mock_urlopen: MagicMock, helpers: Helpers, capfd: pytest.CaptureFixture[Any]
 ) -> None:
     with helpers.nixpkgs() as nixpkgs:
         base, head, merge = setup_repo(nixpkgs)

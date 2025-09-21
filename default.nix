@@ -38,20 +38,20 @@ python3Packages.buildPythonApplication {
   nativeBuildInputs = [
     installShellFiles
     python3Packages.setuptools
-  ] ++ lib.optional withAutocomplete python3Packages.argcomplete;
+  ]
+  ++ lib.optional withAutocomplete python3Packages.argcomplete;
   dependencies = with python3Packages; [ argcomplete ];
 
-  nativeCheckInputs =
-    [
-      # needed for interactive unittests
-      python3Packages.pytest
-      python3Packages.pytest-xdist
+  nativeCheckInputs = [
+    # needed for interactive unittests
+    python3Packages.pytest
+    python3Packages.pytest-xdist
 
-      nixVersions.stable
-      git
-    ]
-    ++ lib.optional withSandboxSupport bubblewrap
-    ++ lib.optional withNom' nix-output-monitor;
+    nixVersions.stable
+    git
+  ]
+  ++ lib.optional withSandboxSupport bubblewrap
+  ++ lib.optional withNom' nix-output-monitor;
 
   # Disable checks when building with sandbox support since bwrap doesn't work in build sandbox
   doCheck = !withSandboxSupport;
@@ -67,13 +67,12 @@ python3Packages.buildPythonApplication {
   '';
   makeWrapperArgs =
     let
-      binPath =
-        [
-          nixVersions.stable
-          git
-        ]
-        ++ lib.optional withSandboxSupport bubblewrap
-        ++ lib.optional withNom' nix-output-monitor;
+      binPath = [
+        nixVersions.stable
+        git
+      ]
+      ++ lib.optional withSandboxSupport bubblewrap
+      ++ lib.optional withNom' nix-output-monitor;
     in
     [
       "--prefix PATH : ${lib.makeBinPath binPath}"

@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -8,7 +11,7 @@ from importlib import metadata
 from pathlib import Path
 from re import Pattern
 from shutil import which
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from nixpkgs_review.utils import nix_nom_tool
 
@@ -20,10 +23,14 @@ from .pr import pr_command
 from .rev import rev_command
 from .wip import wip_command
 
-try:
-    import argcomplete
-except ImportError:
-    argcomplete = None  # type: ignore[assignment]
+if TYPE_CHECKING:
+    from nixpkgs_review.github import JSONType
+
+argcomplete: Any = None
+with contextlib.suppress(ImportError):
+    import argcomplete as _argcomplete
+
+    argcomplete = _argcomplete
 
 
 def regex_type(s: str) -> Pattern[str]:
@@ -34,16 +41,20 @@ def regex_type(s: str) -> Pattern[str]:
         raise argparse.ArgumentTypeError(msg) from e
 
 
-def json_type(s: str) -> Any:
+def json_type(
+    s: str,
+) -> JSONType:
     try:
-        return json.loads(s)
+        result: JSONType = json.loads(s)
     except json.JSONDecodeError as e:
         msg = f"'{s}' is not a valid JSON object: {e}"
         raise argparse.ArgumentTypeError(msg) from e
+    else:
+        return result
 
 
 def pr_flags(
-    subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> argparse.ArgumentParser:
     pr_parser = subparsers.add_parser("pr", help="review a pull request on nixpkgs")
     pr_parser.add_argument(
@@ -102,7 +113,7 @@ def pr_flags(
 
 
 def rev_flags(
-    subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> argparse.ArgumentParser:
     rev_parser = subparsers.add_parser(
         "rev", help="review a change in the local pull request repository"
@@ -119,7 +130,7 @@ def rev_flags(
 
 
 def wip_flags(
-    subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> argparse.ArgumentParser:
     wip_parser = subparsers.add_parser(
         "wip", help="review the uncommitted changes in the working tree"
@@ -142,7 +153,7 @@ def wip_flags(
 
 
 class CommonFlag:
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: str, **kwargs: Any) -> None:  # noqa: ANN401
         self.args = args
         self.kwargs = kwargs
 

@@ -1,18 +1,22 @@
+from __future__ import annotations
+
 import json
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
 from nixpkgs_review.utils import current_system
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 TEST_ROOT = Path(__file__).parent.resolve()
 sys.path.append(str(TEST_ROOT.parent))

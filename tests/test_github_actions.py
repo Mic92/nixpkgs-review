@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import os
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, mock_open, patch
 
 from nixpkgs_review.cli import main
 
-from .conftest import Helpers
+if TYPE_CHECKING:
+    from .conftest import Helpers
 
 
 @patch("urllib.request.urlopen")

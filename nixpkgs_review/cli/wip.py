@@ -1,10 +1,15 @@
-import argparse
-from pathlib import Path
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from nixpkgs_review import git
 from nixpkgs_review.allow import AllowedFeatures
 from nixpkgs_review.buildenv import Buildenv
 from nixpkgs_review.review import review_local_revision
+
+if TYPE_CHECKING:
+    import argparse
+    from pathlib import Path
 
 
 def wip_command(args: argparse.Namespace) -> Path:
@@ -16,6 +21,6 @@ def wip_command(args: argparse.Namespace) -> Path:
             allow,
             nixpkgs_config,
             None,
-            args.staged,
-            args.print_result,
+            staged=args.staged,
+            print_result=args.print_result,
         )

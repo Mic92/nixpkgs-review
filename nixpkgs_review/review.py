@@ -1,4 +1,5 @@
-import argparse
+from __future__ import annotations
+
 import concurrent.futures
 import fcntl
 import itertools
@@ -9,23 +10,27 @@ import sys
 import tempfile
 import time
 import urllib.request
-from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from re import Pattern
-from typing import IO
+from typing import IO, TYPE_CHECKING, Any, cast
 from xml.etree import ElementTree as ET
 
 from . import git
-from .allow import AllowedFeatures
 from .builddir import Builddir
 from .errors import NixpkgsReviewError
-from .github import GithubClient
+from .github import GithubClient, GitHubPullRequest
 from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
 from .utils import System, current_system, info, sh, system_order_key, warn
+
+if TYPE_CHECKING:
+    import argparse
+    from collections.abc import Iterator
+    from re import Pattern
+
+    from .allow import AllowedFeatures
 
 # keep up to date with `supportedPlatforms`
 # https://github.com/NixOS/ofborg/blob/cf2c6712bd7342406e799110e7cd465aa250cdca/ofborg/src/outpaths.nix#L12
@@ -68,7 +73,7 @@ class Package:
     homepage: str | None
     description: str | None
     position: str | None
-    old_pkg: "Package | None" = field(init=False)
+    old_pkg: Package | None = field(default=None, init=False)
 
 
 def print_updates(changed_pkgs: list[Package], removed_pkgs: list[Package]) -> None:
@@ -113,12 +118,13 @@ class Review:
         skip_packages: set[str] | None = None,
         skip_packages_regex: list[Pattern[str]] | None = None,
         checkout: CheckoutOption = CheckoutOption.MERGE,
+        *,
         sandbox: bool = False,
         num_parallel_evals: int = 1,
         show_header: bool = True,
         show_logs: bool = False,
         show_pr_info: bool = True,
-        pr_object: dict | None = None,
+        pr_object: dict[str, Any] | None = None,
     ) -> None:
         if skip_packages_regex is None:
             skip_packages_regex = []
@@ -296,7 +302,7 @@ class Review:
                 )
             print(f"{'-' * 40}")
 
-    def _display_pr_info(self, pr: dict, pr_number: int) -> None:
+    def _display_pr_info(self, pr: GitHubPullRequest, pr_number: int) -> None:
         """Display PR description and diff information."""
         print(f"\n{'=' * 80}")
         print(f"PR #{pr_number}: {pr['title']}")
@@ -304,6 +310,7 @@ class Review:
         print(f"Author: {pr['user']['login']}")
         print(f"Branch: {pr['head']['label']} -> {pr['base']['label']}")
         print(f"State: {pr['state']}")
+
         if pr.get("draft", False):
             print("Status: Draft")
 
@@ -312,7 +319,7 @@ class Review:
             self._render_markdown(pr["body"])
             print(f"{'-' * 40}")
 
-        diff_url = pr.get("diff_url")
+        diff_url = pr["diff_url"]
         if not diff_url:
             return
 
@@ -339,7 +346,7 @@ class Review:
             msg = f"Failed to checkout {commit} in {self.worktree_dir()}. git checkout failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
 
-    def apply_unstaged(self, staged: bool = False) -> None:
+    def apply_unstaged(self, *, staged: bool = False) -> None:
         args = [
             "--no-pager",
             "diff",
@@ -366,6 +373,7 @@ class Review:
         base_commit: str,
         head_commit: str | None,
         merge_commit: str | None = None,
+        *,
         staged: bool = False,
     ) -> dict[System, list[Attr]]:
         """
@@ -376,7 +384,7 @@ class Review:
 
         if self.only_packages:
             if head_commit is None:
-                self.apply_unstaged(staged)
+                self.apply_unstaged(staged=staged)
             elif self.checkout == CheckoutOption.COMMIT:
                 self.git_checkout(head_commit)
             elif merge_commit:
@@ -403,7 +411,7 @@ class Review:
         )
 
         if head_commit is None:
-            self.apply_unstaged(staged)
+            self.apply_unstaged(staged=staged)
         elif merge_commit:
             self.git_checkout(merge_commit)
         else:
@@ -472,7 +480,11 @@ class Review:
         )
 
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
-        pr = self.pr_object or self.github_client.pull_request(pr_number)
+        pr = (
+            cast("GitHubPullRequest", self.pr_object)
+            if self.pr_object
+            else self.github_client.pull_request(pr_number)
+        )
         self.head_commit = pr["head"]["sha"]
 
         if self.show_pr_info:
@@ -540,6 +552,7 @@ class Review:
         attrs_per_system: dict[System, list[Attr]],
         path: Path,
         pr: int | None = None,
+        *,
         post_result: bool | None = False,
         print_result: bool = False,
         approve_pr: bool = False,
@@ -591,7 +604,7 @@ class Review:
                 self.nixpkgs_config,
                 self.builddir.overlay.path,
                 self.run,
-                self.sandbox,
+                sandbox=self.sandbox,
             )
 
         return success
@@ -601,6 +614,7 @@ class Review:
         path: Path,
         branch: str,
         reviewed_commit: str | None,
+        *,
         staged: bool = False,
         print_result: bool = False,
         approve_pr: bool = False,
@@ -670,6 +684,7 @@ def _list_packages_system(
     system: System,
     nix_path: str,
     allow: AllowedFeatures,
+    *,
     check_meta: bool = False,
 ) -> list[Package]:
     cmd = [
@@ -709,6 +724,7 @@ def list_packages(
     systems: set[System],
     allow: AllowedFeatures,
     n_threads: int,
+    *,
     check_meta: bool = False,
 ) -> dict[System, list[Package]]:
     results: dict[System, list[Package]] = {}
@@ -735,6 +751,7 @@ def package_attrs(
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
+    *,
     ignore_nonexisting: bool = True,
 ) -> dict[Path, Attr]:
     attrs: dict[Path, Attr] = {}
@@ -933,6 +950,7 @@ def review_local_revision(
     allow: AllowedFeatures,
     nixpkgs_config: Path,
     commit: str | None,
+    *,
     staged: bool = False,
     print_result: bool = False,
 ) -> Path:
@@ -957,5 +975,7 @@ def review_local_revision(
             extra_nixpkgs_config=args.extra_nixpkgs_config,
             num_parallel_evals=args.num_parallel_evals,
         )
-        review.review_commit(builddir.path, args.branch, commit, staged, print_result)
+        review.review_commit(
+            builddir.path, args.branch, commit, staged=staged, print_result=print_result
+        )
         return builddir.path

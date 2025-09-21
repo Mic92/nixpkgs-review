@@ -31,14 +31,13 @@
             ...
           }:
           {
-            packages =
-              {
-                nixpkgs-review = pkgs.callPackage ./. { };
-                default = config.packages.nixpkgs-review;
-              }
-              // lib.optionalAttrs (pkgs.stdenv.isLinux) {
-                nixpkgs-review-sandbox = pkgs.callPackage ./default.nix { withSandboxSupport = true; };
-              };
+            packages = {
+              nixpkgs-review = pkgs.callPackage ./. { };
+              default = config.packages.nixpkgs-review;
+            }
+            // lib.optionalAttrs (pkgs.stdenv.isLinux) {
+              nixpkgs-review-sandbox = pkgs.callPackage ./default.nix { withSandboxSupport = true; };
+            };
 
             checks =
               lib.mapAttrs' (n: lib.nameValuePair "package-${n}") config.packages

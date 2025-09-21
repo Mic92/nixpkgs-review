@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 import shutil
 import subprocess
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from nixpkgs_review.cli import main
 
-from .conftest import Helpers
+if TYPE_CHECKING:
+    from .conftest import Helpers
 
 
 @pytest.mark.skipif(not shutil.which("nom"), reason="`nom` not found in PATH")

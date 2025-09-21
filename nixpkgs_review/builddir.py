@@ -1,20 +1,24 @@
+from __future__ import annotations
+
 import os
 import signal
-import types
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Union
+from typing import TYPE_CHECKING, Self
 
 from . import git
 from .overlay import Overlay
 from .utils import warn
+
+if TYPE_CHECKING:
+    import types
 
 
 class DisableKeyboardInterrupt:
     def __enter__(self) -> None:
         self.signal_received = False
 
-        def handler(_sig: Any, _frame: Any) -> None:
+        def handler(_sig: int, _frame: types.FrameType | None) -> None:
             warn("Ignore Ctrl-C: Cleanup in progress... Don't be so impatient, human!")
 
         self.old_handler = signal.signal(signal.SIGINT, handler)
@@ -28,7 +32,7 @@ class DisableKeyboardInterrupt:
         signal.signal(signal.SIGINT, self.old_handler)
 
 
-def create_cache_directory(name: str) -> Union[Path, "TemporaryDirectory[str]"]:
+def create_cache_directory(name: str) -> Path | TemporaryDirectory[str]:
     app_cache_dir = os.environ.get("NIXPKGS_REVIEW_CACHE_DIR")
     if app_cache_dir is not None:
         xdg_cache = Path(app_cache_dir)
@@ -80,7 +84,7 @@ class Builddir:
         os.environ["NIX_PATH"] = ":".join(nix_path)
         self.nix_path = " ".join(nix_path)
 
-    def __enter__(self) -> "Builddir":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(

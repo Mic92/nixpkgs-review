@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from nixpkgs_review.utils import escape_attr
 
 

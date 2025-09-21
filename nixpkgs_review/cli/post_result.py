@@ -1,12 +1,17 @@
-import argparse
+from __future__ import annotations
+
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from nixpkgs_review.github import GithubClient
 from nixpkgs_review.utils import warn
 
 from .utils import ensure_github_token
+
+if TYPE_CHECKING:
+    import argparse
 
 
 def post_result_command(args: argparse.Namespace) -> None:
