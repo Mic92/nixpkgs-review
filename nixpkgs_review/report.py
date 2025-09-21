@@ -233,6 +233,7 @@ def write_error_logs(
     nix_log_args = _get_nix_log_args()
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = []
         for system, attrs in attrs_per_system.items():
             for attr in attrs:
                 # Broken attrs have no drv_path.
@@ -241,10 +242,11 @@ def write_error_logs(
 
                 attr_name: str = f"{attr.name}-{system}"
                 _create_symlink_for_attr(attr, attr_name, results, failed_results)
-
-                @pool.submit
-                def future(attr: Attr = attr, system: str = system) -> None:
-                    _write_log_for_attr(attr, system, logs, nix_log_args)
+                futures.append(
+                    pool.submit(_write_log_for_attr, attr, system, logs, nix_log_args)
+                )
+        for fut in futures:
+            fut.result()
 
 
 def _serialize_attrs(attrs: list[Attr]) -> list[str]:
