@@ -85,7 +85,6 @@ strict = true
 no_implicit_optional = true
 # Missing type parameters for generic type "CaptureFixture"  [type-arg]
 disallow_any_generics = false
-enable_incomplete_feature = ["NewGenericSyntax"]
 
 [[tool.mypy.overrides]]
 module = "argcomplete"
