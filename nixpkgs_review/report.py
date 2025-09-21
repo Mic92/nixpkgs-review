@@ -419,7 +419,7 @@ class Report:
         msg += html_pkgs_section(
             ":fast_forward:",
             report.non_existent,
-            "present in ofBorgs evaluation, but not found in the checkout",
+            "present in ofBorg's evaluation, but not found in the checkout",
         )
         msg += html_pkgs_section(":fast_forward:", report.blacklisted, "blacklisted")
         msg += html_pkgs_section(":x:", report.failed, "failed to build")
