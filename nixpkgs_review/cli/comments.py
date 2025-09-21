@@ -48,8 +48,13 @@ class GitHubGraphQLReviewsNode(TypedDict):
     nodes: Required[list[GitHubGraphQLReview]]
 
 
+class GitHubGraphQLCommentsNode(TypedDict):
+    nodes: Required[list[GitHubGraphQLComment]]
+
+
 class GitHubGraphQLPullRequest(GitHubGraphQLComment):
     reviews: Required[GitHubGraphQLReviewsNode]
+    comments: Required[GitHubGraphQLCommentsNode]
 
 
 class GitHubGraphQLRepository(TypedDict):
@@ -174,6 +179,9 @@ def get_comments(github_token: str, pr_num: int) -> list[Comment | Review]:
     pr = response["repository"]["pullRequest"]
 
     comments: list[Comment | Review] = [Comment.from_json(pr)]
+
+    # Include PR issue comments (separate from review threads)
+    comments.extend(Comment.from_json(c) for c in pr["comments"]["nodes"])
 
     reviews_nodes = pr["reviews"]["nodes"]
 
