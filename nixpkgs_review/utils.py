@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 import functools
 import os
 import shlex
 import shutil
 import subprocess
 import sys
-from collections.abc import Callable
 from pathlib import Path
-from typing import IO, Any
+from typing import IO, TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 HAS_TTY = sys.stdout.isatty()
 ROOT = Path(__file__).resolve().parent
@@ -45,7 +49,7 @@ def sh(
     stderr: int | None = None,
     *,
     quiet: bool = False,
-) -> "subprocess.CompletedProcess[str]":
+) -> subprocess.CompletedProcess[str]:
     if not quiet:
         info("$ " + shlex.join(command))
     if env is not None:

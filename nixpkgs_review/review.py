@@ -1,4 +1,5 @@
-import argparse
+from __future__ import annotations
+
 import concurrent.futures
 import fcntl
 import itertools
@@ -9,23 +10,27 @@ import sys
 import tempfile
 import time
 import urllib.request
-from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from re import Pattern
-from typing import IO, cast
+from typing import IO, TYPE_CHECKING, cast
 from xml.etree import ElementTree as ET
 
 from . import git
-from .allow import AllowedFeatures
 from .builddir import Builddir
 from .errors import NixpkgsReviewError
 from .github import GithubClient, GitHubPullRequest
 from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
 from .utils import System, current_system, info, sh, system_order_key, warn
+
+if TYPE_CHECKING:
+    import argparse
+    from collections.abc import Iterator
+    from re import Pattern
+
+    from .allow import AllowedFeatures
 
 # keep up to date with `supportedPlatforms`
 # https://github.com/NixOS/ofborg/blob/cf2c6712bd7342406e799110e7cd465aa250cdca/ofborg/src/outpaths.nix#L12
@@ -68,7 +73,7 @@ class Package:
     homepage: str | None
     description: str | None
     position: str | None
-    old_pkg: "Package | None" = field(init=False)
+    old_pkg: Package | None = field(init=False)
 
 
 def print_updates(changed_pkgs: list[Package], removed_pkgs: list[Package]) -> None:

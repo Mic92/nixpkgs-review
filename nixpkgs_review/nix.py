@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import concurrent.futures
 import json
 import os
@@ -8,11 +10,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from sys import platform
 from tempfile import NamedTemporaryFile
-from typing import Final, Required, TypedDict, cast
+from typing import TYPE_CHECKING, Final, Required, TypedDict, cast
 
-from .allow import AllowedFeatures
 from .errors import NixpkgsReviewError
 from .utils import ROOT, System, info, sh, warn
+
+if TYPE_CHECKING:
+    from .allow import AllowedFeatures
 
 
 @dataclass

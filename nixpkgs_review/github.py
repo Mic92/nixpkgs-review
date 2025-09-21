@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import shutil
 import tempfile
@@ -5,13 +7,15 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
-from http.client import HTTPMessage
 from pathlib import Path
 from textwrap import dedent
-from typing import IO, Any, Required, TypedDict, cast, override
+from typing import IO, TYPE_CHECKING, Any, Required, TypedDict, cast, override
 
 from .errors import ArtifactExpiredError
 from .utils import System, warn
+
+if TYPE_CHECKING:
+    from http.client import HTTPMessage
 
 # Type alias for JSON-serializable types
 type JSONType = dict[str, object] | list[object] | str | int | float | bool | None

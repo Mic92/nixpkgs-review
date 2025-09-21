@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import io
 import json
 import shutil
 import subprocess
 import zipfile
 from http.client import HTTPMessage
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, Mock, mock_open, patch
 from urllib.error import HTTPError
 
@@ -12,7 +15,8 @@ import pytest
 from nixpkgs_review.cli import main
 from nixpkgs_review.utils import nix_nom_tool
 
-from .conftest import Helpers, Nixpkgs
+if TYPE_CHECKING:
+    from .conftest import Helpers, Nixpkgs
 
 
 def create_mock_pr_response(

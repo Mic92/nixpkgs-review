@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -8,9 +10,8 @@ from importlib import metadata
 from pathlib import Path
 from re import Pattern
 from shutil import which
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
-from nixpkgs_review.github import JSONType
 from nixpkgs_review.utils import nix_nom_tool
 
 from .approve import approve_command
@@ -20,6 +21,11 @@ from .post_result import post_result_command
 from .pr import pr_command
 from .rev import rev_command
 from .wip import wip_command
+
+if TYPE_CHECKING:
+    from types import ModuleType
+
+    from nixpkgs_review.github import JSONType
 
 try:
     import argcomplete
@@ -48,7 +54,7 @@ def json_type(
 
 
 def pr_flags(
-    subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> argparse.ArgumentParser:
     pr_parser = subparsers.add_parser("pr", help="review a pull request on nixpkgs")
     pr_parser.add_argument(
@@ -107,7 +113,7 @@ def pr_flags(
 
 
 def rev_flags(
-    subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> argparse.ArgumentParser:
     rev_parser = subparsers.add_parser(
         "rev", help="review a change in the local pull request repository"
@@ -124,7 +130,7 @@ def rev_flags(
 
 
 def wip_flags(
-    subparsers: "argparse._SubParsersAction[argparse.ArgumentParser]",
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> argparse.ArgumentParser:
     wip_parser = subparsers.add_parser(
         "wip", help="review the uncommitted changes in the working tree"

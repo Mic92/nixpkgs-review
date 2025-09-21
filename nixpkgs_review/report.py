@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 import html
 import json
@@ -5,14 +7,17 @@ import os
 import re
 import socket
 import subprocess
-from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from re import Pattern
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
-from .nix import Attr
 from .utils import System, info, link, skipped, system_order_key, to_link, warn
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from pathlib import Path
+
+    from .nix import Attr
 
 # https://github.com/orgs/community/discussions/27190
 MAX_GITHUB_COMMENT_LENGTH = 65536

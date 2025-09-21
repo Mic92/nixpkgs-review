@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .errors import NixpkgsReviewError
 from .utils import sh
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def run(

@@ -1,12 +1,16 @@
-import argparse
+from __future__ import annotations
+
 import string
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Required, TypedDict, cast
+from typing import TYPE_CHECKING, Required, TypedDict, cast
 
 from nixpkgs_review.github import GithubClient
 
 from .utils import ensure_github_token, get_current_pr
+
+if TYPE_CHECKING:
+    import argparse
 
 
 # GraphQL Response TypedDicts
@@ -105,7 +109,7 @@ class Comment:
     created_at: datetime
 
     @staticmethod
-    def from_json(data: GitHubGraphQLComment) -> "Comment":
+    def from_json(data: GitHubGraphQLComment) -> Comment:
         return Comment(
             author=data["author"]["login"],
             body=data["body"],
@@ -118,10 +122,10 @@ class ReviewComment(Comment):
     diff_hunk: str
     id: str
     reply_to: str | None
-    replies: "list[ReviewComment]" = field(default_factory=list)
+    replies: list[ReviewComment] = field(default_factory=list)
 
     @staticmethod
-    def from_review_comment_json(data: GitHubGraphQLReviewComment) -> "ReviewComment":
+    def from_review_comment_json(data: GitHubGraphQLReviewComment) -> ReviewComment:
         reply_to = data.get("replyTo")
         reply_to_id = reply_to.get("id") if reply_to else None
 
@@ -143,7 +147,7 @@ class Review:
     comments: list[ReviewComment]
 
     @staticmethod
-    def from_json(data: GitHubGraphQLReview, comments: list[ReviewComment]) -> "Review":
+    def from_json(data: GitHubGraphQLReview, comments: list[ReviewComment]) -> Review:
         return Review(
             author=data["author"]["login"],
             body=data["body"],

@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 import contextlib
 import os
 import sys
-import types
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import TYPE_CHECKING
 
 from .utils import warn
+
+if TYPE_CHECKING:
+    import types
 
 
 def find_nixpkgs_root() -> Path | None:
