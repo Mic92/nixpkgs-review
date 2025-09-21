@@ -17,18 +17,13 @@ from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, cast
 from xml.etree import ElementTree as ET
 
-from . import git
+from . import git, http_requests
 from .builddir import Builddir
 from .errors import NixpkgsReviewError
 from .github import GithubClient, GitHubPullRequest
 from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
 from .utils import System, current_system, info, sh, system_order_key, warn
-
-# Configure global User-Agent for urllib
-opener = urllib.request.build_opener()
-opener.addheaders = [("User-Agent", "nixpkgs-review")]
-urllib.request.install_opener(opener)
 
 if TYPE_CHECKING:
     import argparse
@@ -329,7 +324,7 @@ class Review:
             return
 
         try:
-            with urllib.request.urlopen(diff_url) as response:  # noqa: S310
+            with http_requests.urlopen(diff_url) as response:
                 diff_content = response.read().decode("utf-8")
             self._display_diff_preview(diff_content)
         except (urllib.error.URLError, OSError):

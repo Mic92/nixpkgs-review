@@ -11,6 +11,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import IO, TYPE_CHECKING, Any, Required, TypedDict, cast, override
 
+from . import http_requests
 from .errors import ArtifactExpiredError
 from .utils import System, warn
 
@@ -114,7 +115,7 @@ class GithubClient:
             method=method,
             data=body,
         )
-        with urllib.request.urlopen(req) as resp:  # noqa: S310
+        with http_requests.urlopen(req) as resp:
             result: JSONType = json.loads(resp.read())
             return result
 
@@ -213,13 +214,9 @@ class GithubClient:
             msg = f"Expected 302, got {resp.status}"
             raise RuntimeError(msg)
 
-        if not new_url.startswith(("http:", "https:")):
-            msg = "URL must start with 'http:' or 'https:'"
-            raise ValueError(msg)
-
         req = urllib.request.Request(new_url)  # noqa: S310
         with (
-            urllib.request.urlopen(req) as new_resp,  # noqa: S310
+            http_requests.urlopen(req) as new_resp,
             tempfile.TemporaryDirectory() as _temp_dir,
         ):
             temp_dir = Path(_temp_dir)
