@@ -8,10 +8,10 @@ class AllowedFeatures:
 
     def __init__(self, features: list[str]) -> None:
         for feature in features:
-            # ruff doesn't support match statements yet
-            if feature == "aliases":
-                self.aliases = True
-            elif feature == "ifd":
-                self.ifd = True
-            elif feature == "url-literals":
-                self.url_literals = True
+            match feature:
+                case "aliases":
+                    self.aliases = True
+                case "ifd":
+                    self.ifd = True
+                case "url-literals":
+                    self.url_literals = True
