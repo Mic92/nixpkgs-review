@@ -96,12 +96,11 @@ def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
     res = ""
     seen_tails = set()
     for pkg in packages:
-        tail = html.escape(
+        if tail := html.escape(
             remove_ansi_escape_sequences(
                 get_file_tail(logs_dir / get_log_filename(pkg, system))
             )
-        )
-        if tail:
+        ):
             if not res:
                 res = "\n---\n"
                 res += f"<details>\n<summary>Error logs: `{system}`</summary>\n"
@@ -171,21 +170,22 @@ def write_error_logs(
     results = LazyDirectory(directory.joinpath("results"))
     failed_results = LazyDirectory(directory.joinpath("failed_results"))
 
-    extra_nix_log_args = []
-
     # filter https://cache.nixos.org from acting as build-log substituters
     # to avoid hammering it
     # IDEA: also add the remote builders if user has not already configured this
     # TODO: should this option respect '--build-args'? 'nix log' accepts most, but not all
     substituters = get_nix_config("substituters").get("substituters")
-    if substituters is not None:
-        extra_nix_log_args += [
+    extra_nix_log_args = (
+        [
             "--option",
             "substituters",
             " ".join(
                 i for i in substituters.split() if i and i != "https://cache.nixos.org"
             ),
         ]
+        if substituters is not None
+        else []
+    )
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         for system, attrs in attrs_per_system.items():
@@ -246,18 +246,19 @@ class SystemReport:
         self.built: list[Attr] = []
 
         for attr in attrs:
-            if attr.broken:
-                self.broken.append(attr)
-            elif attr.blacklisted:
-                self.blacklisted.append(attr)
-            elif not attr.exists:
-                self.non_existent.append(attr)
-            elif not attr.was_build():
-                self.failed.append(attr)
-            elif attr.name.startswith("nixosTests."):
-                self.tests.append(attr)
-            else:
-                self.built.append(attr)
+            match attr:
+                case _ if attr.broken:
+                    self.broken.append(attr)
+                case _ if attr.blacklisted:
+                    self.blacklisted.append(attr)
+                case _ if not attr.exists:
+                    self.non_existent.append(attr)
+                case _ if not attr.was_build():
+                    self.failed.append(attr)
+                case _ if attr.name.startswith("nixosTests."):
+                    self.tests.append(attr)
+                case _:
+                    self.built.append(attr)
 
     def serialize(self) -> dict[str, list[str]]:
         return {
@@ -316,10 +317,9 @@ class Report:
         self.skip_packages = skip_packages
         self.skip_packages_regex = [r.pattern for r in skip_packages_regex]
 
-        if extra_nixpkgs_config != "{ }":
-            self.extra_nixpkgs_config: str | None = extra_nixpkgs_config
-        else:
-            self.extra_nixpkgs_config = None
+        self.extra_nixpkgs_config = (
+            extra_nixpkgs_config if extra_nixpkgs_config != "{ }" else None
+        )
 
         reports: dict[System, SystemReport] = {}
         for system, attrs in attrs_per_system.items():
