@@ -106,7 +106,7 @@ def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
                 res += f"<details>\n<summary>Error logs: `{system}`</summary>\n"
             if tail in seen_tails:
                 continue
-            res += f"<details>\n<summary>{pkg.name}</summary>\n<pre>{tail}</pre>\n</details>\n"
+            res += f"<details>\n<summary>{html.escape(pkg.name)}</summary>\n<pre>{tail}</pre>\n</details>\n"
             seen_tails.add(tail)
     if res:
         res += "</details>\n"
