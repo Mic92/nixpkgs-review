@@ -665,6 +665,11 @@ def parse_packages_xml(stdout: IO[str]) -> list[Package]:
                     current_pkg.description = _extract_meta_value(elem)
                 case "position":
                     current_pkg.position = _extract_meta_value(elem)
+
+        # delete element/attribute connections to free up memory, but don't clear
+        # meta `string`s before they are processed
+        if event == "end" and elem.tag != "string":
+            elem.clear()
     return packages
 
 
