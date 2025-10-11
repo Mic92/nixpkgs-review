@@ -307,7 +307,7 @@ class GithubClient:
                 if artifact["name"] != "comparison":
                     continue
                 result = self._process_comparison_artifact(artifact["id"])
-                if result:
+                if result is not None:
                     return result
 
         return None
