@@ -200,6 +200,11 @@ def common_flags() -> list[CommonFlag]:
             help="Only evaluate and build without executing nix-shell",
         ),
         CommonFlag(
+            "--no-exit-status",
+            action="store_true",
+            help="Do not return a non-zero exit code if a package failed to build",
+        ),
+        CommonFlag(
             "--approve-pr",
             action="store_true",
             help="Approve PR on review success",

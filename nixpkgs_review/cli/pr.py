@@ -146,7 +146,7 @@ def pr_command(args: argparse.Namespace) -> str:
         )
 
         if args.no_shell:
-            sys.exit(0 if all_succeeded else 1)
+            sys.exit(0 if all_succeeded or args.no_exit_status else 1)
 
         if len(contexts) != len(prs):
             sys.exit(1)
