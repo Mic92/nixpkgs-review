@@ -39,6 +39,7 @@ class GitHubPullRequest(TypedDict):
     draft: bool
     diff_url: Required[str]
     merge_commit_sha: Required[str]
+    node_id: Required[str]
     user: Required[GitHubUser]
     head: Required[GitHubRef]
     base: Required[GitHubRef]
@@ -85,6 +86,20 @@ class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 no_redirect_opener = urllib.request.build_opener(NoRedirectHandler)
+
+
+class GithubClientError(Exception):
+    code: int
+    reason: str
+    url: str
+    body: str
+
+    def __init__(self, code: int, reason: str, url: str, resp_body: str) -> None:
+        super().__init__(f"{code} {reason} {url}")
+        self.code = code
+        self.reason = reason
+        self.url = url
+        self.body = resp_body
 
 
 class GithubClient:
@@ -153,15 +168,71 @@ class GithubClient:
                 )
             else:
                 raise
+    def merge_pull_request(self, pr_number: int) -> JSONType | None:
+        "Adds a PR to the merge queue. Requires maintainer access to NixPkgs"
 
-    def merge_pr(self, pr: int) -> JSONType:
-        "Merge a PR. Requires maintainer access to NixPkgs"
-        print(f"Merging {pr_url(pr)}")
-        return self.put(f"/repos/NixOS/nixpkgs/pulls/{pr}/merge")
+        pr_info = self.pull_request(pr_number)
 
-    def graphql(self, query: str) -> dict[str, Any]:
+        def make_mutation(mutation: Literal[
+            "enablePullRequestAutoMerge", "enqueuePullRequest", "mergePullRequest"
+        ]) -> str:
+            payload = (
+                dedent("""\
+                    {
+                        clientMutationId,
+                        mergeQueueEntry {
+                            mergeQueue {
+                                url
+                            }
+                        }
+                    }
+                """)
+                if mutation == "enqueuePullRequest"
+                else "{clientMutationId}"
+            )
+
+            return dedent(f"""\
+                mutation ($node_id: ID!, $sha: GitObjectID) {{
+                    {mutation}(input: {{
+                        pullRequestId: $node_id,
+                        expectedHeadOid: $sha
+                    }})
+                    {payload}
+                }}
+            """)
+
+        def run_mutation(mutation: str) -> dict[str, Any]:
+            query = make_mutation(mutation)
+            try:
+                return self.graphql(query, variables={
+                    "node_id": pr_info["node_id"],
+                    "sha": pr_info["head"]["sha"],
+                })
+            except (TypeError, KeyError, RuntimeError) as e:
+                # Wrap errors to match GithubClientError handling
+                raise GithubClientError(400, str(e), "/graphql", {"error": str(e)})
+
+        # Try enabling auto-merge
+        try:
+            return run_mutation("enablePullRequestAutoMerge")
+        except GithubClientError as e:
+            print(f"pull request {pr_number} auto merge failed: {e}")
+
+        # If that fails, enqueue it
+        try:
+            return run_mutation("enqueuePullRequest")
+        except GithubClientError as e:
+            print(f"pull request {pr_number} enqueuing failed: {e}")
+
+        # If that also fails, merge directly
+        return run_mutation("mergePullRequest")
+
+    def graphql(self, query: str, variables: dict[Any, Any] = None) -> dict[str, Any]:
         """Execute a GraphQL query and return the data portion of the response."""
-        resp = self.post("/graphql", data={"query": query})
+        req_data={"query": query}
+        if variables is not None:
+            req_data["variables"] = variables
+        resp = self.post("/graphql", data=req_data)
         if not isinstance(resp, dict):
             msg = f"Expected response to be a dict, got {type(resp)}"
             raise TypeError(msg)
