@@ -9,7 +9,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 from textwrap import dedent
-from typing import IO, TYPE_CHECKING, Any, Required, TypedDict, cast, override
+from typing import IO, TYPE_CHECKING, Any, Literal, Required, TypedDict, cast, override
 
 from . import http_requests
 from .errors import ArtifactExpiredError
@@ -168,14 +168,17 @@ class GithubClient:
                 )
             else:
                 raise
+
     def merge_pull_request(self, pr_number: int) -> JSONType | None:
         "Adds a PR to the merge queue. Requires maintainer access to NixPkgs"
 
         pr_info = self.pull_request(pr_number)
 
-        def make_mutation(mutation: Literal[
-            "enablePullRequestAutoMerge", "enqueuePullRequest", "mergePullRequest"
-        ]) -> str:
+        def make_mutation(
+            mutation: Literal[
+                "enablePullRequestAutoMerge", "enqueuePullRequest", "mergePullRequest"
+            ],
+        ) -> str:
             payload = (
                 dedent("""\
                     {
@@ -201,16 +204,23 @@ class GithubClient:
                 }}
             """)
 
-        def run_mutation(mutation: str) -> dict[str, Any]:
+        def run_mutation(
+            mutation: Literal[
+                "enablePullRequestAutoMerge", "enqueuePullRequest", "mergePullRequest"
+            ],
+        ) -> dict[str, object]:
             query = make_mutation(mutation)
             try:
-                return self.graphql(query, variables={
-                    "node_id": pr_info["node_id"],
-                    "sha": pr_info["head"]["sha"],
-                })
+                return self.graphql(
+                    query,
+                    variables={
+                        "node_id": pr_info["node_id"],
+                        "sha": pr_info["head"]["sha"],
+                    },
+                )
             except (TypeError, KeyError, RuntimeError) as e:
                 # Wrap errors to match GithubClientError handling
-                raise GithubClientError(400, str(e), "/graphql", {"error": str(e)})
+                raise GithubClientError(400, str(e), "/graphql", str(e)) from e
 
         # Try enabling auto-merge
         try:
@@ -227,9 +237,11 @@ class GithubClient:
         # If that also fails, merge directly
         return run_mutation("mergePullRequest")
 
-    def graphql(self, query: str, variables: dict[Any, Any] = None) -> dict[str, Any]:
+    def graphql(
+        self, query: str, variables: dict[str, object] | None = None
+    ) -> dict[str, object]:
         """Execute a GraphQL query and return the data portion of the response."""
-        req_data={"query": query}
+        req_data: dict[str, object] = {"query": query}
         if variables is not None:
             req_data["variables"] = variables
         resp = self.post("/graphql", data=req_data)
