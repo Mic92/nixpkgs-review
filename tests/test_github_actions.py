@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, mock_open, patch
@@ -29,7 +30,24 @@ def test_merge(mock_urlopen: MagicMock, helpers: Helpers) -> None:
     with helpers.save_environ():
         os.environ["PR"] = "1"
         os.environ["GITHUB_TOKEN"] = "foo"  # noqa: S105
-        mock_urlopen.side_effect = [mock_open(read_data='{"data": {}}')()]
+        pr_info = {
+            "node_id": "MDExOlB1bGxSZXF1ZXN0MQ==",
+            "head": {"sha": "deadbeef"},
+            "title": "test",
+            "state": "open",
+            "body": "",
+            "draft": False,
+            "diff_url": "",
+            "merge_commit_sha": "",
+            "user": {"login": "test"},
+            "base": {"sha": "master", "label": "master"},
+        }
+        mock_urlopen.side_effect = [
+            mock_open(read_data=json.dumps(pr_info))(),
+            mock_open(read_data='{"errors": [{"message": "auto-merge failed"}]}')(),
+            mock_open(read_data='{"errors": [{"message": "enqueue failed"}]}')(),
+            mock_open(read_data='{"data": {}}')(),
+        ]
         main("nixpkgs-review", ["merge"])
 
 
