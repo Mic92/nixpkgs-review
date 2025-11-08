@@ -7,7 +7,8 @@ name = "nixpkgs-review"
 description = "Review nixpkgs pull requests"
 version = "3.5.1"
 authors = [{ name = "Jörg Thalheim", email = "joerg@thalheim.io" }]
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Console",

@@ -12,4 +12,4 @@ if TYPE_CHECKING:
 
 def merge_command(args: argparse.Namespace) -> None:
     github_client = GithubClient(ensure_github_token(args.token))
-    github_client.merge_pr(get_current_pr())
+    github_client.merge_pull_request(get_current_pr())
