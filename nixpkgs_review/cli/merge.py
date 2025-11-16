@@ -12,4 +12,4 @@ if TYPE_CHECKING:
 
 def merge_command(args: argparse.Namespace) -> None:
     github_client = GithubClient(ensure_github_token(args.token))
-    github_client.comment_pr(get_current_pr(), "@NixOS/nixpkgs-merge-bot merge")
+    github_client.comment_issue(get_current_pr(), "@NixOS/nixpkgs-merge-bot merge")
