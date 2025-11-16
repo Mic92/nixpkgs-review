@@ -51,6 +51,13 @@ class CheckoutOption(Enum):
     COMMIT = 2
 
 
+class UncommittedChanges(Enum):
+    # Changes between index and working tree
+    UNSTAGED = "index..workdir"
+    # Changes between HEAD and index
+    STAGED = "HEAD..index"
+
+
 def print_packages(
     names: list[str],
     msg: str,
@@ -335,7 +342,7 @@ class Review:
             msg = f"Failed to checkout {commit} in {self.worktree_dir()}. git checkout failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
 
-    def apply_unstaged(self, *, staged: bool = False) -> None:
+    def apply_uncommitted(self, changes: UncommittedChanges) -> None:
         args = [
             "--no-pager",
             "diff",
@@ -343,7 +350,11 @@ class Review:
             "--src-prefix=a/",
             "--dst-prefix=b/",
         ]
-        args.extend(["--staged"] if staged else [])
+        match changes:
+            case UncommittedChanges.UNSTAGED:
+                pass
+            case UncommittedChanges.STAGED:
+                args.append("--staged")
         diff = git.run(args, stdout=subprocess.PIPE).stdout
 
         if not diff:
@@ -356,32 +367,35 @@ class Review:
         if result.returncode != 0:
             die(f"Failed to apply diff in {self.worktree_dir()}")
 
-    def build_commit(
+    def build_changes(
         self,
         base_commit: str,
-        head_commit: str | None,
+        changes: str | UncommittedChanges,
         merge_commit: str | None = None,
-        *,
-        staged: bool = False,
     ) -> dict[System, list[Attr]]:
         """
-        Review a local git commit
+        Determine which packages are changed by merging `changes` into
+        `base_commit` and rebuild them.
+
+        `changes` can be a string naming a commit, or it can be one of the
+        `UncommittedChanges` variants. `merge_commit`, if given, is used
+        instead of repeating the merge of `changes` into `base_commit`.
         """
         self.git_worktree(base_commit)
         changed_attrs: dict[System, set[str]] = {}
 
         if self.only_packages:
-            if head_commit is None:
-                self.apply_unstaged(staged=staged)
+            if isinstance(changes, UncommittedChanges):
+                self.apply_uncommitted(changes)
             else:
                 match self.checkout:
                     case CheckoutOption.COMMIT:
-                        self.git_checkout(head_commit)
+                        self.git_checkout(changes)
                     case CheckoutOption.MERGE:
                         if merge_commit:
                             self.git_checkout(merge_commit)
                         else:
-                            self.git_merge(head_commit)
+                            self.git_merge(changes)
 
             changed_attrs = {system: set(self.only_packages) for system in self.systems}
 
@@ -397,12 +411,12 @@ class Review:
             n_threads=self.num_parallel_evals,
         )
 
-        if head_commit is None:
-            self.apply_unstaged(staged=staged)
+        if isinstance(changes, UncommittedChanges):
+            self.apply_uncommitted(changes)
         elif merge_commit:
             self.git_checkout(merge_commit)
         else:
-            self.git_merge(head_commit)
+            self.git_merge(changes)
 
         # TODO: nix-eval-jobs ?
         merged_packages: dict[System, list[Package]] = list_packages(
@@ -429,8 +443,8 @@ class Review:
 
             changed_attrs[system] = {p.attr_path for p in changed_pkgs}
 
-        if head_commit and self.checkout == CheckoutOption.COMMIT:
-            self.git_checkout(head_commit)
+        if isinstance(changes, str) and self.checkout == CheckoutOption.COMMIT:
+            self.git_checkout(changes)
 
         return self.build(changed_attrs, self.build_args)
 
@@ -523,7 +537,7 @@ class Review:
             }
 
         if packages_per_system is None:
-            return self.build_commit(base_rev, head_rev, merge_rev)
+            return self.build_changes(base_rev, head_rev, merge_rev)
 
         match self.checkout:
             case CheckoutOption.MERGE:
@@ -599,20 +613,19 @@ class Review:
 
         return success
 
-    def review_commit(
+    def review_local(
         self,
         path: Path,
         branch: str,
-        reviewed_commit: str | None,
+        changes: str | UncommittedChanges,
         *,
-        staged: bool = False,
         print_result: bool = False,
         approve_pr: bool = False,
     ) -> None:
         branch_rev = fetch_refs(self.remote, branch)[0]
         self.start_review(
-            reviewed_commit,
-            self.build_commit(branch_rev, reviewed_commit, staged=staged),
+            changes if isinstance(changes, str) else None,
+            self.build_changes(branch_rev, changes),
             path,
             print_result=print_result,
             approve_pr=approve_pr,
@@ -955,9 +968,8 @@ def review_local_revision(
     args: argparse.Namespace,
     allow: AllowedFeatures,
     nixpkgs_config: Path,
-    commit: str | None,
+    changes: str | UncommittedChanges,
     *,
-    staged: bool = False,
     print_result: bool = False,
 ) -> Path:
     with Builddir(builddir_path) as builddir:
@@ -981,7 +993,7 @@ def review_local_revision(
             extra_nixpkgs_config=args.extra_nixpkgs_config,
             num_parallel_evals=args.num_parallel_evals,
         )
-        review.review_commit(
-            builddir.path, args.branch, commit, staged=staged, print_result=print_result
+        review.review_local(
+            builddir.path, args.branch, changes, print_result=print_result
         )
         return builddir.path
