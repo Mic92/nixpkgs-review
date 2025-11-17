@@ -31,7 +31,7 @@ def test_merge(mock_urlopen: MagicMock, helpers: Helpers) -> None:
         os.environ["GITHUB_TOKEN"] = "foo"  # noqa: S105
         mock_urlopen.side_effect = [
             mock_open(read_data="[]")(),
-            mock_open(read_data="{}")()
+            mock_open(read_data="{}")(),
         ]
         main("nixpkgs-review", ["merge"])
 
