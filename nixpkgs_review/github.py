@@ -130,9 +130,7 @@ class GithubClient:
 
     def labels(self, pr: int) -> JSONType:
         "Fetch list of labels attached to a PR (or issue)"
-        return self.get(
-            f"/repos/NixOS/nixpkgs/issues/{pr}/labels"
-        )
+        return self.get(f"/repos/NixOS/nixpkgs/issues/{pr}/labels")
 
     def comment_issue(self, pr: int, msg: str) -> JSONType:
         "Post a comment on a PR with nixpkgs-review report"
