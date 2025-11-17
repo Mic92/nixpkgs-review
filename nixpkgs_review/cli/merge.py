@@ -19,4 +19,3 @@ def merge_command(args: argparse.Namespace) -> None:
         github_client.comment_issue(get_current_pr(), "@NixOS/nixpkgs-merge-bot merge")
     else:
         github_client.merge_pr(get_current_pr())
-
