@@ -14,7 +14,7 @@ def merge_command(args: argparse.Namespace) -> None:
     github_client = GithubClient(ensure_github_token(args.token))
     if any(
         label["name"] == "2.status: merge-bot eligible"
-        for label in github_client.labels()
+        for label in github_client.labels(get_current_pr())
     ):
         github_client.comment_issue(get_current_pr(), "@NixOS/nixpkgs-merge-bot merge")
     else:
