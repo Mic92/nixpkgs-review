@@ -310,6 +310,12 @@ def common_flags() -> list[CommonFlag]:
             help="Extra nixpkgs config to pass to `import <nixpkgs>`",
         ),
         CommonFlag(
+            "--extra-nixpkgs-args",
+            type=str,
+            default="{ }",
+            help="Extra nixpkgs args to pass to `import <nixpkgs>`",
+        ),
+        CommonFlag(
             "--num-eval-workers",
             type=int,
             default=None,
