@@ -311,6 +311,7 @@ class Report:
         commit: str | None,
         attrs_per_system: dict[str, list[Attr]],
         extra_nixpkgs_config: str,
+        extra_nixpkgs_args: str,
         only_packages: set[str],
         additional_packages: set[str],
         package_regex: list[Pattern[str]],
@@ -336,6 +337,9 @@ class Report:
 
         self.extra_nixpkgs_config = (
             extra_nixpkgs_config if extra_nixpkgs_config != "{ }" else None
+        )
+        self.extra_nixpkgs_args = (
+            extra_nixpkgs_args if extra_nixpkgs_args != "{ }" else None
         )
 
         reports: dict[System, SystemReport] = {}
@@ -367,6 +371,7 @@ class Report:
                 "commit": self.commit,
                 "checkout": self.checkout,
                 "extra-nixpkgs-config": self.extra_nixpkgs_config,
+                "extra-nixpkgs-args": self.extra_nixpkgs_args,
                 "only_packages": list(self.only_packages),
                 "additional_packages": list(self.additional_packages),
                 "package_regex": list(self.package_regex),
@@ -387,6 +392,8 @@ class Report:
             cmd += f" pr {pr}"
         if self.extra_nixpkgs_config:
             cmd += f" --extra-nixpkgs-config '{self.extra_nixpkgs_config}'"
+        if self.extra_nixpkgs_args:
+            cmd += f" --extra-nixpkgs-args '{self.extra_nixpkgs_args}'"
         if self.checkout != "merge":
             cmd += f" --checkout {self.checkout}"
 

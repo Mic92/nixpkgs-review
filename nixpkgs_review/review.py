@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from re import Pattern
 
     from .allow import AllowedFeatures
+    from .buildenv import Buildenv
 
 # keep up to date with `supportedPlatforms`
 # https://github.com/NixOS/ofborg/blob/cf2c6712bd7342406e799110e7cd465aa250cdca/ofborg/src/outpaths.nix#L12
@@ -107,8 +108,9 @@ class Review:
         systems: list[System],
         allow: AllowedFeatures,
         build_graph: str,
-        nixpkgs_config: Path,
+        nixpkgs_wrapper: Path,
         extra_nixpkgs_config: str,
+        extra_nixpkgs_args: str,
         eval_type: str,
         api_token: str | None = None,
         only_packages: set[str] | None = None,
@@ -151,8 +153,9 @@ class Review:
         self.allow = allow
         self.sandbox = sandbox
         self.build_graph = build_graph
-        self.nixpkgs_config = nixpkgs_config
+        self.nixpkgs_wrapper = nixpkgs_wrapper
         self.extra_nixpkgs_config = extra_nixpkgs_config
+        self.extra_nixpkgs_args = extra_nixpkgs_args
         self.num_parallel_evals = num_parallel_evals
         self.show_header = show_header
         self.show_logs = show_logs
@@ -182,11 +185,12 @@ class Review:
                 case "github":
                     sys.exit(1)
 
-        # GHA evaluation only evaluates nixpkgs with an empty config.
-        # Its results might be incorrect when a non-default nixpkgs config is requested
+        # GHA evaluation only evaluates nixpkgs with an empty config/args.
+        # Its results might be incorrect when a non-default nixpkgs config or args is requested
         normalized_config = self.extra_nixpkgs_config.replace(" ", "")
+        normalized_args = self.extra_nixpkgs_args.replace(" ", "")
 
-        if normalized_config == "{}":
+        if normalized_config == "{}" and normalized_args == "{}":
             return True
 
         warn("Non-default --extra-nixpkgs-config provided.")
@@ -465,7 +469,6 @@ class Review:
             self.allow,
             self.build_graph,
             self.builddir.nix_path,
-            self.nixpkgs_config,
             self.num_parallel_evals,
         )
 
@@ -547,7 +550,6 @@ class Review:
         print_result: bool = False,
         approve_pr: bool = False,
     ) -> bool:
-        os.environ.pop("NIXPKGS_CONFIG", None)
         os.environ["NIXPKGS_REVIEW_ROOT"] = str(path)
         if pr:
             os.environ["PR"] = str(pr)
@@ -555,6 +557,7 @@ class Review:
             commit,
             attrs_per_system,
             self.extra_nixpkgs_config,
+            self.extra_nixpkgs_args,
             checkout=self.checkout.name.lower(),  # type: ignore[arg-type]
             only_packages=self.only_packages,
             additional_packages=self.additional_packages,
@@ -591,7 +594,7 @@ class Review:
                 self.local_system,
                 self.build_graph,
                 self.builddir.nix_path,
-                self.nixpkgs_config,
+                self.nixpkgs_wrapper,
                 self.builddir.overlay.path,
                 self.run,
                 sandbox=self.sandbox,
@@ -688,7 +691,7 @@ def _list_packages_system(
         "system",
         system,
         "-f",
-        "<nixpkgs>",
+        "<nixpkgs-wrapper>",
         "--nix-path",
         nix_path,
         "-qaP",
@@ -954,13 +957,13 @@ def review_local_revision(
     builddir_path: str,
     args: argparse.Namespace,
     allow: AllowedFeatures,
-    nixpkgs_config: Path,
+    buildenv: Buildenv,
     commit: str | None,
     *,
     staged: bool = False,
     print_result: bool = False,
 ) -> Path:
-    with Builddir(builddir_path) as builddir:
+    with Builddir(builddir_path, buildenv) as builddir:
         review = Review(
             builddir=builddir,
             build_args=args.build_args,
@@ -977,8 +980,9 @@ def review_local_revision(
             allow=allow,
             sandbox=args.sandbox,
             build_graph=args.build_graph,
-            nixpkgs_config=nixpkgs_config,
+            nixpkgs_wrapper=buildenv.nixpkgs_wrapper,
             extra_nixpkgs_config=args.extra_nixpkgs_config,
+            extra_nixpkgs_args=args.extra_nixpkgs_args,
             num_parallel_evals=args.num_parallel_evals,
         )
         review.review_commit(

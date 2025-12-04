@@ -14,12 +14,14 @@ if TYPE_CHECKING:
 
 def wip_command(args: argparse.Namespace) -> Path:
     allow = AllowedFeatures(args.allow)
-    with Buildenv(allow.aliases, args.extra_nixpkgs_config) as nixpkgs_config:
+    with Buildenv(
+        allow.aliases, args.extra_nixpkgs_config, args.extra_nixpkgs_args
+    ) as buildenv:
         return review_local_revision(
             f"rev-{git.verify_commit_hash('HEAD')}-dirty",
             args,
             allow,
-            nixpkgs_config,
+            buildenv,
             None,
             staged=args.staged,
             print_result=args.print_result,
