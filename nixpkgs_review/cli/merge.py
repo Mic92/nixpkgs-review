@@ -12,4 +12,10 @@ if TYPE_CHECKING:
 
 def merge_command(args: argparse.Namespace) -> None:
     github_client = GithubClient(ensure_github_token(args.token))
-    github_client.merge_pr(get_current_pr())
+    if any(
+        label["name"] == "2.status: merge-bot eligible"
+        for label in github_client.labels(get_current_pr())
+    ):
+        github_client.comment_issue(get_current_pr(), "@NixOS/nixpkgs-merge-bot merge")
+    else:
+        github_client.merge_pr(get_current_pr())

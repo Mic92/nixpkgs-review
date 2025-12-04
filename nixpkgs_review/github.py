@@ -128,9 +128,13 @@ class GithubClient:
     def put(self, path: str) -> JSONType:
         return self._request(path, "PUT")
 
+    def labels(self, pr: int) -> JSONType:
+        "Fetch list of labels attached to a PR (or issue)"
+        return self.get(f"/repos/NixOS/nixpkgs/issues/{pr}/labels")
+
     def comment_issue(self, pr: int, msg: str) -> JSONType:
         "Post a comment on a PR with nixpkgs-review report"
-        print(f"Posting result comment on {pr_url(pr)}")
+        print(f"Posting comment on {pr_url(pr)}")
         return self.post(
             f"/repos/NixOS/nixpkgs/issues/{pr}/comments", data={"body": msg}
         )
