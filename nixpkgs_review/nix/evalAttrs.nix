@@ -3,7 +3,7 @@
 with builtins;
 let
   pkgs = import <nixpkgs> {
-    config = import (getEnv "NIXPKGS_CONFIG") // {
+    config = {
       allowBroken = false;
     };
   };

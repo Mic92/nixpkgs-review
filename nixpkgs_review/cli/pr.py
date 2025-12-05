@@ -92,12 +92,14 @@ def pr_command(args: argparse.Namespace) -> str:
 
     builddir = None
     with (
-        Buildenv(allow.aliases, args.extra_nixpkgs_config) as nixpkgs_config,
+        Buildenv(
+            allow.aliases, args.extra_nixpkgs_config, args.extra_nixpkgs_args
+        ) as buildenv,
         ExitStack() as stack,
     ):
         review = None
         for pr in prs:
-            builddir = stack.enter_context(Builddir(f"pr-{pr}"))
+            builddir = stack.enter_context(Builddir(f"pr-{pr}", buildenv))
             try:
                 review = Review(
                     builddir=builddir,
@@ -117,8 +119,9 @@ def pr_command(args: argparse.Namespace) -> str:
                     checkout=checkout_option,
                     sandbox=args.sandbox,
                     build_graph=args.build_graph,
-                    nixpkgs_config=nixpkgs_config,
+                    nixpkgs_wrapper=buildenv.nixpkgs_wrapper,
                     extra_nixpkgs_config=args.extra_nixpkgs_config,
+                    extra_nixpkgs_args=args.extra_nixpkgs_args,
                     num_parallel_evals=args.num_parallel_evals,
                     show_header=not args.no_headers,
                     show_logs=not args.no_logs,
