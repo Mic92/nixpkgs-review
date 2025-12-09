@@ -1,27 +1,22 @@
 {
   local-system,
-  nixpkgs-config-path,
+  nixpkgs ? <nixpkgs-wrapper>,
   # Path to Nix file containing the Nixpkgs config
   attrs-path,
-  # Path to Nix file containing a list of attributes to build
-  nixpkgs-path,
   # Path to this review's nixpkgs
-  local-pkgs ? import nixpkgs-path {
+  local-pkgs ? import <nixpkgs> {
     system = local-system;
-    config = import nixpkgs-config-path;
   },
   lib ? local-pkgs.lib,
 }:
 
 let
 
-  nixpkgs-config = import nixpkgs-config-path;
   extractPackagesForSystem =
     system: system-attrs:
     let
-      system-pkg = import nixpkgs-path {
+      system-pkg = import nixpkgs {
         inherit system;
-        config = nixpkgs-config;
       };
     in
     map (attrString: lib.attrByPath (lib.splitString "." attrString) null system-pkg) system-attrs;
@@ -38,10 +33,11 @@ let
     }
   );
 in
-(import nixpkgs-path { }).mkShell {
+(import nixpkgs { }).mkShell {
   name = "review-shell";
   preferLocalBuild = true;
   allowSubstitutes = false;
   dontWrapQtApps = true;
-  packages = if builtins.length attrs > 50 then [ env ] else attrs;
+  packages = [ env ];
 }
+

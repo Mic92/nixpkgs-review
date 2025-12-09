@@ -4,7 +4,7 @@ import contextlib
 import os
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 from .utils import die
 
@@ -23,39 +23,51 @@ def find_nixpkgs_root() -> Path | None:
 
 
 class Buildenv:
-    def __init__(self, allow_aliases: bool, extra_nixpkgs_config: str) -> None:
+    def __init__(
+        self, allow_aliases: bool, extra_nixpkgs_config: str, extra_nixpkgs_args: str
+    ) -> None:
         if not (
             extra_nixpkgs_config.startswith("{") and extra_nixpkgs_config.endswith("}")
         ):
             msg = "--extra-nixpkgs-config must start with `{` and end with `}`"
             raise RuntimeError(msg)
+        if not (
+            extra_nixpkgs_args.startswith("{") and extra_nixpkgs_args.endswith("}")
+        ):
+            msg = "--extra-nixpkgs-args must start with `{` and end with `}`"
+            raise RuntimeError(msg)
 
-        self.nixpkgs_config = NamedTemporaryFile(suffix=".nix")  # noqa: SIM115
+        self._nixpkgs_wrapper_file = NamedTemporaryFile(suffix=".nix")  # noqa: SIM115
         self.old_cwd: Path | None = None
         self.environ: dict[str, str] | None = None
         aliases_config = "allowAliases = false;" if not allow_aliases else ""
-        config_content = f"""{{
-  allowUnfree = true;
-  allowBroken = true;
-  {aliases_config}
-  checkMeta = true;
-  ## TODO: also build packages marked as insecure
-  # allowInsecurePredicate = x: true;
-}} // {extra_nixpkgs_config}
+        config_content = f"""{{...}}@args:
+let extraArgs = {extra_nixpkgs_args};
+in import <nixpkgs> ({{
+  config = {{
+    allowUnfree = true;
+    allowBroken = true;
+    {aliases_config}
+    checkMeta = true;
+    ## TODO: also build packages marked as insecure
+    # allowInsecurePredicate = x: true;
+  }} // {extra_nixpkgs_config} // extraArgs.config or {{}} // args.config or {{}};
+}} // extraArgs // args)
 """
-        self.nixpkgs_config.write(config_content.encode())
-        self.nixpkgs_config.flush()
+        self._nixpkgs_wrapper_file.write(config_content.encode())
+        self._nixpkgs_wrapper_file.flush()
 
-    def __enter__(self) -> Path:
+    def __enter__(self) -> Self:
         self.environ = os.environ.copy()
         self.old_cwd = Path.cwd()
+        self.nixpkgs_wrapper = Path(self._nixpkgs_wrapper_file.name)
 
         if (root := find_nixpkgs_root()) is None:
             die("Has to be executed from nixpkgs repository")
         os.chdir(root)
 
-        os.environ["NIXPKGS_CONFIG"] = self.nixpkgs_config.name
-        return Path(self.nixpkgs_config.name)
+        os.environ["NIXPKGS_CONFIG"] = ""
+        return self
 
     def __exit__(
         self,
@@ -71,5 +83,5 @@ class Buildenv:
             os.environ.clear()
             os.environ.update(self.environ)
 
-        if self.nixpkgs_config is not None:
-            self.nixpkgs_config.close()
+        if self._nixpkgs_wrapper_file is not None:
+            self._nixpkgs_wrapper_file.close()
