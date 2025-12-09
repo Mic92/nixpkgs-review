@@ -24,8 +24,11 @@ let
   };
 
   buildEnv = args: mkDerivation {
-    name = args.name or "env";
-    buildCommand = "mkdir -p $out";
+    inherit (args) name paths;
+    buildCommand = ''
+      mkdir -p $out
+      ln -s $paths $out
+    '';
   };
 in
 {
