@@ -43,5 +43,6 @@ in
   preferLocalBuild = true;
   allowSubstitutes = false;
   dontWrapQtApps = true;
+  # see test_rev_command_with_pkg_count
   packages = if builtins.length attrs > 50 then [ env ] else attrs;
 }
