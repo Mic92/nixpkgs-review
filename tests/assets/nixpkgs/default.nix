@@ -28,13 +28,13 @@ let
     buildCommand = "mkdir -p $out";
   };
 in
-{
-  pkg1 = mkDerivation {
-    name = "pkg1";
+lib.genAttrs' (lib.range 1 (config.pkgCount or 1)) (
+  i:
+  lib.nameValuePair "pkg${toString i}" (mkDerivation {
+    name = "pkg${toString i}";
     buildCommand = ''
       cat ${./pkg1.txt} > $out
     '';
-  };
-
+  })) // {
   inherit lib mkShell bashInteractive stdenv buildEnv;
 }
