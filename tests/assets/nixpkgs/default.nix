@@ -1,5 +1,11 @@
 {
-  config ? { },
+  config ? (
+    let configFile = builtins.getEnv "NIXPKGS_CONFIG";
+    in
+      if configFile != "" && builtins.pathExists configFile then
+        import configFile
+      else
+        { }),
   system ? null, # deadnix: skip
 }@args:
 with import ./config.nix;
@@ -24,17 +30,20 @@ let
   };
 
   buildEnv = args: mkDerivation {
-    name = args.name or "env";
-    buildCommand = "mkdir -p $out";
+    inherit (args) name paths;
+    buildCommand = ''
+      mkdir -p $out
+      ln -s $paths $out
+    '';
   };
 in
-{
-  pkg1 = mkDerivation {
-    name = "pkg1";
+lib.genAttrs' (lib.range 1 (config.pkgCount or 1)) (
+  i:
+  lib.nameValuePair "pkg${toString i}" (mkDerivation {
+    name = "pkg${toString i}";
     buildCommand = ''
       cat ${./pkg1.txt} > $out
     '';
-  };
-
+  })) // {
   inherit lib mkShell bashInteractive stdenv buildEnv;
 }
