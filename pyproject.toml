@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nixpkgs-review"
 description = "Review nixpkgs pull requests"
-version = "3.5.1"
+version = "3.6.0"
 authors = [{ name = "Jörg Thalheim", email = "joerg@thalheim.io" }]
 license = { text = "MIT" }
 classifiers = [
