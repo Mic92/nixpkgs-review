@@ -112,13 +112,15 @@ def test_default_to_nix_if_nom_not_found(mock_shutil: Mock) -> None:
 
 
 @pytest.mark.skipif(not shutil.which("nom"), reason="`nom` not found in PATH")
-def test_pr_local_eval(helpers: Helpers, capfd: pytest.CaptureFixture[Any]) -> None:
+@patch("nixpkgs_review.http_requests.urlopen")
+def test_pr_local_eval(
+    mock_urlopen: MagicMock, helpers: Helpers, capfd: pytest.CaptureFixture[Any]
+) -> None:
     with helpers.nixpkgs() as nixpkgs:
-        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
-        subprocess.run(["git", "add", "."], check=True)
-        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
-        subprocess.run(["git", "checkout", "-b", "pull/1/merge"], check=True)
-        subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"], check=True)
+        base, head, merge = setup_repo(nixpkgs)
+        setup_pr_mocks(
+            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=merge
+        )
 
         path = main(
             "nixpkgs-review",
@@ -202,9 +204,13 @@ def test_pr_local_eval_without_nom(
 
 
 @pytest.mark.skipif(not shutil.which("bwrap"), reason="`bwrap` not found in PATH")
-def test_pr_local_eval_with_sandbox(helpers: Helpers) -> None:
+@patch("nixpkgs_review.http_requests.urlopen")
+def test_pr_local_eval_with_sandbox(mock_urlopen: MagicMock, helpers: Helpers) -> None:
     with helpers.nixpkgs() as nixpkgs:
-        setup_repo(nixpkgs)
+        base, head, merge = setup_repo(nixpkgs)
+        setup_pr_mocks(
+            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=merge
+        )
 
         path = main(
             "nixpkgs-review",
