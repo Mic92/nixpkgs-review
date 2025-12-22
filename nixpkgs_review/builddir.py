@@ -6,7 +6,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Self
 
-from . import git
 from .overlay import Overlay
 from .utils import warn
 
@@ -72,10 +71,10 @@ class Builddir:
 
         self.overlay = Overlay()
 
-        self.worktree_dir = self.path / "nixpkgs"
-        self.worktree_dir.mkdir()
+        self.clone_dir = self.path / "nixpkgs"
+        self.clone_dir.mkdir()
         self._nix_path_parts = [
-            f"nixpkgs={self.worktree_dir}",
+            f"nixpkgs={self.clone_dir}",
             f"nixpkgs-overlays={self.overlay.path}",
         ]
         self.nix_path = " ".join(self._nix_path_parts)
@@ -93,14 +92,6 @@ class Builddir:
     ) -> None:
         os.environ.clear()
         os.environ.update(self.environ)
-
-        with DisableKeyboardInterrupt():
-            if (self.worktree_dir / ".git").exists():
-                res = git.run(["worktree", "remove", "-f", str(self.worktree_dir)])
-                if res.returncode != 0:
-                    warn(
-                        f"Failed to remove worktree at {self.worktree_dir}. Please remove it manually. Git failed with: {res.returncode}"
-                    )
 
         self.overlay.cleanup()
 
