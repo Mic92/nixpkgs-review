@@ -72,7 +72,11 @@ def pr_command(args: argparse.Namespace) -> str:
 
     pr_objects = _validate_pr_json(args, prs)
 
-    if args.post_result or args.approve_pr:
+    if args.merge_pr and not args.approve_pr:
+        warn("--merge-pr must be used with --approve-pr")
+        sys.exit(1)
+
+    if args.post_result or args.approve_pr or args.merge_pr:
         ensure_github_token(args.token)
 
     contexts: list[
@@ -141,6 +145,7 @@ def pr_command(args: argparse.Namespace) -> str:
                 post_result=args.post_result,
                 print_result=args.print_result,
                 approve_pr=args.approve_pr,
+                merge_pr=args.merge_pr,
             )
             for pr, path, attrs, commit in contexts
         )
