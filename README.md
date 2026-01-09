@@ -60,13 +60,11 @@ First, change to your local nixpkgs repository directory, i.e.:
 cd ~/git/nixpkgs
 ```
 
-If you've shallow cloned nixpkgs (`git clone --depth`), `nixpkgs-review` may be
-unable to perform merges due to missing merge base commits. Reclone nixpkgs
-without the `--depth` flag.
-
-Note that your local checkout git will not be affected by `nixpkgs-review`,
-since it will use [git-worktree](https://git-scm.com/docs/git-worktree) to
-perform fast checkouts.
+Note that `nixpkgs-review` will not leave any effects in your local Git
+repository (if it does, it's a bug!). It does its work in a temporary repository
+separate from your own. It uses Git's
+["alternates"](https://git-scm.com/docs/gitrepository-layout) mechanism to
+minimize transfers.
 
 Then run `nixpkgs-review` by providing the pull request number…
 
@@ -153,6 +151,18 @@ nix-shell> nixpkgs-review post-result
 # Review-comments can also be shown
 nix-shell> nixpkgs-review comments
 ```
+
+## Caveats for shallow clones
+
+If you've shallow cloned nixpkgs (`git clone --depth`), `nixpkgs-review` may be
+unable to perform merges due to missing merge base commits. The simplest fix for
+this is, as you might imagine, recloning without the `--depth` flag. Even in
+cases where your shallow cuts do not interfere with merging, it is possible that
+the latest upstream commits provide a new path "around" your shallow boundary,
+in which case `git fetch` will (very, very slowly) more-or-less unshallow your
+repository. This is not a problem in `nixpkgs-review`, but a limitation of Git.
+It is possible to get around this by using a more intelligent fetching program
+to update your repository before running `nixpkgs-review`.
 
 ## Optional tools
 

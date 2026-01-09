@@ -23,7 +23,7 @@ from .errors import NixpkgsReviewError
 from .github import GithubClient, GitHubPullRequest
 from .nix import Attr, nix_build, nix_eval, nix_shell
 from .report import Report
-from .utils import System, current_system, die, info, sh, system_order_key, warn
+from .utils import System, current_system, die, info, system_order_key, warn
 
 if TYPE_CHECKING:
     import argparse
@@ -49,6 +49,13 @@ class CheckoutOption(Enum):
     # builds. This option comes at the cost of ignoring the latest changes of
     # the target branch.
     COMMIT = 2
+
+
+class UncommittedChanges(Enum):
+    # Changes between index and working tree
+    UNSTAGED = "index..workdir"
+    # Changes between HEAD and index
+    STAGED = "HEAD..index"
 
 
 def print_packages(
@@ -225,8 +232,8 @@ class Review:
             case _:
                 return {system}
 
-    def worktree_dir(self) -> str:
-        return str(self.builddir.worktree_dir)
+    def clone_dir(self) -> str:
+        return str(self.builddir.clone_dir)
 
     def _render_markdown(self, content: str, max_length: int = 1000) -> None:
         """Render markdown content using glow if available, otherwise plain text."""
@@ -322,20 +329,18 @@ class Review:
         print(f"{'=' * 80}\n")
 
     def git_merge(self, commit: str) -> None:
-        res = git.run(
-            ["merge", "--no-commit", "--no-ff", commit], cwd=self.worktree_dir()
-        )
+        res = git.run(["merge", "--no-commit", "--no-ff", commit], cwd=self.clone_dir())
         if res.returncode != 0:
-            msg = f"Failed to merge {commit} into {self.worktree_dir()}. git merge failed with exit code {res.returncode}"
+            msg = f"Failed to merge {commit} into {self.clone_dir()}. git merge failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
 
     def git_checkout(self, commit: str) -> None:
-        res = git.run(["checkout", commit], cwd=self.worktree_dir())
+        res = git.run(["checkout", commit], cwd=self.clone_dir())
         if res.returncode != 0:
-            msg = f"Failed to checkout {commit} in {self.worktree_dir()}. git checkout failed with exit code {res.returncode}"
+            msg = f"Failed to checkout {commit} in {self.clone_dir()}. git checkout failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
 
-    def apply_unstaged(self, *, staged: bool = False) -> None:
+    def apply_uncommitted(self, changes: UncommittedChanges) -> None:
         args = [
             "--no-pager",
             "diff",
@@ -343,7 +348,11 @@ class Review:
             "--src-prefix=a/",
             "--dst-prefix=b/",
         ]
-        args.extend(["--staged"] if staged else [])
+        match changes:
+            case UncommittedChanges.UNSTAGED:
+                pass
+            case UncommittedChanges.STAGED:
+                args.append("--staged")
         diff = git.run(args, stdout=subprocess.PIPE).stdout
 
         if not diff:
@@ -351,37 +360,43 @@ class Review:
             sys.exit(0)
 
         info("Applying `nixpkgs` diff...")
-        result = git.run(["apply"], cwd=self.worktree_dir(), stdin=diff)
+        result = git.run(["apply"], cwd=self.clone_dir(), stdin=diff)
 
         if result.returncode != 0:
-            die(f"Failed to apply diff in {self.worktree_dir()}")
+            die(f"Failed to apply diff in {self.clone_dir()}")
 
-    def build_commit(
+    def build_changes(
         self,
         base_commit: str,
-        head_commit: str | None,
+        changes: str | UncommittedChanges,
         merge_commit: str | None = None,
-        *,
-        staged: bool = False,
     ) -> dict[System, list[Attr]]:
         """
-        Review a local git commit
+        Determine which packages are changed by merging `changes` into
+        `base_commit` and rebuild them.
+
+        `changes` can be a string naming a commit, or it can be one of the
+        `UncommittedChanges` variants. `merge_commit`, if given, is used
+        instead of repeating the merge of `changes` into `base_commit`.
+
+        The sandbox repository is expected to be set up and able to see both
+        commits.
         """
-        self.git_worktree(base_commit)
+        self.git_checkout(base_commit)
         changed_attrs: dict[System, set[str]] = {}
 
         if self.only_packages:
-            if head_commit is None:
-                self.apply_unstaged(staged=staged)
+            if isinstance(changes, UncommittedChanges):
+                self.apply_uncommitted(changes)
             else:
                 match self.checkout:
                     case CheckoutOption.COMMIT:
-                        self.git_checkout(head_commit)
+                        self.git_checkout(changes)
                     case CheckoutOption.MERGE:
                         if merge_commit:
                             self.git_checkout(merge_commit)
                         else:
-                            self.git_merge(head_commit)
+                            self.git_merge(changes)
 
             changed_attrs = {system: set(self.only_packages) for system in self.systems}
 
@@ -397,12 +412,12 @@ class Review:
             n_threads=self.num_parallel_evals,
         )
 
-        if head_commit is None:
-            self.apply_unstaged(staged=staged)
+        if isinstance(changes, UncommittedChanges):
+            self.apply_uncommitted(changes)
         elif merge_commit:
             self.git_checkout(merge_commit)
         else:
-            self.git_merge(head_commit)
+            self.git_merge(changes)
 
         # TODO: nix-eval-jobs ?
         merged_packages: dict[System, list[Package]] = list_packages(
@@ -429,15 +444,47 @@ class Review:
 
             changed_attrs[system] = {p.attr_path for p in changed_pkgs}
 
-        if head_commit and self.checkout == CheckoutOption.COMMIT:
-            self.git_checkout(head_commit)
+        if isinstance(changes, str) and self.checkout == CheckoutOption.COMMIT:
+            self.git_checkout(changes)
 
         return self.build(changed_attrs, self.build_args)
 
-    def git_worktree(self, commit: str) -> None:
-        res = git.run(["worktree", "add", self.worktree_dir(), commit])
+    def git_clone(
+        self, repo: str, ref: str, *, shallow_depth: int | None = None
+    ) -> None:
+        # moral equivalent of git clone --revision=<new_head> --reference=. [--depth=...] <repo> <dir>
+        # but it will work even with a shallow repository as reference
+        # we need the isolation of a separate repository because --depth "irreversibly" mutates .git/shallow
+        res = git.run(["init"], self.clone_dir())
         if res.returncode != 0:
-            msg = f"Failed to add worktree for {commit} in {self.worktree_dir()}. git worktree failed with exit code {res.returncode}"
+            msg = f"Failed to create sandbox repository for {ref} in {self.clone_dir()}. git init failed with exit code {res.returncode}"
+            raise NixpkgsReviewError(msg)
+
+        # really, we should be locking this file until the clone is disposed of
+        shallow_original = resolve_git_dir() / "shallow"
+        if shallow_original.exists():
+            shallow_target = Path(self.clone_dir()) / ".git" / "shallow"
+            shutil.copyfile(shallow_original, shallow_target)
+
+        alternates_path = (
+            Path(self.clone_dir()) / ".git" / "objects" / "info" / "alternates"
+        )
+        object_store_path = resolve_git_dir().absolute() / "objects"
+        with alternates_path.open("a") as alternates:
+            alternates.write(f"{object_store_path}\n")
+
+        fetch_args = ["fetch", repo, f"+{ref}:refs/heads/nixpkgs-review"]
+        if shallow_depth:
+            fetch_args.append(f"--depth={shallow_depth}")
+        # we should warn if shallow_depth is not set and the original repository is shallow (and there are commits to fetch)
+        # in this case git fetch (really, upload-pack) acts stupidly and has a very high chance of both unshallowing the repository
+        # AND taking forever to compute how to do it
+        # (but it WILL work and we WILL have enough history to do any merges we need later, which is better than if we set shallow_depth incorrectly)
+        # if the user wants something more efficient, they can kill us and do it themselves
+
+        res = git.run(fetch_args, self.clone_dir())
+        if res.returncode != 0:
+            msg = f"Failed to fetch {ref} into sandbox repository {self.clone_dir()}. git fetch failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
 
     def build(
@@ -512,24 +559,26 @@ class Review:
         packages_per_system = (
             self._fetch_packages_from_github_eval(pr) if self._use_github_eval else None
         )
-
-        [merge_rev] = fetch_refs(self.remote, pr["merge_commit_sha"], shallow_depth=2)
-        base_rev = git.verify_commit_hash(f"{merge_rev}^1")
-        head_rev = git.verify_commit_hash(f"{merge_rev}^2")
-
         if self.only_packages:
             packages_per_system = {
                 system: set(self.only_packages) for system in self.systems
             }
 
+        merge_rev = pr["merge_commit_sha"]
+        base_rev = pr["base"]["sha"]
+        head_rev = pr["head"]["sha"]
+
         if packages_per_system is None:
-            return self.build_commit(base_rev, head_rev, merge_rev)
+            self.git_clone(self.remote, merge_rev, shallow_depth=2)
+            return self.build_changes(base_rev, head_rev, merge_rev)
 
         match self.checkout:
             case CheckoutOption.MERGE:
-                self.git_worktree(merge_rev)
+                checkout_rev = merge_rev
             case CheckoutOption.COMMIT:
-                self.git_worktree(head_rev)
+                checkout_rev = head_rev
+        self.git_clone(self.remote, checkout_rev, shallow_depth=1)
+        self.git_checkout(checkout_rev)
 
         for system in list(packages_per_system.keys()):
             if system not in self.systems:
@@ -599,20 +648,19 @@ class Review:
 
         return success
 
-    def review_commit(
+    def review_local(
         self,
         path: Path,
         branch: str,
-        reviewed_commit: str | None,
+        changes: str | UncommittedChanges,
         *,
-        staged: bool = False,
         print_result: bool = False,
         approve_pr: bool = False,
     ) -> None:
-        branch_rev = fetch_refs(self.remote, branch)[0]
+        self.git_clone(self.remote, branch)
         self.start_review(
-            reviewed_commit,
-            self.build_commit(branch_rev, reviewed_commit, staged=staged),
+            changes if isinstance(changes, str) else None,
+            self.build_changes("nixpkgs-review", changes),
             path,
             print_result=print_result,
             approve_pr=approve_pr,
@@ -891,49 +939,6 @@ def resolve_git_dir() -> Path:
             raise NixpkgsReviewError(msg)
 
 
-def fetch_refs(repo: str, *refs: str, shallow_depth: int = 1) -> list[str]:
-    shallow = subprocess.run(
-        ["git", "rev-parse", "--is-shallow-repository"],
-        text=True,
-        stdout=subprocess.PIPE,
-        check=False,
-    )
-    if shallow.returncode != 0:
-        msg = f"Failed to detect if {repo} is shallow repository"
-        raise NixpkgsReviewError(msg)
-
-    fetch_cmd = [
-        "git",
-        "-c",
-        "fetch.prune=false",
-        "fetch",
-        "--no-tags",
-        "--force",
-        repo,
-    ]
-    if shallow.stdout.strip() == "true":
-        fetch_cmd.append(f"--depth={shallow_depth}")
-    for i, ref in enumerate(refs):
-        fetch_cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
-    dotgit = resolve_git_dir()
-    with locked_open(dotgit / "nixpkgs-review", "w"):
-        res = sh(fetch_cmd)
-        if res.returncode != 0:
-            msg = f"Failed to fetch {refs} from {repo}. git fetch failed with exit code {res.returncode}"
-            raise NixpkgsReviewError(msg)
-        shas = []
-        for i, ref in enumerate(refs):
-            rev_parse_cmd = ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"]
-            out = subprocess.run(
-                rev_parse_cmd, text=True, stdout=subprocess.PIPE, check=False
-            )
-            if out.returncode != 0:
-                msg = f"Failed to fetch {ref} from {repo} with command: {''.join(rev_parse_cmd)}"
-                raise NixpkgsReviewError(msg)
-            shas.append(out.stdout.strip())
-        return shas
-
-
 def differences(
     old: list[Package], new: list[Package]
 ) -> tuple[list[Package], list[Package]]:
@@ -955,9 +960,8 @@ def review_local_revision(
     args: argparse.Namespace,
     allow: AllowedFeatures,
     nixpkgs_config: Path,
-    commit: str | None,
+    changes: str | UncommittedChanges,
     *,
-    staged: bool = False,
     print_result: bool = False,
 ) -> Path:
     with Builddir(builddir_path) as builddir:
@@ -981,7 +985,7 @@ def review_local_revision(
             extra_nixpkgs_config=args.extra_nixpkgs_config,
             num_parallel_evals=args.num_parallel_evals,
         )
-        review.review_commit(
-            builddir.path, args.branch, commit, staged=staged, print_result=print_result
+        review.review_local(
+            builddir.path, args.branch, changes, print_result=print_result
         )
         return builddir.path

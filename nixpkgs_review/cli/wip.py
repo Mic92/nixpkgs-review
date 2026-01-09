@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from nixpkgs_review import git
 from nixpkgs_review.allow import AllowedFeatures
 from nixpkgs_review.buildenv import Buildenv
-from nixpkgs_review.review import review_local_revision
+from nixpkgs_review.review import UncommittedChanges, review_local_revision
 
 if TYPE_CHECKING:
     import argparse
@@ -20,7 +20,6 @@ def wip_command(args: argparse.Namespace) -> Path:
             args,
             allow,
             nixpkgs_config,
-            None,
-            staged=args.staged,
+            UncommittedChanges.STAGED if args.staged else UncommittedChanges.UNSTAGED,
             print_result=args.print_result,
         )
