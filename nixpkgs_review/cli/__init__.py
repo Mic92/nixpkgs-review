@@ -66,14 +66,15 @@ def pr_flags(
     checkout_help = (
         "What to source checkout when building: "
         "`merge` will merge the pull request into the target branch, "
-        "while `commit` will checkout pull request as the user has committed it"
+        "while `commit` will checkout pull request as the user has committed it."
+        "`base` will build the base (target) branch, for reference."
     )
 
     pr_parser.add_argument(
         "-c",
         "--checkout",
         default="merge",
-        choices=["merge", "commit"],
+        choices=["merge", "commit", "base"],
         help=checkout_help,
     )
     pr_parser.add_argument(
