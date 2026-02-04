@@ -372,12 +372,20 @@ def nix_build(
             "relaxed",
         ]
 
-    command += build_shell_file_args(
+    shell_file_args = build_shell_file_args(
         cache_dir=cache_directory,
         attrs_per_system=filtered_per_system,
         local_system=local_system,
         nixpkgs_config=nixpkgs_config,
-    ) + shlex.split(args)
+    )
+    _write_review_shell_drv(
+        cache_directory=cache_directory,
+        shell_file_args=shell_file_args,
+        allow=allow,
+        nix_path=nix_path,
+    )
+
+    command += shell_file_args + shlex.split(args)
 
     sh(command)
     return attrs_per_system
@@ -413,3 +421,45 @@ def build_shell_file_args(
         "attrs-path",
         str(attrs_file),
     ]
+
+
+def _write_review_shell_drv(
+    cache_directory: Path,
+    shell_file_args: list[str],
+    allow: AllowedFeatures,
+    nix_path: str,
+) -> None:
+    review_drv_link: Path = cache_directory / "review-shell.drv"
+
+    cmd: list[str] = [
+        "nix-instantiate",
+        "--extra-experimental-features",
+        "nix-command" if allow.url_literals else "nix-command no-url-literals",
+        "--nix-path",
+        nix_path,
+        "--allow-import-from-derivation"
+        if allow.ifd
+        else "--no-allow-import-from-derivation",
+        *shell_file_args,
+        REVIEW_SHELL,
+    ]
+    res = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if res.returncode != 0:
+        msg = "Failed to instantiate review shell derivation for caching"
+        if res.stderr:
+            msg = f"{msg}: {res.stderr.strip()}"
+        raise NixpkgsReviewError(msg)
+
+    drv_lines = [line.strip() for line in res.stdout.splitlines() if line.strip()]
+    if not drv_lines:
+        msg = "No review shell derivation path produced for caching"
+        raise NixpkgsReviewError(msg)
+
+    drv_path = drv_lines[-1]
+    review_drv_link.unlink(missing_ok=True)
+    review_drv_link.symlink_to(drv_path)
