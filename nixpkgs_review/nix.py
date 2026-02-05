@@ -61,6 +61,18 @@ class Attr:
 REVIEW_SHELL: Final[str] = str(ROOT.joinpath("nix/review-shell.nix"))
 
 
+def _nix_common_flags(allow: AllowedFeatures, nix_path: str) -> list[str]:
+    return [
+        "--extra-experimental-features",
+        "nix-command" if allow.url_literals else "nix-command no-url-literals",
+        "--nix-path",
+        nix_path,
+        "--allow-import-from-derivation"
+        if allow.ifd
+        else "--no-allow-import-from-derivation",
+    ]
+
+
 def nix_shell(
     attrs_per_system: dict[System, list[str]],
     cache_directory: Path,
@@ -258,18 +270,12 @@ def nix_eval(
         attr_json.flush()
         cmd = [
             "nix",
-            "--extra-experimental-features",
-            "nix-command" if allow.url_literals else "nix-command no-url-literals",
+            *_nix_common_flags(allow, nix_path),
             "--system",
             system,
             "eval",
-            "--nix-path",
-            nix_path,
             "--json",
             "--impure",
-            "--allow-import-from-derivation"
-            if allow.ifd
-            else "--no-allow-import-from-derivation",
             "--expr",
             f"(import {eval_script} {{ attr-json = {attr_json.name}; }})",
         ]
@@ -353,15 +359,9 @@ def nix_build(
         "build",
         "--file",
         REVIEW_SHELL,
-        "--nix-path",
-        nix_path,
-        "--extra-experimental-features",
-        "nix-command" if allow.url_literals else "nix-command no-url-literals",
+        *_nix_common_flags(allow, nix_path),
         "--no-link",
         "--keep-going",
-        "--allow-import-from-derivation"
-        if allow.ifd
-        else "--no-allow-import-from-derivation",
     ]
 
     if platform == "linux":
@@ -433,13 +433,7 @@ def _write_review_shell_drv(
 
     cmd: list[str] = [
         "nix-instantiate",
-        "--extra-experimental-features",
-        "nix-command" if allow.url_literals else "nix-command no-url-literals",
-        "--nix-path",
-        nix_path,
-        "--allow-import-from-derivation"
-        if allow.ifd
-        else "--no-allow-import-from-derivation",
+        *_nix_common_flags(allow, nix_path),
         *shell_file_args,
         REVIEW_SHELL,
     ]
