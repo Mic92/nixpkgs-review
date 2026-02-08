@@ -974,7 +974,7 @@ def differences(
     old_attrs = {pkg.attr_path: pkg for pkg in old}
     changed_packages = []
     for new_pkg in new:
-        old_pkg = old_attrs.get(new_pkg.attr_path, None)
+        old_pkg = old_attrs.get(new_pkg.attr_path)
         if old_pkg is None or old_pkg.store_path != new_pkg.store_path:
             new_pkg.old_pkg = old_pkg
             changed_packages.append(new_pkg)
