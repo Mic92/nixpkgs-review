@@ -17,7 +17,7 @@
         # Used to find the project root
         projectRootFile = "flake.lock";
 
-        flakeCheck = pkgs.hostPlatform.system != "riscv64-linux";
+        flakeCheck = pkgs.stdenv.hostPlatform.system != "riscv64-linux";
 
         programs.deno.enable =
           pkgs.lib.meta.availableOn pkgs.stdenv.hostPlatform pkgs.deno && !pkgs.deno.meta.broken;
@@ -28,7 +28,7 @@
         programs.shellcheck.enable = pkgs.lib.meta.availableOn pkgs.stdenv.buildPlatform pkgs.shellcheck.compiler;
         programs.shfmt.enable = true;
         programs.mypy.enable = true;
-        programs.nixfmt.enable = pkgs.lib.meta.availableOn pkgs.stdenv.buildPlatform pkgs.nixfmt-rfc-style.compiler;
+        programs.nixfmt.enable = pkgs.lib.meta.availableOn pkgs.stdenv.buildPlatform pkgs.nixfmt.compiler;
         programs.deadnix.enable = true;
 
         settings.formatter.shfmt.includes = [ "*.envrc" ];
