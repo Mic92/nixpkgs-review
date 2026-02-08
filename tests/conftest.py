@@ -196,7 +196,9 @@ class Helpers:
     @contextmanager
     def nixpkgs() -> Iterator[Nixpkgs]:
         with Helpers.save_environ(), tempfile.TemporaryDirectory() as tmpdirname:
-            path = Path(tmpdirname)
+            # Resolve symlinks so Nix doesn't complain about the store path
+            # being under a symlink (e.g. /var -> /private/var on macOS)
+            path = Path(tmpdirname).resolve()
             nixpkgs_path = path.joinpath("nixpkgs")
 
             # Get bash, coreutils, and nixpkgs BEFORE setting up isolated environment
