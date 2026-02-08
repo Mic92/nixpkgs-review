@@ -359,6 +359,71 @@ def test_pr_github_action_eval(
 
 
 @patch("nixpkgs_review.http_requests.urlopen")
+def test_pr_checkout_base_local_eval_dies(
+    mock_urlopen: MagicMock,
+    helpers: Helpers,
+) -> None:
+    """--checkout base with local eval (and no -p) should error out.
+
+    Local evaluation compares base against itself, yielding zero rebuilds.
+    """
+    with helpers.nixpkgs() as nixpkgs:
+        base, head, merge = setup_repo(nixpkgs)
+        setup_pr_mocks(
+            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=merge
+        )
+
+        with pytest.raises(SystemExit, match="1"):
+            main(
+                "nixpkgs-review",
+                [
+                    "pr",
+                    "--remote",
+                    str(nixpkgs.remote),
+                    "--eval",
+                    "local",
+                    "--checkout",
+                    "base",
+                    "--run",
+                    "exit 0",
+                    "1",
+                ],
+            )
+
+
+@patch("nixpkgs_review.http_requests.urlopen")
+def test_pr_checkout_base_with_packages(
+    mock_urlopen: MagicMock,
+    helpers: Helpers,
+) -> None:
+    """--checkout base with -p should work: build specified packages on the base branch."""
+    with helpers.nixpkgs() as nixpkgs:
+        base, head, merge = setup_repo(nixpkgs)
+        setup_pr_mocks(
+            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=merge
+        )
+
+        path = main(
+            "nixpkgs-review",
+            [
+                "pr",
+                "--remote",
+                str(nixpkgs.remote),
+                "--eval",
+                "local",
+                "--checkout",
+                "base",
+                "--run",
+                "exit 0",
+                "--package",
+                "pkg1",
+                "1",
+            ],
+        )
+        helpers.assert_built(path, "pkg1")
+
+
+@patch("nixpkgs_review.http_requests.urlopen")
 @patch("nixpkgs_review.review._list_packages_system")
 def test_pr_only_packages_does_not_trigger_an_eval(
     mock_eval: MagicMock,

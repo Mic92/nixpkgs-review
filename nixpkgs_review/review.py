@@ -541,6 +541,12 @@ class Review:
             }
 
         if packages_per_system is None:
+            if self.checkout == CheckoutOption.BASE:
+                die(
+                    "--checkout base without --package/-p requires GitHub evaluation.\n"
+                    "Local evaluation compares base against itself, which always yields zero rebuilds.\n"
+                    "Either specify packages explicitly with -p, or use --eval github."
+                )
             return self.build_commit(base_rev, head_rev, merge_rev)
 
         match self.checkout:
