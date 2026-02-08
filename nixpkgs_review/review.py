@@ -453,6 +453,10 @@ class Review:
         return self.build(changed_attrs, self.build_args)
 
     def git_worktree(self, commit: str) -> None:
+        # Prune stale worktree metadata in case the cache directory was
+        # externally deleted (e.g. user cleaned ~/.cache).  Without this,
+        # git refuses to re-use a path it still considers registered.
+        git.run(["worktree", "prune"])
         res = git.run(["worktree", "add", self.worktree_dir(), commit])
         if res.returncode != 0:
             msg = f"Failed to add worktree for {commit} in {self.worktree_dir()}. git worktree failed with exit code {res.returncode}"
