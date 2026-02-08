@@ -17,4 +17,5 @@ jobs:
       - name: Update flake inputs
         uses: mic92/update-flake-inputs@main
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-merge: true
