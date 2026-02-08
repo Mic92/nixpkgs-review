@@ -546,6 +546,7 @@ class Review:
         post_result: bool | None = False,
         print_result: bool = False,
         approve_pr: bool = False,
+        merge_pr: bool = False,
     ) -> bool:
         os.environ.pop("NIXPKGS_CONFIG", None)
         os.environ["NIXPKGS_REVIEW_ROOT"] = str(path)
@@ -578,7 +579,8 @@ class Review:
         if pr and approve_pr and success:
             self.github_client.approve_pr(
                 pr,
-                "Approved automatically following the successful run of `nixpkgs-review`.",
+                "Approved automatically following the successful run of `nixpkgs-review`."
+                + ("\n\n@NixOS/nixpkgs-merge-bot merge" if merge_pr else ""),
             )
 
         if print_result:
@@ -608,6 +610,7 @@ class Review:
         staged: bool = False,
         print_result: bool = False,
         approve_pr: bool = False,
+        merge_pr: bool = False,
     ) -> None:
         branch_rev = fetch_refs(self.remote, branch)[0]
         self.start_review(
@@ -616,6 +619,7 @@ class Review:
             path,
             print_result=print_result,
             approve_pr=approve_pr,
+            merge_pr=merge_pr,
         )
 
 
