@@ -1,0 +1,20 @@
+name: Update Flake Inputs
+on:
+  schedule:
+    - cron: "0 2 * * 1" # Every Monday at 02:00 UTC
+  workflow_dispatch:
+jobs:
+  update-flake-inputs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Setup Nix
+        uses: NixOS/nix-installer@main
+      - name: Update flake inputs
+        uses: mic92/update-flake-inputs@main
+        with:
+          auto-merge: true
