@@ -49,6 +49,8 @@ class CheckoutOption(Enum):
     # builds. This option comes at the cost of ignoring the latest changes of
     # the target branch.
     COMMIT = 2
+    # Checkout the base (target) branch, for reference
+    BASE = 3
 
 
 def print_packages(
@@ -356,6 +358,32 @@ class Review:
         if result.returncode != 0:
             die(f"Failed to apply diff in {self.worktree_dir()}")
 
+    def _build_commit_packages(
+        self,
+        base_commit: str,
+        head_commit: str | None,
+        merge_commit: str | None = None,
+        *,
+        staged: bool = False,
+    ) -> dict[System, list[Attr]]:
+        if head_commit is None:
+            self.apply_unstaged(staged=staged)
+        else:
+            match self.checkout:
+                case CheckoutOption.COMMIT:
+                    self.git_checkout(head_commit)
+                case CheckoutOption.MERGE:
+                    if merge_commit:
+                        self.git_checkout(merge_commit)
+                    else:
+                        self.git_merge(head_commit)
+                case CheckoutOption.BASE:
+                    self.git_checkout(base_commit)
+
+        changed_attrs = {system: set(self.only_packages) for system in self.systems}
+
+        return self.build(changed_attrs, self.build_args)
+
     def build_commit(
         self,
         base_commit: str,
@@ -371,21 +399,9 @@ class Review:
         changed_attrs: dict[System, set[str]] = {}
 
         if self.only_packages:
-            if head_commit is None:
-                self.apply_unstaged(staged=staged)
-            else:
-                match self.checkout:
-                    case CheckoutOption.COMMIT:
-                        self.git_checkout(head_commit)
-                    case CheckoutOption.MERGE:
-                        if merge_commit:
-                            self.git_checkout(merge_commit)
-                        else:
-                            self.git_merge(head_commit)
-
-            changed_attrs = {system: set(self.only_packages) for system in self.systems}
-
-            return self.build(changed_attrs, self.build_args)
+            return self._build_commit_packages(
+                base_commit, head_commit, merge_commit, staged=staged
+            )
 
         print("Local evaluation for computing rebuilds")
 
@@ -431,6 +447,8 @@ class Review:
 
         if head_commit and self.checkout == CheckoutOption.COMMIT:
             self.git_checkout(head_commit)
+        elif base_commit and self.checkout == CheckoutOption.BASE:
+            self.git_checkout(base_commit)
 
         return self.build(changed_attrs, self.build_args)
 
@@ -523,6 +541,12 @@ class Review:
             }
 
         if packages_per_system is None:
+            if self.checkout == CheckoutOption.BASE:
+                die(
+                    "--checkout base without --package/-p requires GitHub evaluation.\n"
+                    "Local evaluation compares base against itself, which always yields zero rebuilds.\n"
+                    "Either specify packages explicitly with -p, or use --eval github."
+                )
             return self.build_commit(base_rev, head_rev, merge_rev)
 
         match self.checkout:
@@ -530,6 +554,8 @@ class Review:
                 self.git_worktree(merge_rev)
             case CheckoutOption.COMMIT:
                 self.git_worktree(head_rev)
+            case CheckoutOption.BASE:
+                self.git_worktree(base_rev)
 
         for system in list(packages_per_system.keys()):
             if system not in self.systems:

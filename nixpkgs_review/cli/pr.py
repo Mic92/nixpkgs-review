@@ -66,9 +66,7 @@ def pr_command(args: argparse.Namespace) -> str:
     prs: list[int] = parse_pr_numbers(args.number)
     _handle_deprecated_args(args)
 
-    checkout_option = (
-        CheckoutOption.MERGE if args.checkout == "merge" else CheckoutOption.COMMIT
-    )
+    checkout_option = CheckoutOption[args.checkout.upper()]
 
     pr_objects = _validate_pr_json(args, prs)
 
