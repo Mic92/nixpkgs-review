@@ -467,31 +467,40 @@ class Review:
     def build(
         self, packages_per_system: dict[System, set[str]], args: str
     ) -> dict[System, list[Attr]]:
-        packages_per_system = {
-            system: self.additional_packages
-            | filter_packages(
-                packages,
-                self.only_packages,
-                self.package_regex,
-                self.skip_packages,
-                self.skip_packages_regex,
-                system,
-                self.allow,
-                self.builddir.nix_path,
-                self.num_eval_workers,
-                self.max_memory_size,
+        attrs_per_system = {
+            system: list(
+                (
+                    package_attrs(
+                        self.additional_packages,
+                        system,
+                        self.allow,
+                        self.builddir.nix_path,
+                        self.num_eval_workers,
+                        self.max_memory_size,
+                    )
+                    | filter_packages(
+                        packages,
+                        self.only_packages,
+                        self.package_regex,
+                        self.skip_packages,
+                        self.skip_packages_regex,
+                        system,
+                        self.allow,
+                        self.builddir.nix_path,
+                        self.num_eval_workers,
+                        self.max_memory_size,
+                    )
+                ).values()
             )
             for system, packages in packages_per_system.items()
         }
         return nix_build(
-            packages_per_system,
+            attrs_per_system,
             args,
             self.builddir.path,
             self.allow,
             self.build_graph,
             self.builddir.nix_path,
-            self.num_eval_workers,
-            self.max_memory_size,
         )
 
     def _fetch_packages_from_github_eval(
@@ -784,6 +793,9 @@ def package_attrs(
     *,
     ignore_nonexisting: bool = True,
 ) -> dict[Path, Attr]:
+    if not package_set:
+        return {}
+
     attrs: dict[Path, Attr] = {}
 
     nonexisting = []
@@ -808,17 +820,14 @@ def package_attrs(
 
 
 def join_packages(
-    changed_packages: set[str],
+    changed_attrs: dict[Path, Attr],
     specified_packages: set[str],
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
     num_eval_workers: int,
     max_memory_size: int,
-) -> set[str]:
-    changed_attrs = package_attrs(
-        changed_packages, system, allow, nix_path, num_eval_workers, max_memory_size
-    )
+) -> dict[Path, Attr]:
     specified_attrs = package_attrs(
         specified_packages,
         system,
@@ -830,49 +839,50 @@ def join_packages(
     )
 
     # ofborg does not include tests and manual evaluation is too expensive
-    tests = {path: attr for path, attr in specified_attrs.items() if attr.is_test()}
+    tests = {path for path, attr in specified_attrs.items() if attr.is_test()}
 
-    nonexistent = specified_attrs.keys() - changed_attrs.keys() - tests.keys()
+    nonexistent = specified_attrs.keys() - changed_attrs.keys() - tests
 
     if len(nonexistent) != 0:
         die(
             f"The following packages specified with `-p` are not rebuilt by the pull request: "
             f"{' '.join(specified_attrs[path].name for path in nonexistent)}"
         )
-    union_paths = (changed_attrs.keys() & specified_attrs.keys()) | tests.keys()
+    union_paths = (changed_attrs.keys() & specified_attrs.keys()) | tests
 
-    return {specified_attrs[path].name for path in union_paths}
+    return {path: specified_attrs[path] for path in union_paths}
 
 
 def _apply_package_filters(
-    packages: set[str],
+    packages: dict[Path, Attr],
     skip_packages: set[str],
     skip_package_regexes: list[Pattern[str]],
-) -> set[str]:
+) -> dict[Path, Attr]:
     """Apply skip filters to the package set."""
     if skip_packages:
-        packages = packages - skip_packages
+        packages = {
+            path: attr
+            for path, attr in packages.items()
+            if attr.name not in skip_packages
+        }
 
-    for attr in packages.copy():
-        for regex in skip_package_regexes:
-            if regex.match(attr):
-                packages.discard(attr)
-
-    return packages
+    return {
+        path: attr
+        for path, attr in packages.items()
+        if not any(regex.match(attr.name) for regex in skip_package_regexes)
+    }
 
 
 def _match_package_regexes(
-    changed_packages: set[str],
+    changed_attrs: dict[Path, Attr],
     package_regexes: list[Pattern[str]],
-) -> set[str]:
+) -> dict[Path, Attr]:
     """Find packages matching any of the given regex patterns."""
-    packages = set()
-    for attr in changed_packages:
-        for regex in package_regexes:
-            if regex.match(attr):
-                packages.add(attr)
-                break  # No need to check other regexes for this attr
-    return packages
+    return {
+        path: attr
+        for path, attr in changed_attrs.items()
+        if any(regex.match(attr.name) for regex in package_regexes)
+    }
 
 
 def filter_packages(
@@ -886,21 +896,30 @@ def filter_packages(
     nix_path: str,
     num_eval_workers: int,
     max_memory_size: int,
-) -> set[str]:
+) -> dict[Path, Attr]:
     assert isinstance(changed_packages, set)
+
+    changed_attrs = package_attrs(
+        changed_packages,
+        system,
+        allow,
+        nix_path,
+        num_eval_workers,
+        max_memory_size,
+    )
 
     # Short-circuit if no filtering is needed
     if not any(
         [specified_packages, package_regexes, skip_packages, skip_package_regexes]
     ):
-        return changed_packages
+        return changed_attrs
 
-    packages: set[str] = set()
+    packages: dict[Path, Attr] = dict()
 
     # Join specified packages with changed packages
     if specified_packages:
         packages = join_packages(
-            changed_packages,
+            changed_attrs,
             specified_packages,
             system,
             allow,
@@ -911,11 +930,11 @@ def filter_packages(
 
     # Add packages matching regex patterns
     if package_regexes:
-        packages |= _match_package_regexes(changed_packages, package_regexes)
+        packages.update(_match_package_regexes(changed_attrs, package_regexes))
 
     # If no packages selected yet, use all changed packages
     if not packages:
-        packages = changed_packages.copy()
+        packages = changed_attrs
 
     # Apply skip filters
     return _apply_package_filters(packages, skip_packages, skip_package_regexes)

@@ -347,26 +347,16 @@ def multi_system_eval(
 
 
 def nix_build(
-    attr_names_per_system: dict[System, set[str]],
+    attrs_per_system: dict[System, list[Attr]],
     args: str,
     cache_directory: Path,
     allow: AllowedFeatures,
     build_graph: str,
     nix_path: str,
-    num_eval_workers: int,
-    max_memory_size: int,
 ) -> dict[System, list[Attr]]:
-    if not attr_names_per_system:
+    if not attrs_per_system:
         info("Nothing to be built.")
         return {}
-
-    attrs_per_system: dict[System, list[Attr]] = multi_system_eval(
-        attr_names_per_system,
-        allow,
-        nix_path,
-        num_eval_workers=num_eval_workers,
-        max_memory_size=max_memory_size,
-    )
 
     paths: list[str] = []
     for attrs in attrs_per_system.values():
