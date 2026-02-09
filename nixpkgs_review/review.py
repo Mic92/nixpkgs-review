@@ -487,11 +487,9 @@ class Review:
             packages_per_system,
             args,
             self.builddir.path,
-            self.local_system,
             self.allow,
             self.build_graph,
             self.builddir.nix_path,
-            self.nixpkgs_config,
             self.num_eval_workers,
             self.max_memory_size,
         )
@@ -625,10 +623,8 @@ class Review:
             nix_shell(
                 report.built_packages(),
                 path,
-                self.local_system,
                 self.build_graph,
                 self.builddir.nix_path,
-                self.nixpkgs_config,
                 self.builddir.overlay.path,
                 self.run,
                 sandbox=self.sandbox,
