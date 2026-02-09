@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import concurrent.futures
 import json
 import os
 import shlex
@@ -10,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from sys import platform
 from tempfile import NamedTemporaryFile
-from typing import TYPE_CHECKING, Final, Required, TypedDict, cast
+from typing import TYPE_CHECKING, Final, NotRequired, TypedDict
 
 from .errors import NixpkgsReviewError
 from .utils import ROOT, System, info, sh, warn
@@ -25,13 +24,13 @@ class Attr:
     exists: bool
     broken: bool
     blacklisted: bool
-    path: Path | None
-    drv_path: str | None
+    outputs: dict[str, Path] | None
+    drv_path: Path | None
     aliases: list[str] = field(default_factory=list)
     _path_verified: bool | None = field(init=False, default=None)
 
     def was_build(self) -> bool:
-        if self.path is None:
+        if self.outputs is None or len(self.outputs) == 0:
             return False
 
         if self._path_verified is not None:
@@ -46,7 +45,7 @@ class Attr:
                 "verify",
                 "--no-contents",
                 "--no-trust",
-                self.path,
+                *self.outputs.values(),
             ],
             stderr=subprocess.DEVNULL,
             check=False,
@@ -56,6 +55,16 @@ class Attr:
 
     def is_test(self) -> bool:
         return self.name.startswith("nixosTests")
+
+    def outputs_with_name(self) -> dict[str, Path]:
+        def with_output(output: str) -> str:
+            if output == "out":
+                return self.name
+            return f"{self.name}.{output}"
+
+        return {
+            with_output(output): path for output, path in (self.outputs or {}).items()
+        }
 
 
 REVIEW_SHELL: Final[str] = str(ROOT.joinpath("nix/review-shell.nix"))
@@ -206,16 +215,21 @@ def _nix_shell_sandbox(
 
 
 class NixEvalProps(TypedDict):
-    path: str | None
-    exists: Required[bool]
-    broken: Required[bool]
-    drvPath: Required[str]
+    attrPath: list[str]
+    outputs: NotRequired[dict[str, str]]
+    drvPath: NotRequired[str]
+    extraValue: NotRequired[NixEvalPropsExtra]
 
 
-NixEvalResult = dict[str, NixEvalProps]
+class NixEvalPropsExtra(TypedDict):
+    exists: bool
+    broken: bool
 
 
-def _nix_eval_filter(json: NixEvalResult) -> list[Attr]:
+NixEvalResult = list[NixEvalProps]
+
+
+def _nix_eval_filter(packages: NixEvalResult) -> list[Attr]:
     # workaround https://github.com/NixOS/ofborg/issues/269
     blacklist = {
         "appimage-run-tests",
@@ -231,23 +245,30 @@ def _nix_eval_filter(json: NixEvalResult) -> list[Attr]:
     }
     attr_by_path: dict[Path, Attr] = {}
     broken = []
-    for name, props in json.items():
-        path_str = props.get("path")
-        path = Path(path_str) if path_str is not None else None
+    for props in packages:
+        drv_path = None
+        outputs = None
+        extra_value = props.get("extraValue", {})
 
+        if not extra_value.get("broken", True):
+            drv_path = Path(props["drvPath"])
+            outputs = {output: Path(path) for output, path in props["outputs"].items()}
+
+        # the 'name' field might be quoted, so get the unqoted one from 'attrPath'
+        name = props["attrPath"][1]
         attr = Attr(
             name=name,
-            exists=props["exists"],
-            broken=props["broken"],
+            exists=extra_value.get("exists", True),
+            broken=extra_value.get("broken", True),
             blacklisted=name in blacklist,
-            path=path,
-            drv_path=props["drvPath"],
+            outputs=outputs,
+            drv_path=drv_path,
         )
-        if attr.path is not None:
-            if (other := attr_by_path.get(attr.path)) is None:
-                attr_by_path[attr.path] = attr
+        if attr.drv_path is not None:
+            if (other := attr_by_path.get(attr.drv_path)) is None:
+                attr_by_path[attr.drv_path] = attr
             elif len(other.name) > len(attr.name):
-                attr_by_path[attr.path] = attr
+                attr_by_path[attr.drv_path] = attr
                 attr.aliases.append(other.name)
             else:
                 other.aliases.append(attr.name)
@@ -261,25 +282,48 @@ def nix_eval(
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
+    num_eval_workers: int,
+    max_memory_size: int,
 ) -> list[Attr]:
+    return multi_system_eval(
+        {system: attrs},
+        allow=allow,
+        nix_path=nix_path,
+        num_eval_workers=num_eval_workers,
+        max_memory_size=max_memory_size,
+    ).get(system, [])
+
+
+def multi_system_eval(
+    attr_names_per_system: dict[System, set[str]],
+    allow: AllowedFeatures,
+    nix_path: str,
+    num_eval_workers: int,
+    max_memory_size: int,
+) -> dict[System, list[Attr]]:
     attr_json = NamedTemporaryFile(mode="w+", delete=False)  # noqa: SIM115
     delete = True
     try:
-        json.dump(list(attrs), attr_json)
+        json.dump(
+            {system: list(attrs) for system, attrs in attr_names_per_system.items()},
+            attr_json,
+        )
         eval_script = str(ROOT.joinpath("nix/evalAttrs.nix"))
         attr_json.flush()
         cmd = [
-            "nix",
+            "nix-eval-jobs",
+            "--workers",
+            str(num_eval_workers),
+            "--max-memory-size",
+            str(max_memory_size),
             *_nix_common_flags(allow, nix_path),
-            "--system",
-            system,
-            "eval",
-            "--json",
-            "--impure",
             "--expr",
             f"(import {eval_script} {{ attr-json = {attr_json.name}; }})",
+            "--apply",
+            "d: { inherit (d) exists broken; }",
         ]
 
+        info("$ " + shlex.join(cmd))
         nix_eval = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, check=False)
         if nix_eval.returncode != 0:
             delete = False
@@ -288,40 +332,25 @@ def nix_eval(
             )
             raise NixpkgsReviewError(msg)
 
-        eval_result = json.loads(nix_eval.stdout)
-        if not isinstance(eval_result, dict):
-            msg = f"Expected eval result to be a dict, got {type(eval_result)}"
-            raise TypeError(msg)
-        return _nix_eval_filter(cast("NixEvalResult", eval_result))
+        systems_packages: dict[System, NixEvalResult] = {
+            system: list() for system in attr_names_per_system
+        }
+        for line in nix_eval.stdout.splitlines():
+            eval_result: NixEvalProps = json.loads(line)
+            if not isinstance(eval_result, dict):
+                msg = f"Expected eval result to be a dict, got {type(eval_result)}"
+                raise TypeError(msg)
+            system = eval_result["attrPath"][0]
+            systems_packages[system].append(eval_result)
+
+        return {
+            system: _nix_eval_filter(packages)
+            for system, packages in systems_packages.items()
+        }
     finally:
         attr_json.close()
         if delete:
             Path(attr_json.name).unlink()
-
-
-def multi_system_eval(
-    attr_names_per_system: dict[System, set[str]],
-    allow: AllowedFeatures,
-    nix_path: str,
-    n_threads: int,
-) -> dict[System, list[Attr]]:
-    results: dict[System, list[Attr]] = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
-        future_to_system = {
-            executor.submit(
-                nix_eval,
-                attrs=attrs,
-                system=system,
-                allow=allow,
-                nix_path=nix_path,
-            ): system
-            for system, attrs in attr_names_per_system.items()
-        }
-        for future in concurrent.futures.as_completed(future_to_system):
-            system = future_to_system[future]
-            results[system] = future.result()
-
-    return results
 
 
 def nix_build(
@@ -333,7 +362,8 @@ def nix_build(
     build_graph: str,
     nix_path: str,
     nixpkgs_config: Path,
-    n_threads: int,
+    num_eval_workers: int,
+    max_memory_size: int,
 ) -> dict[System, list[Attr]]:
     if not attr_names_per_system:
         info("Nothing to be built.")
@@ -343,7 +373,8 @@ def nix_build(
         attr_names_per_system,
         allow,
         nix_path,
-        n_threads=n_threads,
+        num_eval_workers=num_eval_workers,
+        max_memory_size=max_memory_size,
     )
 
     filtered_per_system = {
