@@ -121,6 +121,7 @@ class Review:
         checkout: CheckoutOption = CheckoutOption.MERGE,
         *,
         sandbox: bool = False,
+        build_tests: bool = False,
         num_parallel_evals: int = 1,
         num_eval_workers: int = 1,
         max_memory_size: int = 4096,
@@ -154,6 +155,7 @@ class Review:
         )
         self.allow = allow
         self.sandbox = sandbox
+        self.build_tests = build_tests
         self.build_graph = build_graph
         self.nixpkgs_config = nixpkgs_config
         self.extra_nixpkgs_config = extra_nixpkgs_config
@@ -489,6 +491,7 @@ class Review:
                         self.builddir.nix_path,
                         self.num_eval_workers,
                         self.max_memory_size,
+                        build_tests=self.build_tests,
                     )
                 ).values()
             )
@@ -609,6 +612,7 @@ class Review:
             # we don't use self.num_parallel_evals here since its choice
             # is mainly capped by available RAM
             max_workers=min(32, os.cpu_count() or 1),  # 'None' assumes IO tasks
+            build_tests=self.build_tests,
         )
         report.print_console(path, pr)
         report.write(path, pr)
@@ -792,6 +796,7 @@ def package_attrs(
     max_memory_size: int,
     *,
     ignore_nonexisting: bool = True,
+    build_tests: bool = False,
 ) -> dict[Path, Attr]:
     if not package_set:
         return {}
@@ -807,6 +812,7 @@ def package_attrs(
         nix_path,
         num_eval_workers,
         max_memory_size,
+        include_tests=build_tests,
     ):
         if not attr.exists:
             nonexisting.append(attr.name)
@@ -838,7 +844,7 @@ def join_packages(
         ignore_nonexisting=False,
     )
 
-    # ofborg does not include tests and manual evaluation is too expensive
+    # ofborg does not include tests, so don't mark them as nonexistent
     tests = {path for path, attr in specified_attrs.items() if attr.is_test()}
 
     nonexistent = specified_attrs.keys() - changed_attrs.keys() - tests
@@ -896,6 +902,8 @@ def filter_packages(
     nix_path: str,
     num_eval_workers: int,
     max_memory_size: int,
+    *,
+    build_tests: bool,
 ) -> dict[Path, Attr]:
     assert isinstance(changed_packages, set)
 
@@ -906,6 +914,7 @@ def filter_packages(
         nix_path,
         num_eval_workers,
         max_memory_size,
+        build_tests=build_tests,
     )
 
     # Short-circuit if no filtering is needed
@@ -1053,6 +1062,7 @@ def review_local_revision(
             systems=args.systems.split(" "),
             allow=allow,
             sandbox=args.sandbox,
+            build_tests=args.tests,
             build_graph=args.build_graph,
             nixpkgs_config=nixpkgs_config,
             extra_nixpkgs_config=args.extra_nixpkgs_config,

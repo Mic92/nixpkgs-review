@@ -118,6 +118,7 @@ def pr_command(args: argparse.Namespace) -> str:
                     allow=allow,
                     checkout=checkout_option,
                     sandbox=args.sandbox,
+                    build_tests=args.tests,
                     build_graph=args.build_graph,
                     nixpkgs_config=nixpkgs_config,
                     extra_nixpkgs_config=args.extra_nixpkgs_config,

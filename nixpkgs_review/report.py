@@ -314,6 +314,7 @@ class Report:
         show_logs: bool = False,
         max_workers: int | None = 1,
         checkout: Literal["merge", "commit"] = "merge",
+        build_tests: bool,
     ) -> None:
         self.commit = commit
         self.show_header = show_header
@@ -321,6 +322,7 @@ class Report:
         self.max_workers = max_workers
         self.attrs = attrs_per_system
         self.checkout = checkout
+        self.build_tests = build_tests
         self.only_packages = only_packages
         self.additional_packages = additional_packages
         self.package_regex = [r.pattern for r in package_regex]
@@ -390,6 +392,14 @@ class Report:
         for option_name, option_value in options.items():
             if option_value:
                 cmd += f" --{option_name} " + f" --{option_name} ".join(option_value)
+
+        flags = {
+            "tests": self.build_tests,
+        }
+        for flag_name, flag_enabled in flags.items():
+            if flag_enabled:
+                cmd += f" --{flag_name}"
+
         return cmd
 
     def _generate_header(self, pr: int | None) -> str:
