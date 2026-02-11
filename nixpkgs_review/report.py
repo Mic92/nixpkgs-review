@@ -177,21 +177,21 @@ def _get_nix_log_args() -> list[str]:
 
 def _create_symlink_for_attr(
     attr: Attr,
-    attr_name: str,
+    system: str,
     results: LazyDirectory,
     failed_results: LazyDirectory,
 ) -> None:
-    if attr.path is None or not attr.path.exists():
+    if attr.broken:
         return
 
-    if attr.was_build():
-        symlink_source = results.ensure().joinpath(attr_name)
-    else:
-        symlink_source = failed_results.ensure().joinpath(attr_name)
+    symlink_folder = results.ensure() if attr.was_build() else failed_results.ensure()
 
-    if os.path.lexists(symlink_source):
-        symlink_source.unlink()
-    symlink_source.symlink_to(attr.path)
+    for name, path in attr.outputs_with_name().items():
+        symlink_source = symlink_folder.joinpath(f"{name}-{system}")
+
+        if os.path.lexists(symlink_source):
+            symlink_source.unlink()
+        symlink_source.symlink_to(path)
 
 
 def _write_log_for_attr(
@@ -200,25 +200,19 @@ def _write_log_for_attr(
     logs: LazyDirectory,
     extra_nix_log_args: list[str],
 ) -> None:
-    for path in [f"{attr.drv_path}^*", attr.path]:
-        if not path:
-            continue
-
-        with logs.ensure().joinpath(get_log_filename(attr, system)).open("w+") as f:
-            nix_log = subprocess.run(
-                [
-                    "nix",
-                    "--extra-experimental-features",
-                    "nix-command",
-                    "log",
-                    path,
-                    *extra_nix_log_args,
-                ],
-                stdout=f,
-                check=False,
-            )
-            if nix_log.returncode == 0:
-                break
+    with logs.ensure().joinpath(get_log_filename(attr, system)).open("w+") as f:
+        subprocess.run(
+            [
+                "nix",
+                "--extra-experimental-features",
+                "nix-command",
+                "log",
+                f"{attr.drv_path}^*",
+                *extra_nix_log_args,
+            ],
+            stdout=f,
+            check=False,
+        )
 
 
 def write_error_logs(
@@ -240,8 +234,7 @@ def write_error_logs(
                 if attr.blacklisted or attr.drv_path is None:
                     continue
 
-                attr_name: str = f"{attr.name}-{system}"
-                _create_symlink_for_attr(attr, attr_name, results, failed_results)
+                _create_symlink_for_attr(attr, system, results, failed_results)
                 futures.append(
                     pool.submit(_write_log_for_attr, attr, system, logs, nix_log_args)
                 )
@@ -321,6 +314,7 @@ class Report:
         show_logs: bool = False,
         max_workers: int | None = 1,
         checkout: Literal["merge", "commit"] = "merge",
+        build_tests: bool,
     ) -> None:
         self.commit = commit
         self.show_header = show_header
@@ -328,6 +322,7 @@ class Report:
         self.max_workers = max_workers
         self.attrs = attrs_per_system
         self.checkout = checkout
+        self.build_tests = build_tests
         self.only_packages = only_packages
         self.additional_packages = additional_packages
         self.package_regex = [r.pattern for r in package_regex]
@@ -343,11 +338,8 @@ class Report:
             reports[system] = SystemReport(attrs)
         self.system_reports: dict[System, SystemReport] = order_reports(reports)
 
-    def built_packages(self) -> dict[System, list[str]]:
-        return {
-            system: [a.name for a in report.built]
-            for system, report in self.system_reports.items()
-        }
+    def built_packages(self) -> dict[System, list[Attr]]:
+        return {system: report.built for system, report in self.system_reports.items()}
 
     def write(self, directory: Path, pr: int | None) -> None:
         # write logs first because snippets from them may be needed for the report
@@ -400,6 +392,14 @@ class Report:
         for option_name, option_value in options.items():
             if option_value:
                 cmd += f" --{option_name} " + f" --{option_name} ".join(option_value)
+
+        flags = {
+            "tests": self.build_tests,
+        }
+        for flag_name, flag_enabled in flags.items():
+            if flag_enabled:
+                cmd += f" --{flag_name}"
+
         return cmd
 
     def _generate_header(self, pr: int | None) -> str:

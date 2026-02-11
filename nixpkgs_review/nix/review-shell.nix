@@ -1,36 +1,16 @@
 {
-  local-system,
-  nixpkgs-config-path,
-  # Path to Nix file containing the Nixpkgs config
-  attrs-path,
-  # Path to Nix file containing a list of attributes to build
-  nixpkgs-path,
-  # Path to this review's nixpkgs
-  local-pkgs ? import nixpkgs-path {
-    system = local-system;
-    config = import nixpkgs-config-path;
-  },
-  lib ? local-pkgs.lib,
+  # Path to json file containing the outputs of all built packages
+  outputs-path,
 }:
-
 let
+  inherit (import <nixpkgs> { }) lib buildEnv mkShell;
 
-  nixpkgs-config = import nixpkgs-config-path;
-  extractPackagesForSystem =
-    system: system-attrs:
-    let
-      system-pkg = import nixpkgs-path {
-        inherit system;
-        config = nixpkgs-config;
-      };
-    in
-    map (attrString: lib.attrByPath (lib.splitString "." attrString) null system-pkg) system-attrs;
-  attrs = lib.flatten (lib.mapAttrsToList extractPackagesForSystem (import attrs-path));
-  supportIgnoreSingleFileOutputs = (lib.functionArgs local-pkgs.buildEnv) ? ignoreSingleFileOutputs;
-  env = local-pkgs.buildEnv (
+  outputs = map builtins.storePath (builtins.fromJSON (builtins.readFile outputs-path));
+  supportIgnoreSingleFileOutputs = (lib.functionArgs buildEnv) ? ignoreSingleFileOutputs;
+  env = buildEnv (
     {
       name = "env";
-      paths = attrs;
+      paths = outputs;
       ignoreCollisions = true;
     }
     // lib.optionalAttrs supportIgnoreSingleFileOutputs {
@@ -38,11 +18,11 @@ let
     }
   );
 in
-(import nixpkgs-path { }).mkShell {
+mkShell {
   name = "review-shell";
   preferLocalBuild = true;
   allowSubstitutes = false;
   dontWrapQtApps = true;
   # see test_rev_command_with_pkg_count
-  packages = if builtins.length attrs > 50 then [ env ] else attrs;
+  packages = if builtins.length outputs > 50 then [ env ] else outputs;
 }

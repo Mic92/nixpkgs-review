@@ -121,7 +121,10 @@ class Review:
         checkout: CheckoutOption = CheckoutOption.MERGE,
         *,
         sandbox: bool = False,
+        build_tests: bool = False,
         num_parallel_evals: int = 1,
+        num_eval_workers: int = 1,
+        max_memory_size: int = 4096,
         show_header: bool = True,
         show_logs: bool = False,
         show_pr_info: bool = True,
@@ -152,10 +155,13 @@ class Review:
         )
         self.allow = allow
         self.sandbox = sandbox
+        self.build_tests = build_tests
         self.build_graph = build_graph
         self.nixpkgs_config = nixpkgs_config
         self.extra_nixpkgs_config = extra_nixpkgs_config
         self.num_parallel_evals = num_parallel_evals
+        self.num_eval_workers = num_eval_workers
+        self.max_memory_size = max_memory_size
         self.show_header = show_header
         self.show_logs = show_logs
         self.show_pr_info = show_pr_info
@@ -405,7 +411,6 @@ class Review:
 
         print("Local evaluation for computing rebuilds")
 
-        # TODO: nix-eval-jobs ?
         base_packages: dict[System, list[Package]] = list_packages(
             self.builddir.nix_path,
             self.systems,
@@ -420,7 +425,6 @@ class Review:
         else:
             self.git_merge(head_commit)
 
-        # TODO: nix-eval-jobs ?
         merged_packages: dict[System, list[Package]] = list_packages(
             self.builddir.nix_path,
             self.systems,
@@ -465,30 +469,41 @@ class Review:
     def build(
         self, packages_per_system: dict[System, set[str]], args: str
     ) -> dict[System, list[Attr]]:
-        packages_per_system = {
-            system: self.additional_packages
-            | filter_packages(
-                packages,
-                self.only_packages,
-                self.package_regex,
-                self.skip_packages,
-                self.skip_packages_regex,
-                system,
-                self.allow,
-                self.builddir.nix_path,
+        attrs_per_system = {
+            system: list(
+                (
+                    package_attrs(
+                        self.additional_packages,
+                        system,
+                        self.allow,
+                        self.builddir.nix_path,
+                        self.num_eval_workers,
+                        self.max_memory_size,
+                    )
+                    | filter_packages(
+                        packages,
+                        self.only_packages,
+                        self.package_regex,
+                        self.skip_packages,
+                        self.skip_packages_regex,
+                        system,
+                        self.allow,
+                        self.builddir.nix_path,
+                        self.num_eval_workers,
+                        self.max_memory_size,
+                        build_tests=self.build_tests,
+                    )
+                ).values()
             )
             for system, packages in packages_per_system.items()
         }
         return nix_build(
-            packages_per_system,
+            attrs_per_system,
             args,
             self.builddir.path,
-            self.local_system,
             self.allow,
             self.build_graph,
             self.builddir.nix_path,
-            self.nixpkgs_config,
-            self.num_parallel_evals,
         )
 
     def _fetch_packages_from_github_eval(
@@ -597,6 +612,7 @@ class Review:
             # we don't use self.num_parallel_evals here since its choice
             # is mainly capped by available RAM
             max_workers=min(32, os.cpu_count() or 1),  # 'None' assumes IO tasks
+            build_tests=self.build_tests,
         )
         report.print_console(path, pr)
         report.write(path, pr)
@@ -620,10 +636,8 @@ class Review:
             nix_shell(
                 report.built_packages(),
                 path,
-                self.local_system,
                 self.build_graph,
                 self.builddir.nix_path,
-                self.nixpkgs_config,
                 self.builddir.overlay.path,
                 self.run,
                 sandbox=self.sandbox,
@@ -778,19 +792,33 @@ def package_attrs(
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
+    num_eval_workers: int,
+    max_memory_size: int,
     *,
     ignore_nonexisting: bool = True,
+    build_tests: bool = False,
 ) -> dict[Path, Attr]:
+    if not package_set:
+        return {}
+
     attrs: dict[Path, Attr] = {}
 
     nonexisting = []
 
-    for attr in nix_eval(package_set, system, allow, nix_path):
+    for attr in nix_eval(
+        package_set,
+        system,
+        allow,
+        nix_path,
+        num_eval_workers,
+        max_memory_size,
+        include_tests=build_tests,
+    ):
         if not attr.exists:
             nonexisting.append(attr.name)
         elif not attr.broken:
-            assert attr.path is not None
-            attrs[attr.path] = attr
+            assert attr.drv_path is not None
+            attrs[attr.drv_path] = attr
 
     if not ignore_nonexisting and len(nonexisting) > 0:
         die(f"These packages do not exist: {' '.join(nonexisting)}")
@@ -798,65 +826,69 @@ def package_attrs(
 
 
 def join_packages(
-    changed_packages: set[str],
+    changed_attrs: dict[Path, Attr],
     specified_packages: set[str],
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
-) -> set[str]:
-    changed_attrs = package_attrs(changed_packages, system, allow, nix_path)
+    num_eval_workers: int,
+    max_memory_size: int,
+) -> dict[Path, Attr]:
     specified_attrs = package_attrs(
         specified_packages,
         system,
         allow,
         nix_path,
+        num_eval_workers,
+        max_memory_size,
         ignore_nonexisting=False,
     )
 
-    # ofborg does not include tests and manual evaluation is too expensive
-    tests = {path: attr for path, attr in specified_attrs.items() if attr.is_test()}
+    # ofborg does not include tests, so don't mark them as nonexistent
+    tests = {path for path, attr in specified_attrs.items() if attr.is_test()}
 
-    nonexistent = specified_attrs.keys() - changed_attrs.keys() - tests.keys()
+    nonexistent = specified_attrs.keys() - changed_attrs.keys() - tests
 
     if len(nonexistent) != 0:
         die(
             f"The following packages specified with `-p` are not rebuilt by the pull request: "
             f"{' '.join(specified_attrs[path].name for path in nonexistent)}"
         )
-    union_paths = (changed_attrs.keys() & specified_attrs.keys()) | tests.keys()
+    union_paths = (changed_attrs.keys() & specified_attrs.keys()) | tests
 
-    return {specified_attrs[path].name for path in union_paths}
+    return {path: specified_attrs[path] for path in union_paths}
 
 
 def _apply_package_filters(
-    packages: set[str],
+    packages: dict[Path, Attr],
     skip_packages: set[str],
     skip_package_regexes: list[Pattern[str]],
-) -> set[str]:
+) -> dict[Path, Attr]:
     """Apply skip filters to the package set."""
     if skip_packages:
-        packages = packages - skip_packages
+        packages = {
+            path: attr
+            for path, attr in packages.items()
+            if attr.name not in skip_packages
+        }
 
-    for attr in packages.copy():
-        for regex in skip_package_regexes:
-            if regex.match(attr):
-                packages.discard(attr)
-
-    return packages
+    return {
+        path: attr
+        for path, attr in packages.items()
+        if not any(regex.match(attr.name) for regex in skip_package_regexes)
+    }
 
 
 def _match_package_regexes(
-    changed_packages: set[str],
+    changed_attrs: dict[Path, Attr],
     package_regexes: list[Pattern[str]],
-) -> set[str]:
+) -> dict[Path, Attr]:
     """Find packages matching any of the given regex patterns."""
-    packages = set()
-    for attr in changed_packages:
-        for regex in package_regexes:
-            if regex.match(attr):
-                packages.add(attr)
-                break  # No need to check other regexes for this attr
-    return packages
+    return {
+        path: attr
+        for path, attr in changed_attrs.items()
+        if any(regex.match(attr.name) for regex in package_regexes)
+    }
 
 
 def filter_packages(
@@ -868,30 +900,50 @@ def filter_packages(
     system: str,
     allow: AllowedFeatures,
     nix_path: str,
-) -> set[str]:
+    num_eval_workers: int,
+    max_memory_size: int,
+    *,
+    build_tests: bool,
+) -> dict[Path, Attr]:
     assert isinstance(changed_packages, set)
+
+    changed_attrs = package_attrs(
+        changed_packages,
+        system,
+        allow,
+        nix_path,
+        num_eval_workers,
+        max_memory_size,
+        build_tests=build_tests,
+    )
 
     # Short-circuit if no filtering is needed
     if not any(
         [specified_packages, package_regexes, skip_packages, skip_package_regexes]
     ):
-        return changed_packages
+        return changed_attrs
 
-    packages: set[str] = set()
+    packages: dict[Path, Attr] = dict()
 
     # Join specified packages with changed packages
     if specified_packages:
         packages = join_packages(
-            changed_packages, specified_packages, system, allow, nix_path
+            changed_attrs,
+            specified_packages,
+            system,
+            allow,
+            nix_path,
+            num_eval_workers,
+            max_memory_size,
         )
 
     # Add packages matching regex patterns
     if package_regexes:
-        packages |= _match_package_regexes(changed_packages, package_regexes)
+        packages.update(_match_package_regexes(changed_attrs, package_regexes))
 
     # If no packages selected yet, use all changed packages
     if not packages:
-        packages = changed_packages.copy()
+        packages = changed_attrs
 
     # Apply skip filters
     return _apply_package_filters(packages, skip_packages, skip_package_regexes)
@@ -1010,6 +1062,7 @@ def review_local_revision(
             systems=args.systems.split(" "),
             allow=allow,
             sandbox=args.sandbox,
+            build_tests=args.tests,
             build_graph=args.build_graph,
             nixpkgs_config=nixpkgs_config,
             extra_nixpkgs_config=args.extra_nixpkgs_config,

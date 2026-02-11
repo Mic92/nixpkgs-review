@@ -1,52 +1,83 @@
-{ attr-json }:
+{
+  attr-json,
+  include-tests,
+}:
 
 with builtins;
-let
-  pkgs = import <nixpkgs> {
-    config = import (getEnv "NIXPKGS_CONFIG") // {
-      allowBroken = false;
+mapAttrs (
+  system: attrs:
+  let
+    pkgs = import <nixpkgs> {
+      inherit system;
+      config = import (getEnv "NIXPKGS_CONFIG") // {
+        allowBroken = false;
+      };
     };
-  };
 
-  inherit (pkgs) lib;
+    inherit (pkgs) lib;
 
-  attrs = fromJSON (readFile attr-json);
-  getProperties =
-    name:
-    let
-      attrPath = lib.splitString "." name;
-      pkg = lib.attrByPath attrPath null pkgs;
-      exists = lib.hasAttrByPath attrPath pkgs;
-    in
-    if pkg == null then
-      [
-        (lib.nameValuePair name {
-          inherit exists;
-          broken = true;
-          path = null;
-          drvPath = null;
-        })
-      ]
-    else if !lib.isDerivation pkg then
-      if builtins.typeOf pkg != "set" then
-        # if it is not a package, ignore it (it is probably something like overrideAttrs)
-        [ ]
-      else
-        lib.flatten (lib.mapAttrsToList (name': _: getProperties ("${name}.${name'}")) pkg)
-    else
-      lib.flip map pkg.outputs or [ "out" ] (
-        output:
-        let
-          # some packages are set to null if they aren't compatible with a platform or package set
-          maybePath = tryEval "${lib.getOutput output pkg}";
-          broken = !exists || !maybePath.success;
-        in
-        lib.nameValuePair (if output == "out" then name else "${name}.${output}") {
-          inherit exists broken;
-          path = if !broken then maybePath.value else null;
-          drvPath = if !broken then pkg.drvPath else null;
-        }
+    # nix-eval-jobs only shows derivations, so create an empty one to return
+    fake =
+      extra:
+      derivation {
+        name = "fake";
+        system = "fake";
+        builder = "fake";
+      }
+      // extra;
+
+    pkgOrFake =
+      name: pkg:
+      let
+        maybeDerivation = tryEval (lib.isDerivation pkg);
+        maybePath = tryEval pkg.outPath;
+        extra = {
+          exists = true;
+          broken = !maybeDerivation.success || !maybeDerivation.value || !maybePath.success;
+        };
+      in
+      lib.nameValuePair name (
+        builtins.addErrorContext "while evaluating the attribute `${name}`" (
+          if extra.broken then fake extra else pkg // extra
+        )
       );
-in
 
-listToAttrs (concatMap getProperties attrs)
+    getProperties =
+      name:
+      let
+        attrPath = lib.splitString "." name;
+        maybePkg = tryEval (lib.attrByPath attrPath null pkgs);
+        pkg = maybePkg.value;
+        exists = lib.hasAttrByPath attrPath pkgs;
+      in
+      # some packages are set to null or throw if they aren't compatible with a platform or package set
+      if !maybePkg.success || pkg == null then
+        [
+          (lib.nameValuePair name (fake {
+            inherit exists;
+            broken = true;
+          }))
+        ]
+      else if !lib.isDerivation pkg then
+        if !lib.isAttrs pkg then
+          # if it is not a package, ignore it (it is probably something like overrideAttrs)
+          [ ]
+        else
+          lib.flatten (lib.mapAttrsToList (name': _: getProperties "${name}.${name'}") pkg)
+      else
+        [ (pkgOrFake name pkg) ]
+        ++ lib.optionals include-tests (
+          let
+            tests = pkg.tests or { };
+            maybeTestsIsDerivation = tryEval (lib.isDerivation tests);
+          in
+          if maybeTestsIsDerivation.success && maybeTestsIsDerivation.value then
+            [ (pkgOrFake "${name}.tests" pkg.tests) ]
+          else
+            lib.mapAttrsToList (test: drv: pkgOrFake "${name}.tests.${test}" drv) (
+              lib.optionalAttrs (lib.isAttrs tests) tests
+            )
+        );
+  in
+  listToAttrs (concatMap getProperties attrs) // { recurseForDerivations = true; }
+) (fromJSON (readFile attr-json))
