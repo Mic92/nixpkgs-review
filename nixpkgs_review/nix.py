@@ -316,6 +316,7 @@ def multi_system_eval(
             str(num_eval_workers),
             "--max-memory-size",
             str(max_memory_size),
+            "--no-instantiate",
             *_nix_common_flags(allow, nix_path),
             "--expr",
             f"(import {eval_script} {{ attr-json = {attr_json.name}; }})",
