@@ -607,11 +607,18 @@ class Review:
             self.github_client.comment_issue(pr, report.markdown(path, pr))
 
         if pr and approve_pr and success:
-            self.github_client.approve_pr(
-                pr,
-                "Approved automatically following the successful run of `nixpkgs-review`."
-                + ("\n\n@NixOS/nixpkgs-merge-bot merge" if merge_pr else ""),
-            )
+            if merge_pr and self.github_client.is_nixpkgs_committer():
+                self.github_client.approve_pr(
+                    pr,
+                    "Approved automatically following the successful run of `nixpkgs-review`.",
+                )
+                self.github_client.merge_pr(pr, report.commit)
+            else:
+                self.github_client.approve_pr(
+                    pr,
+                    "Approved automatically following the successful run of `nixpkgs-review`."
+                    + ("\n\n@NixOS/nixpkgs-merge-bot merge" if merge_pr else ""),
+                )
 
         if print_result:
             print(report.markdown(path, pr))
