@@ -121,7 +121,6 @@ def pr_command(args: argparse.Namespace) -> str:
                     build_graph=args.build_graph,
                     nixpkgs_config=nixpkgs_config,
                     extra_nixpkgs_config=args.extra_nixpkgs_config,
-                    num_parallel_evals=args.num_parallel_evals,
                     num_eval_workers=args.num_eval_workers,
                     max_memory_size=args.max_memory_size,
                     show_header=not args.no_headers,

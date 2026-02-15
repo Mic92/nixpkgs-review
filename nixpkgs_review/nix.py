@@ -277,23 +277,6 @@ def _nix_eval_filter(packages: NixEvalResult) -> list[Attr]:
     return list(attr_by_path.values()) + broken
 
 
-def nix_eval(
-    attrs: set[str],
-    system: str,
-    allow: AllowedFeatures,
-    nix_path: str,
-    num_eval_workers: int,
-    max_memory_size: int,
-) -> list[Attr]:
-    return multi_system_eval(
-        {system: attrs},
-        allow=allow,
-        nix_path=nix_path,
-        num_eval_workers=num_eval_workers,
-        max_memory_size=max_memory_size,
-    ).get(system, [])
-
-
 def multi_system_eval(
     attr_names_per_system: dict[System, set[str]],
     allow: AllowedFeatures,
@@ -337,10 +320,16 @@ def multi_system_eval(
             system: list() for system in attr_names_per_system
         }
         for line in nix_eval.stdout.splitlines():
-            eval_result: NixEvalProps = json.loads(line)
-            if not isinstance(eval_result, dict):
-                msg = f"Expected eval result to be a dict, got {type(eval_result)}"
+            raw_result: dict[str, object] = json.loads(line)
+            if not isinstance(raw_result, dict):
+                msg = f"Expected eval result to be a dict, got {type(raw_result)}"
                 raise TypeError(msg)
+            # Skip error entries from nix-eval-jobs (e.g. system-level
+            # evaluation failures) which lack per-package attrPath.
+            if "error" in raw_result:
+                warn(f"nix-eval-jobs: {raw_result['error']}")
+                continue
+            eval_result: NixEvalProps = raw_result  # type: ignore[assignment]
             system = eval_result["attrPath"][0]
             systems_packages[system].append(eval_result)
 
