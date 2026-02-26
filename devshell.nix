@@ -7,7 +7,7 @@
   bubblewrap,
   delta,
   treefmt,
-  nixfmt-rfc-style,
+  nixfmt,
   lib,
   stdenv,
 }:
@@ -43,7 +43,7 @@ mkShell {
   ]
   ++ lib.optionals (!stdenv.hostPlatform.isRiscV64) [ nix-output-monitor ]
   ++ lib.optionals stdenv.hostPlatform.isLinux [ bubblewrap ]
-  ++ lib.optionals (!stdenv.hostPlatform.isRiscV64) [ nixfmt-rfc-style ];
+  ++ lib.optionals (!stdenv.hostPlatform.isRiscV64) [ nixfmt ];
 
   shellHook = ''
     echo "nixpkgs-review development shell"
