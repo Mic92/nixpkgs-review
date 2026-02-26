@@ -25,7 +25,7 @@ def create_mock_pr_response(
     body: str = "This is a test PR",
     base_rev: str = "0000000000000000000000000000000000000000",
     head_rev: str = "0000000000000000000000000000000000000000",
-    merge_rev: str = "0000000000000000000000000000000000000000",
+    merge_rev: str | None = "0000000000000000000000000000000000000000",
 ) -> dict[str, Any]:
     """Create a mock GitHub PR response."""
     return {
