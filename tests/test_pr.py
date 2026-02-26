@@ -203,6 +203,32 @@ def test_pr_local_eval_without_nom(
         assert "$ nix build" in captured.out
 
 
+@patch("nixpkgs_review.http_requests.urlopen")
+def test_pr_local_eval_without_merge_commit_sha(
+    mock_urlopen: MagicMock, helpers: Helpers
+) -> None:
+    with helpers.nixpkgs() as nixpkgs:
+        base, head, _merge = setup_repo(nixpkgs)
+        setup_pr_mocks(
+            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=None
+        )
+
+        path = main(
+            "nixpkgs-review",
+            [
+                "pr",
+                "--remote",
+                str(nixpkgs.remote),
+                "--eval",
+                "local",
+                "--run",
+                "exit 0",
+                "1",
+            ],
+        )
+        helpers.assert_built(path, "pkg1")
+
+
 @pytest.mark.skipif(not shutil.which("bwrap"), reason="`bwrap` not found in PATH")
 @patch("nixpkgs_review.http_requests.urlopen")
 def test_pr_local_eval_with_sandbox(mock_urlopen: MagicMock, helpers: Helpers) -> None:
