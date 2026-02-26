@@ -520,6 +520,43 @@ class Review:
         print("-> Successfully fetched rebuilds: no local evaluation needed")
         return packages_per_system
 
+    def _resolve_pr_revisions(
+        self, pr: GitHubPullRequest
+    ) -> tuple[str, str, str | None]:
+        merge_commit_sha = pr.get("merge_commit_sha")
+        if merge_commit_sha:
+            [merge_rev] = fetch_refs(self.remote, merge_commit_sha, shallow_depth=2)
+            base_rev = git.verify_commit_hash(f"{merge_rev}^1")
+            head_rev = git.verify_commit_hash(f"{merge_rev}^2")
+            return base_rev, head_rev, merge_rev
+
+        warn(
+            "GitHub API returned no merge commit for this PR; falling back to "
+            "base/head SHAs for local merge evaluation."
+        )
+        base_rev, head_rev = fetch_refs(
+            self.remote,
+            pr["base"]["sha"],
+            pr["head"]["sha"],
+            shallow_depth=2,
+        )
+        return base_rev, head_rev, None
+
+    def _checkout_pr_revision(
+        self, base_rev: str, head_rev: str, merge_rev: str | None
+    ) -> None:
+        match self.checkout:
+            case CheckoutOption.MERGE:
+                if merge_rev:
+                    self.git_worktree(merge_rev)
+                else:
+                    self.git_worktree(base_rev)
+                    self.git_merge(head_rev)
+            case CheckoutOption.COMMIT:
+                self.git_worktree(head_rev)
+            case CheckoutOption.BASE:
+                self.git_worktree(base_rev)
+
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
         pr = (
             cast("GitHubPullRequest", self.pr_object)
@@ -535,23 +572,7 @@ class Review:
             self._fetch_packages_from_github_eval(pr) if self._use_github_eval else None
         )
 
-        merge_commit_sha = pr.get("merge_commit_sha")
-        if merge_commit_sha:
-            [merge_rev] = fetch_refs(self.remote, merge_commit_sha, shallow_depth=2)
-            base_rev = git.verify_commit_hash(f"{merge_rev}^1")
-            head_rev = git.verify_commit_hash(f"{merge_rev}^2")
-        else:
-            warn(
-                "GitHub API returned no merge commit for this PR; falling back to "
-                "base/head SHAs for local merge evaluation."
-            )
-            base_rev, head_rev = fetch_refs(
-                self.remote,
-                pr["base"]["sha"],
-                pr["head"]["sha"],
-                shallow_depth=2,
-            )
-            merge_rev = None
+        base_rev, head_rev, merge_rev = self._resolve_pr_revisions(pr)
 
         if self.only_packages:
             packages_per_system = {
@@ -567,17 +588,7 @@ class Review:
                 )
             return self.build_commit(base_rev, head_rev, merge_rev)
 
-        match self.checkout:
-            case CheckoutOption.MERGE:
-                if merge_rev:
-                    self.git_worktree(merge_rev)
-                else:
-                    self.git_worktree(base_rev)
-                    self.git_merge(head_rev)
-            case CheckoutOption.COMMIT:
-                self.git_worktree(head_rev)
-            case CheckoutOption.BASE:
-                self.git_worktree(base_rev)
+        self._checkout_pr_revision(base_rev, head_rev, merge_rev)
 
         for system in list(packages_per_system.keys()):
             if system not in self.systems:
