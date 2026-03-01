@@ -79,7 +79,7 @@ def nix_shell(
     local_system: str,
     build_graph: str,
     nix_path: str,
-    nixpkgs_config: Path,
+    nixpkgs_wrapper: Path,
     nixpkgs_overlay: Path,
     run: str | None = None,
     *,
@@ -94,7 +94,6 @@ def nix_shell(
         cache_dir=cache_directory,
         attrs_per_system=attrs_per_system,
         local_system=local_system,
-        nixpkgs_config=nixpkgs_config,
     )
     if sandbox:
         args = _nix_shell_sandbox(
@@ -102,7 +101,7 @@ def nix_shell(
             shell_file_args,
             cache_directory,
             nix_path,
-            nixpkgs_config,
+            nixpkgs_wrapper,
             nixpkgs_overlay,
         )
     else:
@@ -117,7 +116,7 @@ def _nix_shell_sandbox(
     shell_file_args: list[str],
     cache_directory: Path,
     nix_path: str,
-    nixpkgs_config: Path,
+    nixpkgs_wrapper: Path,
     nixpkgs_overlay: Path,
 ) -> list[str]:
     if platform != "linux":
@@ -177,7 +176,7 @@ def _nix_shell_sandbox(
         *bind("/dev", dev=True),
         *tmpfs("/tmp"),  # noqa: S108
         # Required for evaluation
-        *bind(nixpkgs_config),
+        *bind(nixpkgs_wrapper),
         *bind(nixpkgs_overlay),
         # /run (also cover sockets for wayland/pulseaudio and pipewires)
         *bind(Path("/run/user").joinpath(uid), dev=True, try_=True),
@@ -332,7 +331,6 @@ def nix_build(
     allow: AllowedFeatures,
     build_graph: str,
     nix_path: str,
-    nixpkgs_config: Path,
     n_threads: int,
 ) -> dict[System, list[Attr]]:
     if not attr_names_per_system:
@@ -376,7 +374,6 @@ def nix_build(
         cache_dir=cache_directory,
         attrs_per_system=filtered_per_system,
         local_system=local_system,
-        nixpkgs_config=nixpkgs_config,
     )
     _write_review_shell_drv(
         cache_directory=cache_directory,
@@ -395,7 +392,6 @@ def build_shell_file_args(
     cache_dir: Path,
     attrs_per_system: dict[System, list[str]],
     local_system: str,
-    nixpkgs_config: Path,
 ) -> list[str]:
     attrs_file = cache_dir.joinpath("attrs.nix")
     with attrs_file.open("w+") as f:
@@ -411,12 +407,6 @@ def build_shell_file_args(
         "--argstr",
         "local-system",
         local_system,
-        "--argstr",
-        "nixpkgs-path",
-        str(cache_dir.joinpath("nixpkgs/")),
-        "--argstr",
-        "nixpkgs-config-path",
-        str(nixpkgs_config),
         "--argstr",
         "attrs-path",
         str(attrs_file),
