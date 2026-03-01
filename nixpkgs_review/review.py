@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import concurrent.futures
 import fcntl
 import itertools
 import os
@@ -21,7 +20,7 @@ from . import git, http_requests
 from .builddir import Builddir
 from .errors import NixpkgsReviewError
 from .github import GithubClient, GitHubPullRequest
-from .nix import Attr, nix_build, nix_eval, nix_shell
+from .nix import Attr, multi_system_eval, nix_build, nix_shell
 from .report import Report
 from .utils import System, current_system, die, info, sh, system_order_key, warn
 
@@ -121,7 +120,8 @@ class Review:
         checkout: CheckoutOption = CheckoutOption.MERGE,
         *,
         sandbox: bool = False,
-        num_parallel_evals: int = 1,
+        num_eval_workers: int = 1,
+        max_memory_size: int = 4096,
         show_header: bool = True,
         show_logs: bool = False,
         show_pr_info: bool = True,
@@ -155,7 +155,8 @@ class Review:
         self.build_graph = build_graph
         self.nixpkgs_config = nixpkgs_config
         self.extra_nixpkgs_config = extra_nixpkgs_config
-        self.num_parallel_evals = num_parallel_evals
+        self.num_eval_workers = num_eval_workers
+        self.max_memory_size = max_memory_size
         self.show_header = show_header
         self.show_logs = show_logs
         self.show_pr_info = show_pr_info
@@ -405,12 +406,10 @@ class Review:
 
         print("Local evaluation for computing rebuilds")
 
-        # TODO: nix-eval-jobs ?
         base_packages: dict[System, list[Package]] = list_packages(
             self.builddir.nix_path,
             self.systems,
             self.allow,
-            n_threads=self.num_parallel_evals,
         )
 
         if head_commit is None:
@@ -420,12 +419,10 @@ class Review:
         else:
             self.git_merge(head_commit)
 
-        # TODO: nix-eval-jobs ?
         merged_packages: dict[System, list[Package]] = list_packages(
             self.builddir.nix_path,
             self.systems,
             self.allow,
-            n_threads=self.num_parallel_evals,
             check_meta=True,
         )
 
@@ -465,18 +462,19 @@ class Review:
     def build(
         self, packages_per_system: dict[System, set[str]], args: str
     ) -> dict[System, list[Attr]]:
+        packages_per_system = filter_packages_per_system(
+            packages_per_system,
+            self.only_packages,
+            self.package_regex,
+            self.skip_packages,
+            self.skip_packages_regex,
+            self.allow,
+            self.builddir.nix_path,
+            self.num_eval_workers,
+            self.max_memory_size,
+        )
         packages_per_system = {
-            system: self.additional_packages
-            | filter_packages(
-                packages,
-                self.only_packages,
-                self.package_regex,
-                self.skip_packages,
-                self.skip_packages_regex,
-                system,
-                self.allow,
-                self.builddir.nix_path,
-            )
+            system: self.additional_packages | packages
             for system, packages in packages_per_system.items()
         }
         return nix_build(
@@ -488,7 +486,8 @@ class Review:
             self.build_graph,
             self.builddir.nix_path,
             self.nixpkgs_config,
-            self.num_parallel_evals,
+            self.num_eval_workers,
+            self.max_memory_size,
         )
 
     def _fetch_packages_from_github_eval(
@@ -594,8 +593,6 @@ class Review:
             skip_packages_regex=self.skip_packages_regex,
             show_header=self.show_header,
             show_logs=self.show_logs,
-            # we don't use self.num_parallel_evals here since its choice
-            # is mainly capped by available RAM
             max_workers=min(32, os.cpu_count() or 1),  # 'None' assumes IO tasks
         )
         report.print_console(path, pr)
@@ -750,34 +747,23 @@ def list_packages(
     nix_path: str,
     systems: set[System],
     allow: AllowedFeatures,
-    n_threads: int,
     *,
     check_meta: bool = False,
 ) -> dict[System, list[Package]]:
     results: dict[System, list[Package]] = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
-        future_to_system = {
-            executor.submit(
-                _list_packages_system,
-                system=system,
-                nix_path=nix_path,
-                allow=allow,
-                check_meta=check_meta,
-            ): system
-            for system in systems
-        }
-        for future in concurrent.futures.as_completed(future_to_system):
-            system = future_to_system[future]
-            results[system] = future.result()
+    for system in systems:
+        results[system] = _list_packages_system(
+            system=system,
+            nix_path=nix_path,
+            allow=allow,
+            check_meta=check_meta,
+        )
 
     return results
 
 
-def package_attrs(
-    package_set: set[str],
-    system: str,
-    allow: AllowedFeatures,
-    nix_path: str,
+def _collect_package_attrs(
+    eval_results: list[Attr],
     *,
     ignore_nonexisting: bool = True,
 ) -> dict[Path, Attr]:
@@ -785,34 +771,22 @@ def package_attrs(
 
     nonexisting = []
 
-    for attr in nix_eval(package_set, system, allow, nix_path):
+    for attr in eval_results:
         if not attr.exists:
             nonexisting.append(attr.name)
         elif not attr.broken:
-            assert attr.path is not None
-            attrs[attr.path] = attr
+            assert attr.drv_path is not None
+            attrs[attr.drv_path] = attr
 
     if not ignore_nonexisting and len(nonexisting) > 0:
         die(f"These packages do not exist: {' '.join(nonexisting)}")
     return attrs
 
 
-def join_packages(
-    changed_packages: set[str],
-    specified_packages: set[str],
-    system: str,
-    allow: AllowedFeatures,
-    nix_path: str,
+def _join_packages_for_system(
+    changed_attrs: dict[Path, Attr],
+    specified_attrs: dict[Path, Attr],
 ) -> set[str]:
-    changed_attrs = package_attrs(changed_packages, system, allow, nix_path)
-    specified_attrs = package_attrs(
-        specified_packages,
-        system,
-        allow,
-        nix_path,
-        ignore_nonexisting=False,
-    )
-
     # ofborg does not include tests and manual evaluation is too expensive
     tests = {path: attr for path, attr in specified_attrs.items() if attr.is_test()}
 
@@ -859,42 +833,85 @@ def _match_package_regexes(
     return packages
 
 
-def filter_packages(
-    changed_packages: set[str],
+def filter_packages_per_system(
+    changed_packages_per_system: dict[System, set[str]],
     specified_packages: set[str],
     package_regexes: list[Pattern[str]],
     skip_packages: set[str],
     skip_package_regexes: list[Pattern[str]],
-    system: str,
     allow: AllowedFeatures,
     nix_path: str,
-) -> set[str]:
-    assert isinstance(changed_packages, set)
+    num_eval_workers: int,
+    max_memory_size: int,
+) -> dict[System, set[str]]:
+    needs_filtering = any(
+        [specified_packages, package_regexes, skip_packages, skip_package_regexes]
+    )
 
     # Short-circuit if no filtering is needed
-    if not any(
-        [specified_packages, package_regexes, skip_packages, skip_package_regexes]
-    ):
-        return changed_packages
+    if not needs_filtering:
+        return changed_packages_per_system
 
-    packages: set[str] = set()
-
-    # Join specified packages with changed packages
+    # When --package is used, we need to evaluate both changed and specified
+    # packages to find their drv paths and intersect them. Batch all systems
+    # into a single multi_system_eval call for parallelism.
+    joined_per_system: dict[System, set[str]] = {}
     if specified_packages:
-        packages = join_packages(
-            changed_packages, specified_packages, system, allow, nix_path
+        # Build a combined attr set: all changed + specified packages per system
+        changed_eval_input: dict[System, set[str]] = {}
+        specified_eval_input: dict[System, set[str]] = {}
+        for system, changed in changed_packages_per_system.items():
+            changed_eval_input[system] = changed
+            specified_eval_input[system] = specified_packages
+
+        # Two multi_system_eval calls (one for changed, one for specified),
+        # each evaluating all systems in parallel via nix-eval-jobs workers
+        changed_results = multi_system_eval(
+            changed_eval_input,
+            allow,
+            nix_path,
+            num_eval_workers=num_eval_workers,
+            max_memory_size=max_memory_size,
+        )
+        specified_results = multi_system_eval(
+            specified_eval_input,
+            allow,
+            nix_path,
+            num_eval_workers=num_eval_workers,
+            max_memory_size=max_memory_size,
         )
 
-    # Add packages matching regex patterns
-    if package_regexes:
-        packages |= _match_package_regexes(changed_packages, package_regexes)
+        for system in changed_packages_per_system:
+            changed_attrs = _collect_package_attrs(
+                changed_results.get(system, []),
+            )
+            specified_attrs = _collect_package_attrs(
+                specified_results.get(system, []),
+                ignore_nonexisting=False,
+            )
+            joined_per_system[system] = _join_packages_for_system(
+                changed_attrs, specified_attrs
+            )
 
-    # If no packages selected yet, use all changed packages
-    if not packages:
-        packages = changed_packages.copy()
+    result: dict[System, set[str]] = {}
+    for system, changed_packages in changed_packages_per_system.items():
+        packages: set[str] = set()
 
-    # Apply skip filters
-    return _apply_package_filters(packages, skip_packages, skip_package_regexes)
+        if specified_packages:
+            packages = joined_per_system.get(system, set())
+
+        if package_regexes:
+            packages |= _match_package_regexes(changed_packages, package_regexes)
+
+        # If no packages selected yet, use all changed packages
+        if not packages:
+            packages = changed_packages.copy()
+
+        result[system] = _apply_package_filters(
+            packages, skip_packages, skip_package_regexes
+        )
+
+    return result
 
 
 @contextmanager
@@ -1013,7 +1030,8 @@ def review_local_revision(
             build_graph=args.build_graph,
             nixpkgs_config=nixpkgs_config,
             extra_nixpkgs_config=args.extra_nixpkgs_config,
-            num_parallel_evals=args.num_parallel_evals,
+            num_eval_workers=args.num_eval_workers,
+            max_memory_size=args.max_memory_size,
         )
         review.review_commit(
             builddir.path, args.branch, commit, staged=staged, print_result=print_result

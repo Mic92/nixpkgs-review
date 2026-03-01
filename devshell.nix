@@ -3,6 +3,7 @@
   python3,
   git,
   nix,
+  nix-eval-jobs,
   nix-output-monitor,
   bubblewrap,
   delta,
@@ -34,6 +35,7 @@ mkShell {
     # Project runtime dependencies
     git
     nix
+    nix-eval-jobs
 
     # Optional tools
     delta # for nicer diff display

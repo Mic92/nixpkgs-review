@@ -304,10 +304,16 @@ def common_flags() -> list[CommonFlag]:
             help="Extra nixpkgs config to pass to `import <nixpkgs>`",
         ),
         CommonFlag(
-            "--num-parallel-evals",
+            "--num-eval-workers",
             type=int,
             default=1,
-            help="Number of parallel `nix-env`/`nix eval` processes to run simultaneously (warning, can imply heavy RAM usage)",
+            help="Number of parallel `nix-eval-jobs` workers to run simultaneously (warning, can imply heavy RAM usage)",
+        ),
+        CommonFlag(
+            "--max-memory-size",
+            type=int,
+            default=4096,
+            help="Maximum `nix-eval-jobs` per worker memory size in megabyte (warning, workers can shortly exceed the limit)",
         ),
     ]
 

@@ -4,6 +4,7 @@
   buildPlatform,
   python3Packages,
   nixVersions,
+  nix-eval-jobs,
   git,
   bash,
   coreutils,
@@ -48,6 +49,7 @@ python3Packages.buildPythonApplication {
     python3Packages.pytest-xdist
 
     nixVersions.stable
+    nix-eval-jobs
     git
   ]
   ++ lib.optional withSandboxSupport bubblewrap
@@ -69,6 +71,7 @@ python3Packages.buildPythonApplication {
     let
       binPath = [
         nixVersions.stable
+        nix-eval-jobs
         git
       ]
       ++ lib.optional withSandboxSupport bubblewrap
