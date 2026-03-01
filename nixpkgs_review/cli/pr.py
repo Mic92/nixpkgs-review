@@ -94,7 +94,9 @@ def pr_command(args: argparse.Namespace) -> str:
 
     builddir = None
     with (
-        Buildenv(allow.aliases, args.extra_nixpkgs_config) as nixpkgs_config,
+        Buildenv(
+            allow_aliases=allow.aliases, extra_nixpkgs_config=args.extra_nixpkgs_config
+        ) as nixpkgs_config,
         ExitStack() as stack,
     ):
         review = None

@@ -100,6 +100,7 @@ def print_updates(changed_pkgs: list[Package], removed_pkgs: list[Package]) -> N
 class Review:
     def __init__(
         self,
+        *,
         builddir: Builddir,
         build_args: str,
         no_shell: bool,
@@ -118,7 +119,6 @@ class Review:
         skip_packages: set[str] | None = None,
         skip_packages_regex: list[Pattern[str]] | None = None,
         checkout: CheckoutOption = CheckoutOption.MERGE,
-        *,
         sandbox: bool = False,
         num_eval_workers: int = 1,
         max_memory_size: int = 4096,

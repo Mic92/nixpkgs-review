@@ -45,8 +45,6 @@ lint.ignore = [
 
   # Trailing comma missing
   "COM812",
-  # Boolean-typed positional argument in function definition
-  "FBT001",
   # Logging statement uses f-string
   "G004",
   # disabled on ruff's recommendation as causes problems with the formatter

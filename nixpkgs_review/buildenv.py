@@ -23,7 +23,7 @@ def find_nixpkgs_root() -> Path | None:
 
 
 class Buildenv:
-    def __init__(self, allow_aliases: bool, extra_nixpkgs_config: str) -> None:
+    def __init__(self, *, allow_aliases: bool, extra_nixpkgs_config: str) -> None:
         if not (
             extra_nixpkgs_config.startswith("{") and extra_nixpkgs_config.endswith("}")
         ):
