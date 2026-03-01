@@ -112,9 +112,10 @@ def nix_shell(
     attrs_per_system: dict[System, list[str]],
     config: ShellConfig,
 ) -> None:
-    nix_shell_bin = shutil.which(config.build_graph + "-shell")
+    bin_name = f"{config.build_graph}-shell"
+    nix_shell_bin = shutil.which(bin_name)
     if not nix_shell_bin:
-        msg = f"{config.build_graph} not found in PATH"
+        msg = f"{bin_name} not found in PATH"
         raise RuntimeError(msg)
 
     shell_file_args = build_shell_file_args(
