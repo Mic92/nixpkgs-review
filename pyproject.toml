@@ -45,8 +45,6 @@ lint.ignore = [
 
   # Trailing comma missing
   "COM812",
-  # Unnecessary `dict` call (rewrite as a literal)
-  "C408",
   # Found commented-out code
   "ERA001",
   # Boolean-typed positional argument in function definition

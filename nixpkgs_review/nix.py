@@ -317,7 +317,7 @@ def multi_system_eval(
             raise NixpkgsReviewError(msg)
 
         systems_packages: dict[System, NixEvalResult] = {
-            system: list() for system in attr_names_per_system
+            system: [] for system in attr_names_per_system
         }
         for line in nix_eval.stdout.splitlines():
             raw_result: dict[str, object] = json.loads(line)
