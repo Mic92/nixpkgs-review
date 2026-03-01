@@ -9,7 +9,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 from textwrap import dedent
-from typing import IO, TYPE_CHECKING, Any, Required, TypedDict, cast, override
+from typing import IO, TYPE_CHECKING, Any, Literal, Required, TypedDict, cast, override
 
 from . import http_requests
 from .errors import ArtifactExpiredError
@@ -42,6 +42,7 @@ class GitHubPullRequest(TypedDict):
     user: Required[GitHubUser]
     head: Required[GitHubRef]
     base: Required[GitHubRef]
+    node_id: Required[str]
 
 
 class GitHubWorkflowRun(TypedDict):
@@ -158,10 +159,39 @@ class GithubClient:
             else:
                 raise
 
-    def merge_pr(self, pr: int) -> JSONType:
-        "Merge a PR. Requires maintainer access to NixPkgs"
+    def is_nixpkgs_committer(self) -> bool:
+        resp = self.get("/repos/NixOS/nixpkgs")
+        if not isinstance(resp, dict):
+            msg = f"Expected response to be a dict, got {type(resp)}"
+            raise TypeError(msg)
+        perms = resp["permissions"]
+        if not isinstance(perms, dict):
+            msg = f"expected response['permissions'] to be a dict, got {type(perms)}"
+            raise TypeError(msg)
+        if "push" not in perms:
+            msg = f"expected 'push' key in permissions, got keys: {perms.keys()}"
+            raise KeyError(msg)
+        perms = cast("dict[Literal['push'], object]", perms)
+        if not isinstance(perms["push"], bool):
+            msg = f"expected 'push' permission to be a bool, got {type(perms['push'])}"
+            raise TypeError(msg)
+        return perms["push"]
+
+    def merge_pr(self, pr: int, expected_head_sha: str | None = None) -> JSONType:
+        "Merge a PR. Requires maintainer access to Nixpkgs"
         print(f"Merging {pr_url(pr)}")
-        return self.put(f"/repos/NixOS/nixpkgs/pulls/{pr}/merge")
+        node_id = self.pull_request(pr)["node_id"]
+        q = dedent(f"""
+        mutation EnqueuePR {{
+            enablePullRequestAutoMerge(input: {{
+                pullRequestId: "{node_id}",
+                {f'expectedHeadOid: "{expected_head_sha}"' if expected_head_sha else ""}
+            }}) {{
+                clientMutationId
+            }}
+        }}
+        """)
+        return self.graphql(q)
 
     def graphql(self, query: str) -> dict[str, Any]:
         """Execute a GraphQL query and return the data portion of the response."""
