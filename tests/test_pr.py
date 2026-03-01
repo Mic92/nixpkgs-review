@@ -25,7 +25,7 @@ def create_mock_pr_response(
     body: str = "This is a test PR",
     base_rev: str = "0000000000000000000000000000000000000000",
     head_rev: str = "0000000000000000000000000000000000000000",
-    merge_rev: str = "0000000000000000000000000000000000000000",
+    merge_rev: str | None = "0000000000000000000000000000000000000000",
 ) -> dict[str, Any]:
     """Create a mock GitHub PR response."""
     return {
@@ -201,6 +201,32 @@ def test_pr_local_eval_without_nom(
         helpers.assert_built(path, "pkg1")
         captured = capfd.readouterr()
         assert "$ nix build" in captured.out
+
+
+@patch("nixpkgs_review.http_requests.urlopen")
+def test_pr_local_eval_without_merge_commit_sha(
+    mock_urlopen: MagicMock, helpers: Helpers
+) -> None:
+    with helpers.nixpkgs() as nixpkgs:
+        base, head, _merge = setup_repo(nixpkgs)
+        setup_pr_mocks(
+            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=None
+        )
+
+        path = main(
+            "nixpkgs-review",
+            [
+                "pr",
+                "--remote",
+                str(nixpkgs.remote),
+                "--eval",
+                "local",
+                "--run",
+                "exit 0",
+                "1",
+            ],
+        )
+        helpers.assert_built(path, "pkg1")
 
 
 @pytest.mark.skipif(not shutil.which("bwrap"), reason="`bwrap` not found in PATH")

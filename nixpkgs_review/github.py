@@ -38,7 +38,7 @@ class GitHubPullRequest(TypedDict):
     body: str | None
     draft: bool
     diff_url: Required[str]
-    merge_commit_sha: Required[str]
+    merge_commit_sha: str | None
     user: Required[GitHubUser]
     head: Required[GitHubRef]
     base: Required[GitHubRef]
