@@ -326,8 +326,8 @@ def multi_system_eval(
                 raise TypeError(msg)
             # Skip error entries from nix-eval-jobs (e.g. system-level
             # evaluation failures) which lack per-package attrPath.
+            # nix-eval-jobs already prints these errors to stderr.
             if "error" in raw_result:
-                warn(f"nix-eval-jobs: {raw_result['error']}")
                 continue
             eval_result: NixEvalProps = raw_result  # type: ignore[assignment]
             system = eval_result["attrPath"][0]
