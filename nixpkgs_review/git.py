@@ -10,13 +10,13 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def run(
+def run(  # noqa: PLR0913
     command: list[str],
+    *,
     cwd: Path | str | None = None,
     stdin: str | None = None,
     stdout: int | None = None,
     stderr: int | None = None,
-    *,
     quiet: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Run a git command with nixpkgs-review identity."""

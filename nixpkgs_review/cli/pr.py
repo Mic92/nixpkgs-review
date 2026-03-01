@@ -9,7 +9,15 @@ from nixpkgs_review.allow import AllowedFeatures
 from nixpkgs_review.builddir import Builddir
 from nixpkgs_review.buildenv import Buildenv
 from nixpkgs_review.errors import NixpkgsReviewError
-from nixpkgs_review.review import CheckoutOption, Review
+from nixpkgs_review.review import (
+    CheckoutOption,
+    Review,
+    ReviewAction,
+    ReviewConfig,
+    ShellOptions,
+    build_config_from_args,
+    package_filter_from_args,
+)
 from nixpkgs_review.utils import System, die, warn
 
 from .utils import ensure_github_token
@@ -105,30 +113,29 @@ def pr_command(args: argparse.Namespace) -> str:
             try:
                 review = Review(
                     builddir=builddir,
-                    build_args=args.build_args,
-                    no_shell=args.no_shell,
-                    run=args.run,
-                    remote=args.remote,
-                    api_token=args.token,
-                    eval_type=args.eval,
-                    only_packages=set(args.package),
-                    additional_packages=set(args.additional_package),
-                    package_regexes=args.package_regex,
-                    skip_packages=set(args.skip_package),
-                    skip_packages_regex=args.skip_package_regex,
-                    systems=args.systems.split(" "),
-                    allow=allow,
-                    checkout=checkout_option,
-                    sandbox=args.sandbox,
-                    build_graph=args.build_graph,
-                    nixpkgs_config=nixpkgs_config,
-                    extra_nixpkgs_config=args.extra_nixpkgs_config,
-                    num_eval_workers=args.num_eval_workers,
-                    max_memory_size=args.max_memory_size,
-                    show_header=not args.no_headers,
-                    show_logs=not args.no_logs,
-                    show_pr_info=not args.no_pr_info,
-                    pr_object=pr_objects.get(pr),
+                    package_filter=package_filter_from_args(args),
+                    build_config=build_config_from_args(
+                        args, allow, builddir.nix_path, nixpkgs_config
+                    ),
+                    review_config=ReviewConfig(
+                        remote=args.remote,
+                        extra_nixpkgs_config=args.extra_nixpkgs_config,
+                        systems=args.systems.split(" "),
+                        api_token=args.token,
+                        eval_type=args.eval,
+                        checkout=checkout_option,
+                        pr_object=pr_objects.get(pr),
+                        show_header=not args.no_headers,
+                        show_logs=not args.no_logs,
+                        show_pr_info=not args.no_pr_info,
+                    ),
+                    shell_options=ShellOptions(
+                        no_shell=args.no_shell,
+                        run=args.run,
+                        sandbox=args.sandbox,
+                        build_args=args.build_args,
+                        build_graph=args.build_graph,
+                    ),
                 )
                 contexts.append(
                     (pr, builddir.path, review.build_pr(pr), review.head_commit)
@@ -137,17 +144,14 @@ def pr_command(args: argparse.Namespace) -> str:
                 warn(f"https://github.com/NixOS/nixpkgs/pull/{pr} failed to build: {e}")
         assert review is not None
 
+        action = ReviewAction(
+            post_result=args.post_result,
+            print_result=args.print_result,
+            approve_pr=args.approve_pr,
+            merge_pr=args.merge_pr,
+        )
         all_succeeded = all(
-            review.start_review(
-                commit,
-                attrs,
-                path,
-                pr,
-                post_result=args.post_result,
-                print_result=args.print_result,
-                approve_pr=args.approve_pr,
-                merge_pr=args.merge_pr,
-            )
+            review.start_review(commit, attrs, path, pr, action=action)
             for pr, path, attrs, commit in contexts
         )
 

@@ -56,13 +56,6 @@ lint.ignore = [
   # Starting a process with a partial executable path
   "S607",
 
-  # Too many statements
-  "PLR0915",
-  # Too many arguments in function definition
-  "PLR0913",
-  "PLR0912", # Too many branches
-  "PLR0911", # Too many return statements
-
   "E501",    # line too long
   "T201",    # `print` found
   "PLR2004", # Magic value used in comparison

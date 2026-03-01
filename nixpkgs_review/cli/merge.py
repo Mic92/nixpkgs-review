@@ -32,13 +32,12 @@ def merge_command(args: argparse.Namespace) -> None:
             f"expected {path}'s 'commit' field to be a str, "
             f"got {type(expected_head_sha)}"
         )
-    expected_head_sha: str
 
     if github_client.is_nixpkgs_committer():
         github_client.merge_pr(pr_number, expected_head_sha)
-    elif any(
-        label["name"] == "2.status: merge-bot eligible"
-        for label in github_client.labels(pr_number)
+    elif isinstance(labels := github_client.labels(pr_number), list) and any(
+        isinstance(label, dict) and label.get("name") == "2.status: merge-bot eligible"
+        for label in labels
     ):
         if github_client.pull_request(pr_number)["head"]["sha"] == expected_head_sha:
             github_client.comment_issue(pr_number, "@NixOS/nixpkgs-merge-bot merge")
