@@ -18,6 +18,18 @@ if TYPE_CHECKING:
     from .allow import AllowedFeatures
 
 
+@dataclass(frozen=True)
+class BuildConfig:
+    """Configuration shared across nix build and eval operations."""
+
+    allow: AllowedFeatures
+    nix_path: str
+    local_system: str
+    nixpkgs_config: Path
+    num_eval_workers: int = 1
+    max_memory_size: int = 4096
+
+
 @dataclass
 class Attr:
     name: str
@@ -82,52 +94,55 @@ def _nix_common_flags(allow: AllowedFeatures, nix_path: str) -> list[str]:
     ]
 
 
+@dataclass(frozen=True)
+class ShellConfig:
+    """Configuration for launching a nix-shell."""
+
+    cache_directory: Path
+    local_system: str
+    build_graph: str
+    nix_path: str
+    nixpkgs_config: Path
+    nixpkgs_overlay: Path
+    run: str | None = None
+    sandbox: bool = False
+
+
 def nix_shell(
     attrs_per_system: dict[System, list[str]],
-    cache_directory: Path,
-    local_system: str,
-    build_graph: str,
-    nix_path: str,
-    nixpkgs_config: Path,
-    nixpkgs_overlay: Path,
-    run: str | None = None,
-    *,
-    sandbox: bool = False,
+    config: ShellConfig,
 ) -> None:
-    nix_shell = shutil.which(build_graph + "-shell")
-    if not nix_shell:
-        msg = f"{build_graph} not found in PATH"
+    bin_name = f"{config.build_graph}-shell"
+    nix_shell_bin = shutil.which(bin_name)
+    if not nix_shell_bin:
+        msg = f"{bin_name} not found in PATH"
         raise RuntimeError(msg)
 
     shell_file_args = build_shell_file_args(
-        cache_dir=cache_directory,
+        cache_dir=config.cache_directory,
         attrs_per_system=attrs_per_system,
-        local_system=local_system,
-        nixpkgs_config=nixpkgs_config,
+        local_system=config.local_system,
+        nixpkgs_config=config.nixpkgs_config,
     )
-    if sandbox:
-        args = _nix_shell_sandbox(
-            nix_shell,
-            shell_file_args,
-            cache_directory,
-            nix_path,
-            nixpkgs_config,
-            nixpkgs_overlay,
-        )
+    if config.sandbox:
+        args = _nix_shell_sandbox(nix_shell_bin, shell_file_args, config)
     else:
-        args = [nix_shell, *shell_file_args, "--nix-path", nix_path, REVIEW_SHELL]
-    if run:
-        args.extend(["--run", run])
-    sh(args, cwd=cache_directory)
+        args = [
+            nix_shell_bin,
+            *shell_file_args,
+            "--nix-path",
+            config.nix_path,
+            REVIEW_SHELL,
+        ]
+    if config.run:
+        args.extend(["--run", config.run])
+    sh(args, cwd=config.cache_directory)
 
 
 def _nix_shell_sandbox(
     nix_shell: str,
     shell_file_args: list[str],
-    cache_directory: Path,
-    nix_path: str,
-    nixpkgs_config: Path,
-    nixpkgs_overlay: Path,
+    config: ShellConfig,
 ) -> list[str]:
     if platform != "linux":
         msg = "Sandbox mode is only available on Linux platforms."
@@ -165,7 +180,7 @@ def _nix_shell_sandbox(
 
         return [*dir_cmd, "--tmpfs", str(path)]
 
-    nixpkgs_review_pr = cache_directory
+    nixpkgs_review_pr = config.cache_directory
     home = Path.home()
     current_dir = Path().absolute()
     xdg_config_home = Path(os.environ.get("XDG_CONFIG_HOME", home.joinpath(".config")))
@@ -186,8 +201,8 @@ def _nix_shell_sandbox(
         *bind("/dev", dev=True),
         *tmpfs("/tmp"),  # noqa: S108
         # Required for evaluation
-        *bind(nixpkgs_config),
-        *bind(nixpkgs_overlay),
+        *bind(config.nixpkgs_config),
+        *bind(config.nixpkgs_overlay),
         # /run (also cover sockets for wayland/pulseaudio and pipewires)
         *bind(Path("/run/user").joinpath(uid), dev=True, try_=True),
         # HOME
@@ -209,7 +224,7 @@ def _nix_shell_sandbox(
         nix_shell,
         *shell_file_args,
         "--nix-path",
-        nix_path,
+        config.nix_path,
         REVIEW_SHELL,
     ]
 
@@ -279,10 +294,7 @@ def _nix_eval_filter(packages: NixEvalResult) -> list[Attr]:
 
 def multi_system_eval(
     attr_names_per_system: dict[System, set[str]],
-    allow: AllowedFeatures,
-    nix_path: str,
-    num_eval_workers: int,
-    max_memory_size: int,
+    build_config: BuildConfig,
 ) -> dict[System, list[Attr]]:
     attr_json = NamedTemporaryFile(mode="w+", delete=False)  # noqa: SIM115
     delete = True
@@ -296,11 +308,11 @@ def multi_system_eval(
         cmd = [
             "nix-eval-jobs",
             "--workers",
-            str(num_eval_workers),
+            str(build_config.num_eval_workers),
             "--max-memory-size",
-            str(max_memory_size),
+            str(build_config.max_memory_size),
             "--no-instantiate",
-            *_nix_common_flags(allow, nix_path),
+            *_nix_common_flags(build_config.allow, build_config.nix_path),
             "--expr",
             f"(import {eval_script} {{ attr-json = {attr_json.name}; }})",
             "--apply",
@@ -317,7 +329,7 @@ def multi_system_eval(
             raise NixpkgsReviewError(msg)
 
         systems_packages: dict[System, NixEvalResult] = {
-            system: list() for system in attr_names_per_system
+            system: [] for system in attr_names_per_system
         }
         for line in nix_eval.stdout.splitlines():
             raw_result: dict[str, object] = json.loads(line)
@@ -347,13 +359,8 @@ def nix_build(
     attr_names_per_system: dict[System, set[str]],
     args: str,
     cache_directory: Path,
-    local_system: System,
-    allow: AllowedFeatures,
+    build_config: BuildConfig,
     build_graph: str,
-    nix_path: str,
-    nixpkgs_config: Path,
-    num_eval_workers: int,
-    max_memory_size: int,
 ) -> dict[System, list[Attr]]:
     if not attr_names_per_system:
         info("Nothing to be built.")
@@ -361,10 +368,7 @@ def nix_build(
 
     attrs_per_system: dict[System, list[Attr]] = multi_system_eval(
         attr_names_per_system,
-        allow,
-        nix_path,
-        num_eval_workers=num_eval_workers,
-        max_memory_size=max_memory_size,
+        build_config,
     )
 
     filtered_per_system = {
@@ -380,7 +384,7 @@ def nix_build(
         "build",
         "--file",
         REVIEW_SHELL,
-        *_nix_common_flags(allow, nix_path),
+        *_nix_common_flags(build_config.allow, build_config.nix_path),
         "--no-link",
         "--keep-going",
     ]
@@ -396,14 +400,14 @@ def nix_build(
     shell_file_args = build_shell_file_args(
         cache_dir=cache_directory,
         attrs_per_system=filtered_per_system,
-        local_system=local_system,
-        nixpkgs_config=nixpkgs_config,
+        local_system=build_config.local_system,
+        nixpkgs_config=build_config.nixpkgs_config,
     )
     _write_review_shell_drv(
         cache_directory=cache_directory,
         shell_file_args=shell_file_args,
-        allow=allow,
-        nix_path=nix_path,
+        allow=build_config.allow,
+        nix_path=build_config.nix_path,
     )
 
     command += shell_file_args + shlex.split(args)

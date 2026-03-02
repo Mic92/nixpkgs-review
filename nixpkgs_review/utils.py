@@ -6,11 +6,13 @@ import shlex
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, NoReturn
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from re import Pattern
 
 HAS_TTY = sys.stdout.isatty()
 ROOT = Path(__file__).resolve().parent
@@ -51,14 +53,25 @@ def to_link(uri: str, text: str) -> str:
     return text
 
 
-def sh(
+@dataclass(frozen=True)
+class PackageFilter:
+    """Filter criteria for selecting/excluding packages."""
+
+    only_packages: set[str] = field(default_factory=set)
+    additional_packages: set[str] = field(default_factory=set)
+    package_regexes: list[Pattern[str]] = field(default_factory=list)
+    skip_packages: set[str] = field(default_factory=set)
+    skip_packages_regex: list[Pattern[str]] = field(default_factory=list)
+
+
+def sh(  # noqa: PLR0913
     command: list[str],
+    *,
     cwd: Path | str | None = None,
     env: dict[str, str] | None = None,
     stdin: str | None = None,
     stdout: int | None = None,
     stderr: int | None = None,
-    *,
     quiet: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     if not quiet:

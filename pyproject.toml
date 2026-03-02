@@ -45,12 +45,6 @@ lint.ignore = [
 
   # Trailing comma missing
   "COM812",
-  # Unnecessary `dict` call (rewrite as a literal)
-  "C408",
-  # Found commented-out code
-  "ERA001",
-  # Boolean-typed positional argument in function definition
-  "FBT001",
   # Logging statement uses f-string
   "G004",
   # disabled on ruff's recommendation as causes problems with the formatter
@@ -61,13 +55,6 @@ lint.ignore = [
   "S603",
   # Starting a process with a partial executable path
   "S607",
-
-  # Too many statements
-  "PLR0915",
-  # Too many arguments in function definition
-  "PLR0913",
-  "PLR0912", # Too many branches
-  "PLR0911", # Too many return statements
 
   "E501",    # line too long
   "T201",    # `print` found

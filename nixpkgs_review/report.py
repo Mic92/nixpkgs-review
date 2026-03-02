@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import functools
 import html
 import json
 import os
@@ -8,10 +7,19 @@ import re
 import socket
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
-from re import Pattern
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
-from .utils import System, info, link, skipped, system_order_key, to_link, warn
+from .utils import (
+    PackageFilter,
+    System,
+    info,
+    link,
+    skipped,
+    system_order_key,
+    to_link,
+    warn,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -31,27 +39,32 @@ def get_log_dir(root: Path) -> Path:
     return root / "logs"
 
 
-def print_number(
+def _package_printer(
     logs_dir: Path,
     system: str,
-    packages: list[Attr],
-    msg: str,
-    what: str = "package",
-    log: Callable[[str], None] = warn,
-) -> None:
-    if len(packages) == 0:
-        return
-    plural = "s" if len(packages) > 1 else ""
-    log(f"{len(packages)} {what}{plural} {msg}:")
-    log(
-        " ".join(
-            [
+) -> Callable[..., None]:
+    """Return a function that prints a numbered list of packages with log links."""
+
+    def print_number(
+        packages: list[Attr],
+        msg: str,
+        *,
+        what: str = "package",
+        log: Callable[[str], None] = warn,
+    ) -> None:
+        if len(packages) == 0:
+            return
+        plural = "s" if len(packages) > 1 else ""
+        log(f"{len(packages)} {what}{plural} {msg}:")
+        log(
+            " ".join(
                 to_link(to_file_uri(logs_dir / get_log_filename(pkg, system)), pkg.name)
                 for pkg in packages
-            ]
+            )
         )
-    )
-    log("")
+        log("")
+
+    return print_number
 
 
 def html_pkgs_section(
@@ -298,37 +311,38 @@ def to_file_uri(path: Path) -> str:
     return f"file://{socket.gethostname()}{path.absolute()}"
 
 
+@dataclass(frozen=True)
+class ReportOptions:
+    """Options controlling report generation."""
+
+    extra_nixpkgs_config: str = "{ }"
+    checkout: Literal["merge", "commit"] = "merge"
+    show_header: bool = True
+    show_logs: bool = False
+    max_workers: int | None = 1
+
+
 class Report:
     def __init__(
         self,
         commit: str | None,
         attrs_per_system: dict[str, list[Attr]],
-        extra_nixpkgs_config: str,
-        only_packages: set[str],
-        additional_packages: set[str],
-        package_regex: list[Pattern[str]],
-        skip_packages: set[str],
-        skip_packages_regex: list[Pattern[str]],
-        *,
-        show_header: bool = True,
-        show_logs: bool = False,
-        max_workers: int | None = 1,
-        checkout: Literal["merge", "commit"] = "merge",
+        package_filter: PackageFilter,
+        options: ReportOptions | None = None,
     ) -> None:
+        options = options or ReportOptions()
         self.commit = commit
-        self.show_header = show_header
-        self.show_logs = show_logs
-        self.max_workers = max_workers
+        self.show_header = options.show_header
+        self.show_logs = options.show_logs
+        self.max_workers = options.max_workers
         self.attrs = attrs_per_system
-        self.checkout = checkout
-        self.only_packages = only_packages
-        self.additional_packages = additional_packages
-        self.package_regex = [r.pattern for r in package_regex]
-        self.skip_packages = skip_packages
-        self.skip_packages_regex = [r.pattern for r in skip_packages_regex]
+        self.checkout = options.checkout
+        self.package_filter = package_filter
 
         self.extra_nixpkgs_config = (
-            extra_nixpkgs_config if extra_nixpkgs_config != "{ }" else None
+            options.extra_nixpkgs_config
+            if options.extra_nixpkgs_config != "{ }"
+            else None
         )
 
         reports: dict[System, SystemReport] = {}
@@ -360,11 +374,15 @@ class Report:
                 "commit": self.commit,
                 "checkout": self.checkout,
                 "extra-nixpkgs-config": self.extra_nixpkgs_config,
-                "only_packages": list(self.only_packages),
-                "additional_packages": list(self.additional_packages),
-                "package_regex": list(self.package_regex),
-                "skip_packages": list(self.skip_packages),
-                "skip_packages_regex": list(self.skip_packages_regex),
+                "only_packages": list(self.package_filter.only_packages),
+                "additional_packages": list(self.package_filter.additional_packages),
+                "package_regex": [
+                    r.pattern for r in self.package_filter.package_regexes
+                ],
+                "skip_packages": list(self.package_filter.skip_packages),
+                "skip_packages_regex": [
+                    r.pattern for r in self.package_filter.skip_packages_regex
+                ],
                 "result": {
                     system: report.serialize()
                     for system, report in self.system_reports.items()
@@ -384,11 +402,13 @@ class Report:
             cmd += f" --checkout {self.checkout}"
 
         options = {
-            "package": self.only_packages,
-            "additional-package": self.additional_packages,
-            "package-regex": self.package_regex,
-            "skip-package": self.skip_packages,
-            "skip-package-regex": self.skip_packages_regex,
+            "package": self.package_filter.only_packages,
+            "additional-package": self.package_filter.additional_packages,
+            "package-regex": [r.pattern for r in self.package_filter.package_regexes],
+            "skip-package": self.package_filter.skip_packages,
+            "skip-package-regex": [
+                r.pattern for r in self.package_filter.skip_packages_regex
+            ],
         }
         for option_name, option_value in options.items():
             if option_value:
@@ -459,7 +479,7 @@ class Report:
         logs_dir = get_log_dir(root)
         for system, report in self.system_reports.items():
             info(f"--------- Report for '{system}' ---------")
-            p = functools.partial(print_number, logs_dir, system)
+            p = _package_printer(logs_dir, system)
             p(report.broken, "marked as broken and skipped", log=skipped)
             p(
                 report.non_existent,

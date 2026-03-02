@@ -19,13 +19,15 @@ if TYPE_CHECKING:
     from .conftest import Helpers, Nixpkgs
 
 
+_ZERO_REV = "0000000000000000000000000000000000000000"
+
+
 def create_mock_pr_response(
     pr_number: int = 1,
-    title: str = "Example PR",
-    body: str = "This is a test PR",
-    base_rev: str = "0000000000000000000000000000000000000000",
-    head_rev: str = "0000000000000000000000000000000000000000",
-    merge_rev: str | None = "0000000000000000000000000000000000000000",
+    *,
+    base_rev: str = _ZERO_REV,
+    head_rev: str = _ZERO_REV,
+    merge_rev: str | None = _ZERO_REV,
 ) -> dict[str, Any]:
     """Create a mock GitHub PR response."""
     return {
@@ -37,11 +39,11 @@ def create_mock_pr_response(
         },
         "base": {"ref": "master", "sha": base_rev, "label": "NixOS:master"},
         "merge_commit_sha": merge_rev,
-        "title": title,
+        "title": "Example PR",
         "html_url": f"https://github.com/NixOS/nixpkgs/pull/{pr_number}",
         "user": {"login": "test-user"},
         "state": "open",
-        "body": body,
+        "body": "This is a test PR",
         "diff_url": f"https://github.com/NixOS/nixpkgs/pull/{pr_number}.diff",
         "draft": False,
     }
@@ -60,16 +62,10 @@ index 0000000..1910281
 
 def setup_pr_mocks(
     mock_urlopen: MagicMock,
-    pr_number: int = 1,
-    base_rev: str = "0000000000000000000000000000000000000000",
-    head_rev: str = "0000000000000000000000000000000000000000",
-    merge_rev: str = "0000000000000000000000000000000000000000",
+    pr_response: dict[str, Any],
     additional_mocks: list[Any] | None = None,
 ) -> None:
     """Set up standard mock responses for PR tests."""
-    pr_response = create_mock_pr_response(
-        pr_number, base_rev=base_rev, head_rev=head_rev, merge_rev=merge_rev
-    )
     diff_content = create_mock_diff_content()
 
     mocks = [
@@ -119,7 +115,8 @@ def test_pr_local_eval(
     with helpers.nixpkgs() as nixpkgs:
         base, head, merge = setup_repo(nixpkgs)
         setup_pr_mocks(
-            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=merge
+            mock_urlopen,
+            create_mock_pr_response(base_rev=base, head_rev=head, merge_rev=merge),
         )
 
         path = main(
@@ -151,7 +148,8 @@ def test_pr_local_eval_missing_nom(
     with helpers.nixpkgs() as nixpkgs:
         base, head, merge = setup_repo(nixpkgs)
         setup_pr_mocks(
-            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=merge
+            mock_urlopen,
+            create_mock_pr_response(base_rev=base, head_rev=head, merge_rev=merge),
         )
 
         path = main(
@@ -180,7 +178,8 @@ def test_pr_local_eval_without_nom(
     with helpers.nixpkgs() as nixpkgs:
         base, head, merge = setup_repo(nixpkgs)
         setup_pr_mocks(
-            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=merge
+            mock_urlopen,
+            create_mock_pr_response(base_rev=base, head_rev=head, merge_rev=merge),
         )
 
         path = main(
@@ -210,7 +209,8 @@ def test_pr_local_eval_without_merge_commit_sha(
     with helpers.nixpkgs() as nixpkgs:
         base, head, _merge = setup_repo(nixpkgs)
         setup_pr_mocks(
-            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=None
+            mock_urlopen,
+            create_mock_pr_response(base_rev=base, head_rev=head, merge_rev=None),
         )
 
         path = main(
@@ -235,7 +235,8 @@ def test_pr_local_eval_with_sandbox(mock_urlopen: MagicMock, helpers: Helpers) -
     with helpers.nixpkgs() as nixpkgs:
         base, head, merge = setup_repo(nixpkgs)
         setup_pr_mocks(
-            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=merge
+            mock_urlopen,
+            create_mock_pr_response(base_rev=base, head_rev=head, merge_rev=merge),
         )
 
         path = main(
@@ -396,7 +397,8 @@ def test_pr_checkout_base_local_eval_dies(
     with helpers.nixpkgs() as nixpkgs:
         base, head, merge = setup_repo(nixpkgs)
         setup_pr_mocks(
-            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=merge
+            mock_urlopen,
+            create_mock_pr_response(base_rev=base, head_rev=head, merge_rev=merge),
         )
 
         with pytest.raises(SystemExit, match="1"):
@@ -426,7 +428,8 @@ def test_pr_checkout_base_with_packages(
     with helpers.nixpkgs() as nixpkgs:
         base, head, merge = setup_repo(nixpkgs)
         setup_pr_mocks(
-            mock_urlopen, pr_number=1, base_rev=base, head_rev=head, merge_rev=merge
+            mock_urlopen,
+            create_mock_pr_response(base_rev=base, head_rev=head, merge_rev=merge),
         )
 
         path = main(

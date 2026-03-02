@@ -20,13 +20,22 @@ from . import git, http_requests
 from .builddir import Builddir
 from .errors import NixpkgsReviewError
 from .github import GithubClient, GitHubPullRequest
-from .nix import Attr, multi_system_eval, nix_build, nix_shell
-from .report import Report
-from .utils import System, current_system, die, info, sh, system_order_key, warn
+from .nix import Attr, BuildConfig, ShellConfig, multi_system_eval, nix_build, nix_shell
+from .report import Report, ReportOptions
+from .utils import (
+    PackageFilter,
+    System,
+    current_system,
+    die,
+    info,
+    sh,
+    system_order_key,
+    warn,
+)
 
 if TYPE_CHECKING:
     import argparse
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
     from re import Pattern
 
     from .allow import AllowedFeatures
@@ -40,6 +49,16 @@ PLATFORMS_X64: set[str] = {"x86_64-darwin", "x86_64-linux"}
 PLATFORMS: set[str] = PLATFORMS_LINUX.union(PLATFORMS_DARWIN)
 
 
+@dataclass(frozen=True)
+class ReviewAction:
+    """Flags controlling what to do after a review completes."""
+
+    post_result: bool = False
+    print_result: bool = False
+    approve_pr: bool = False
+    merge_pr: bool = False
+
+
 class CheckoutOption(Enum):
     # Merge pull request into the target branch
     MERGE = 1
@@ -50,6 +69,22 @@ class CheckoutOption(Enum):
     COMMIT = 2
     # Checkout the base (target) branch, for reference
     BASE = 3
+
+
+@dataclass(frozen=True)
+class ReviewConfig:
+    """What to review and how: scope, eval strategy, checkout, and display."""
+
+    remote: str
+    extra_nixpkgs_config: str
+    systems: list[System]
+    eval_type: str = "auto"
+    api_token: str | None = None
+    checkout: CheckoutOption = CheckoutOption.MERGE
+    pr_object: dict[str, Any] | None = None
+    show_header: bool = True
+    show_logs: bool = False
+    show_pr_info: bool = True
 
 
 def print_packages(
@@ -97,136 +132,98 @@ def print_updates(changed_pkgs: list[Package], removed_pkgs: list[Package]) -> N
     print_packages(removed, "removed")
 
 
+@dataclass(frozen=True)
+class ShellOptions:
+    """Options controlling the interactive shell after building."""
+
+    no_shell: bool = False
+    run: str | None = None
+    sandbox: bool = False
+    build_args: str = ""
+    build_graph: str = "nix"
+
+
 class Review:
     def __init__(
         self,
-        builddir: Builddir,
-        build_args: str,
-        no_shell: bool,
-        run: str,
-        remote: str,
-        systems: list[System],
-        allow: AllowedFeatures,
-        build_graph: str,
-        nixpkgs_config: Path,
-        extra_nixpkgs_config: str,
-        eval_type: str,
-        api_token: str | None = None,
-        only_packages: set[str] | None = None,
-        additional_packages: set[str] | None = None,
-        package_regexes: list[Pattern[str]] | None = None,
-        skip_packages: set[str] | None = None,
-        skip_packages_regex: list[Pattern[str]] | None = None,
-        checkout: CheckoutOption = CheckoutOption.MERGE,
         *,
-        sandbox: bool = False,
-        num_eval_workers: int = 1,
-        max_memory_size: int = 4096,
-        show_header: bool = True,
-        show_logs: bool = False,
-        show_pr_info: bool = True,
-        pr_object: dict[str, Any] | None = None,
+        builddir: Builddir,
+        review_config: ReviewConfig,
+        build_config: BuildConfig,
+        shell_options: ShellOptions,
+        package_filter: PackageFilter | None = None,
     ) -> None:
         self.builddir = builddir
-        self.build_args = build_args
-        self.no_shell = no_shell
-        self.run = run
-        self.remote = remote
-        self.api_token = api_token
-        self.github_client = GithubClient(api_token)
-        self.eval_type = eval_type
-        self.checkout = checkout
-        self.only_packages = only_packages or set()
-        self.additional_packages = additional_packages or set()
-        self.package_regex = package_regexes or []
-        self.skip_packages = skip_packages or set()
-        self.skip_packages_regex = skip_packages_regex or []
-        self.local_system = current_system()
-        if not systems:
+        self.review_config = review_config
+        self.github_client = GithubClient(review_config.api_token)
+        self.package_filter = package_filter or PackageFilter()
+        if not review_config.systems:
             msg = "Systems is empty"
             raise NixpkgsReviewError(msg)
         self.systems = set(
             itertools.chain(
-                *[self._process_aliases_for_systems(s.lower()) for s in systems]
+                *(
+                    self._process_aliases_for_systems(s.lower())
+                    for s in review_config.systems
+                )
             )
         )
-        self.allow = allow
-        self.sandbox = sandbox
-        self.build_graph = build_graph
-        self.nixpkgs_config = nixpkgs_config
-        self.extra_nixpkgs_config = extra_nixpkgs_config
-        self.num_eval_workers = num_eval_workers
-        self.max_memory_size = max_memory_size
-        self.show_header = show_header
-        self.show_logs = show_logs
-        self.show_pr_info = show_pr_info
+        self.build_config = build_config
+        self.shell_options = shell_options
         self.head_commit: str | None = None
-        self.pr_object = pr_object
 
     @property
     def _use_github_eval(self) -> bool:
         # If the user explicitly asks for local eval, just do it
-        if self.eval_type == "local":
-            return False
-
-        if self.only_packages:
+        if self.review_config.eval_type == "local" or self.package_filter.only_packages:
             return False
 
         # Handle the GH_TOKEN eventually not being provided
-        if not self.api_token:
+        if not self.review_config.api_token:
             warn("No GitHub token provided via GITHUB_TOKEN variable.")
-            match self.eval_type:
-                case "auto":
-                    warn(
-                        "Falling back to local evaluation.\n"
-                        "Tip: Install the `gh` command line tool and run `gh auth login` to authenticate."
-                    )
-                    return False
-                case "github":
-                    sys.exit(1)
+            if self.review_config.eval_type == "github":
+                sys.exit(1)
+            # For "auto" mode, fall back to local evaluation
+            warn(
+                "Falling back to local evaluation.\n"
+                "Tip: Install the `gh` command line tool and run `gh auth login` to authenticate."
+            )
+            return False
 
         # GHA evaluation only evaluates nixpkgs with an empty config.
         # Its results might be incorrect when a non-default nixpkgs config is requested
-        normalized_config = self.extra_nixpkgs_config.replace(" ", "")
-
-        if normalized_config == "{}":
+        if self.review_config.extra_nixpkgs_config.replace(" ", "") == "{}":
             return True
 
         warn("Non-default --extra-nixpkgs-config provided.")
-        match self.eval_type:
-            # By default, fall back to local evaluation
-            case "auto":
-                warn("Falling back to local evaluation")
-                return False
+        if self.review_config.eval_type == "github":
+            warn(
+                "Forcing `github` evaluation -> Be warned that the evaluation results might not correspond to the provided nixpkgs config"
+            )
+            return True
 
-            # If the user explicitly requires GitHub eval, warn him, but proceed
-            case "github":
-                warn(
-                    "Forcing `github` evaluation -> Be warned that the evaluation results might not correspond to the provided nixpkgs config"
-                )
-                return True
+        # For "auto" mode, fall back to local evaluation
+        warn("Falling back to local evaluation")
+        return False
 
-            # This should never happen
-            case _:
-                die("Invalid eval_type")
-        return None
-
-    def _process_aliases_for_systems(self, system: str) -> set[str]:
-        match system:
-            case "current":
-                return {current_system()}
-            case "all":
-                return PLATFORMS
-            case "linux":
-                return PLATFORMS_LINUX
-            case "darwin" | "macos":
-                return PLATFORMS_DARWIN
-            case "x64" | "x86" | "x86_64" | "x86-64" | "x64_86" | "x64-86":
-                return PLATFORMS_X64
-            case "aarch64" | "arm64":
-                return PLATFORMS_AARCH64
-            case _:
-                return {system}
+    @staticmethod
+    def _process_aliases_for_systems(system: str) -> set[str]:
+        aliases: dict[str, set[str]] = {
+            "current": {current_system()},
+            "all": PLATFORMS,
+            "linux": PLATFORMS_LINUX,
+            "darwin": PLATFORMS_DARWIN,
+            "macos": PLATFORMS_DARWIN,
+            "x64": PLATFORMS_X64,
+            "x86": PLATFORMS_X64,
+            "x86_64": PLATFORMS_X64,
+            "x86-64": PLATFORMS_X64,
+            "x64_86": PLATFORMS_X64,
+            "x64-86": PLATFORMS_X64,
+            "aarch64": PLATFORMS_AARCH64,
+            "arm64": PLATFORMS_AARCH64,
+        }
+        return aliases.get(system, {system})
 
     def worktree_dir(self) -> str:
         return str(self.builddir.worktree_dir)
@@ -370,7 +367,7 @@ class Review:
         if head_commit is None:
             self.apply_unstaged(staged=staged)
         else:
-            match self.checkout:
+            match self.review_config.checkout:
                 case CheckoutOption.COMMIT:
                     self.git_checkout(head_commit)
                 case CheckoutOption.MERGE:
@@ -381,9 +378,11 @@ class Review:
                 case CheckoutOption.BASE:
                     self.git_checkout(base_commit)
 
-        changed_attrs = {system: set(self.only_packages) for system in self.systems}
+        changed_attrs = {
+            system: set(self.package_filter.only_packages) for system in self.systems
+        }
 
-        return self.build(changed_attrs, self.build_args)
+        return self.build(changed_attrs, self.shell_options.build_args)
 
     def build_commit(
         self,
@@ -399,7 +398,7 @@ class Review:
         self.git_worktree(base_commit)
         changed_attrs: dict[System, set[str]] = {}
 
-        if self.only_packages:
+        if self.package_filter.only_packages:
             return self._build_commit_packages(
                 base_commit, head_commit, merge_commit, staged=staged
             )
@@ -409,7 +408,7 @@ class Review:
         base_packages: dict[System, list[Package]] = list_packages(
             self.builddir.nix_path,
             self.systems,
-            self.allow,
+            self.build_config.allow,
         )
 
         if head_commit is None:
@@ -422,7 +421,7 @@ class Review:
         merged_packages: dict[System, list[Package]] = list_packages(
             self.builddir.nix_path,
             self.systems,
-            self.allow,
+            self.build_config.allow,
             check_meta=True,
         )
 
@@ -442,12 +441,12 @@ class Review:
 
             changed_attrs[system] = {p.attr_path for p in changed_pkgs}
 
-        if head_commit and self.checkout == CheckoutOption.COMMIT:
+        if head_commit and self.review_config.checkout == CheckoutOption.COMMIT:
             self.git_checkout(head_commit)
-        elif base_commit and self.checkout == CheckoutOption.BASE:
+        elif base_commit and self.review_config.checkout == CheckoutOption.BASE:
             self.git_checkout(base_commit)
 
-        return self.build(changed_attrs, self.build_args)
+        return self.build(changed_attrs, self.shell_options.build_args)
 
     def git_worktree(self, commit: str) -> None:
         # Prune stale worktree metadata in case the cache directory was
@@ -464,30 +463,19 @@ class Review:
     ) -> dict[System, list[Attr]]:
         packages_per_system = filter_packages_per_system(
             packages_per_system,
-            self.only_packages,
-            self.package_regex,
-            self.skip_packages,
-            self.skip_packages_regex,
-            self.allow,
-            self.builddir.nix_path,
-            self.num_eval_workers,
-            self.max_memory_size,
+            self.package_filter,
+            self.build_config,
         )
         packages_per_system = {
-            system: self.additional_packages | packages
+            system: self.package_filter.additional_packages | packages
             for system, packages in packages_per_system.items()
         }
         return nix_build(
             packages_per_system,
             args,
             self.builddir.path,
-            self.local_system,
-            self.allow,
-            self.build_graph,
-            self.builddir.nix_path,
-            self.nixpkgs_config,
-            self.num_eval_workers,
-            self.max_memory_size,
+            self.build_config,
+            self.shell_options.build_graph,
         )
 
     def _fetch_packages_from_github_eval(
@@ -524,7 +512,9 @@ class Review:
     ) -> tuple[str, str, str | None]:
         merge_commit_sha = pr.get("merge_commit_sha")
         if merge_commit_sha:
-            [merge_rev] = fetch_refs(self.remote, merge_commit_sha, shallow_depth=2)
+            [merge_rev] = fetch_refs(
+                self.review_config.remote, merge_commit_sha, shallow_depth=2
+            )
             base_rev = git.verify_commit_hash(f"{merge_rev}^1")
             head_rev = git.verify_commit_hash(f"{merge_rev}^2")
             return base_rev, head_rev, merge_rev
@@ -534,7 +524,7 @@ class Review:
             "base/head SHAs for local merge evaluation."
         )
         base_rev, head_rev = fetch_refs(
-            self.remote,
+            self.review_config.remote,
             pr["base"]["sha"],
             pr["head"]["sha"],
             shallow_depth=2,
@@ -544,7 +534,7 @@ class Review:
     def _checkout_pr_revision(
         self, base_rev: str, head_rev: str, merge_rev: str | None
     ) -> None:
-        match self.checkout:
+        match self.review_config.checkout:
             case CheckoutOption.MERGE:
                 if merge_rev:
                     self.git_worktree(merge_rev)
@@ -558,13 +548,13 @@ class Review:
 
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
         pr = (
-            cast("GitHubPullRequest", self.pr_object)
-            if self.pr_object
+            cast("GitHubPullRequest", self.review_config.pr_object)
+            if self.review_config.pr_object
             else self.github_client.pull_request(pr_number)
         )
         self.head_commit = pr["head"]["sha"]
 
-        if self.show_pr_info:
+        if self.review_config.show_pr_info:
             self._display_pr_info(pr, pr_number)
 
         packages_per_system = (
@@ -573,13 +563,14 @@ class Review:
 
         base_rev, head_rev, merge_rev = self._resolve_pr_revisions(pr)
 
-        if self.only_packages:
+        if self.package_filter.only_packages:
             packages_per_system = {
-                system: set(self.only_packages) for system in self.systems
+                system: set(self.package_filter.only_packages)
+                for system in self.systems
             }
 
         if packages_per_system is None:
-            if self.checkout == CheckoutOption.BASE:
+            if self.review_config.checkout == CheckoutOption.BASE:
                 die(
                     "--checkout base without --package/-p requires GitHub evaluation.\n"
                     "Local evaluation compares base against itself, which always yields zero rebuilds.\n"
@@ -592,7 +583,7 @@ class Review:
         for system in list(packages_per_system.keys()):
             if system not in self.systems:
                 packages_per_system.pop(system)
-        return self.build(packages_per_system, self.build_args)
+        return self.build(packages_per_system, self.shell_options.build_args)
 
     def start_review(
         self,
@@ -600,12 +591,9 @@ class Review:
         attrs_per_system: dict[System, list[Attr]],
         path: Path,
         pr: int | None = None,
-        *,
-        post_result: bool | None = False,
-        print_result: bool = False,
-        approve_pr: bool = False,
-        merge_pr: bool = False,
+        action: ReviewAction | None = None,
     ) -> bool:
+        action = action or ReviewAction()
         os.environ.pop("NIXPKGS_CONFIG", None)
         os.environ["NIXPKGS_REVIEW_ROOT"] = str(path)
         if pr:
@@ -613,27 +601,25 @@ class Review:
         report = Report(
             commit,
             attrs_per_system,
-            self.extra_nixpkgs_config,
-            checkout=self.checkout.name.lower(),  # type: ignore[arg-type]
-            only_packages=self.only_packages,
-            additional_packages=self.additional_packages,
-            package_regex=self.package_regex,
-            skip_packages=self.skip_packages,
-            skip_packages_regex=self.skip_packages_regex,
-            show_header=self.show_header,
-            show_logs=self.show_logs,
-            max_workers=min(32, os.cpu_count() or 1),  # 'None' assumes IO tasks
+            self.package_filter,
+            ReportOptions(
+                extra_nixpkgs_config=self.review_config.extra_nixpkgs_config,
+                checkout=self.review_config.checkout.name.lower(),  # type: ignore[arg-type]
+                show_header=self.review_config.show_header,
+                show_logs=self.review_config.show_logs,
+                max_workers=min(32, os.cpu_count() or 1),
+            ),
         )
         report.print_console(path, pr)
         report.write(path, pr)
 
         success = report.succeeded()
 
-        if pr and post_result:
+        if pr and action.post_result:
             self.github_client.comment_issue(pr, report.markdown(path, pr))
 
-        if pr and approve_pr and success:
-            if merge_pr and self.github_client.is_nixpkgs_committer():
+        if pr and action.approve_pr and success:
+            if action.merge_pr and self.github_client.is_nixpkgs_committer():
                 self.github_client.approve_pr(
                     pr,
                     "Approved automatically following the successful run of `nixpkgs-review`.",
@@ -643,24 +629,24 @@ class Review:
                 self.github_client.approve_pr(
                     pr,
                     "Approved automatically following the successful run of `nixpkgs-review`."
-                    + ("\n\n@NixOS/nixpkgs-merge-bot merge" if merge_pr else ""),
+                    + ("\n\n@NixOS/nixpkgs-merge-bot merge" if action.merge_pr else ""),
                 )
 
-        if print_result:
+        if action.print_result:
             print(report.markdown(path, pr))
 
-        if not self.no_shell:
-            nix_shell(
-                report.built_packages(),
-                path,
-                self.local_system,
-                self.build_graph,
-                self.builddir.nix_path,
-                self.nixpkgs_config,
-                self.builddir.overlay.path,
-                self.run,
-                sandbox=self.sandbox,
+        if not self.shell_options.no_shell:
+            shell_config = ShellConfig(
+                cache_directory=path,
+                local_system=self.build_config.local_system,
+                build_graph=self.shell_options.build_graph,
+                nix_path=self.builddir.nix_path,
+                nixpkgs_config=self.build_config.nixpkgs_config,
+                nixpkgs_overlay=self.builddir.overlay.path,
+                run=self.shell_options.run,
+                sandbox=self.shell_options.sandbox,
             )
+            nix_shell(report.built_packages(), shell_config)
 
         return success
 
@@ -669,20 +655,16 @@ class Review:
         path: Path,
         branch: str,
         reviewed_commit: str | None,
+        action: ReviewAction | None = None,
         *,
         staged: bool = False,
-        print_result: bool = False,
-        approve_pr: bool = False,
-        merge_pr: bool = False,
     ) -> None:
-        branch_rev = fetch_refs(self.remote, branch)[0]
+        branch_rev = fetch_refs(self.review_config.remote, branch)[0]
         self.start_review(
             reviewed_commit,
             self.build_commit(branch_rev, reviewed_commit, staged=staged),
             path,
-            print_result=print_result,
-            approve_pr=approve_pr,
-            merge_pr=merge_pr,
+            action=action,
         )
 
 
@@ -871,17 +853,16 @@ def _match_package_regexes(
 
 def filter_packages_per_system(
     changed_packages_per_system: dict[System, set[str]],
-    specified_packages: set[str],
-    package_regexes: list[Pattern[str]],
-    skip_packages: set[str],
-    skip_package_regexes: list[Pattern[str]],
-    allow: AllowedFeatures,
-    nix_path: str,
-    num_eval_workers: int,
-    max_memory_size: int,
+    package_filter: PackageFilter,
+    build_config: BuildConfig,
 ) -> dict[System, set[str]]:
     needs_filtering = any(
-        [specified_packages, package_regexes, skip_packages, skip_package_regexes]
+        [
+            package_filter.only_packages,
+            package_filter.package_regexes,
+            package_filter.skip_packages,
+            package_filter.skip_packages_regex,
+        ]
     )
 
     # Short-circuit if no filtering is needed
@@ -892,29 +873,23 @@ def filter_packages_per_system(
     # packages to find their drv paths and intersect them. Batch all systems
     # into a single multi_system_eval call for parallelism.
     joined_per_system: dict[System, set[str]] = {}
-    if specified_packages:
+    if package_filter.only_packages:
         # Build a combined attr set: all changed + specified packages per system
         changed_eval_input: dict[System, set[str]] = {}
         specified_eval_input: dict[System, set[str]] = {}
         for system, changed in changed_packages_per_system.items():
             changed_eval_input[system] = changed
-            specified_eval_input[system] = specified_packages
+            specified_eval_input[system] = package_filter.only_packages
 
         # Two multi_system_eval calls (one for changed, one for specified),
         # each evaluating all systems in parallel via nix-eval-jobs workers
         changed_results = multi_system_eval(
             changed_eval_input,
-            allow,
-            nix_path,
-            num_eval_workers=num_eval_workers,
-            max_memory_size=max_memory_size,
+            build_config,
         )
         specified_results = multi_system_eval(
             specified_eval_input,
-            allow,
-            nix_path,
-            num_eval_workers=num_eval_workers,
-            max_memory_size=max_memory_size,
+            build_config,
         )
 
         for system in changed_packages_per_system:
@@ -933,18 +908,22 @@ def filter_packages_per_system(
     for system, changed_packages in changed_packages_per_system.items():
         packages: set[str] = set()
 
-        if specified_packages:
+        if package_filter.only_packages:
             packages = joined_per_system.get(system, set())
 
-        if package_regexes:
-            packages |= _match_package_regexes(changed_packages, package_regexes)
+        if package_filter.package_regexes:
+            packages |= _match_package_regexes(
+                changed_packages, package_filter.package_regexes
+            )
 
         # If no packages selected yet, use all changed packages
         if not packages:
             packages = changed_packages.copy()
 
         result[system] = _apply_package_filters(
-            packages, skip_packages, skip_package_regexes
+            packages,
+            package_filter.skip_packages,
+            package_filter.skip_packages_regex,
         )
 
     return result
@@ -1037,39 +1016,87 @@ def differences(
     return (changed_packages, list(old_attrs.values()))
 
 
+def package_filter_from_args(args: argparse.Namespace) -> PackageFilter:
+    """Create a PackageFilter from parsed CLI arguments."""
+    return PackageFilter(
+        only_packages=set(args.package),
+        additional_packages=set(args.additional_package),
+        package_regexes=args.package_regex,
+        skip_packages=set(args.skip_package),
+        skip_packages_regex=args.skip_package_regex,
+    )
+
+
+def build_config_from_args(
+    args: argparse.Namespace,
+    allow: AllowedFeatures,
+    nix_path: str,
+    nixpkgs_config: Path,
+) -> BuildConfig:
+    """Create a BuildConfig from parsed CLI arguments."""
+    return BuildConfig(
+        allow=allow,
+        nix_path=nix_path,
+        local_system=current_system(),
+        nixpkgs_config=nixpkgs_config,
+        num_eval_workers=args.num_eval_workers,
+        max_memory_size=args.max_memory_size,
+    )
+
+
+def _review_from_args(
+    builddir: Builddir,
+    args: argparse.Namespace,
+    build_config: BuildConfig,
+) -> Review:
+    """Create a Review configured for local revision review."""
+    return Review(
+        builddir=builddir,
+        package_filter=package_filter_from_args(args),
+        build_config=build_config,
+        review_config=ReviewConfig(
+            remote=args.remote,
+            extra_nixpkgs_config=args.extra_nixpkgs_config,
+            systems=args.systems.split(" "),
+            eval_type="local",
+        ),
+        shell_options=ShellOptions(
+            no_shell=args.no_shell,
+            run=args.run,
+            sandbox=args.sandbox,
+            build_args=args.build_args,
+            build_graph=args.build_graph,
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class LocalRevisionTarget:
+    """What local revision to review and what to do after."""
+
+    commit: str | None = None
+    staged: bool = False
+    action: ReviewAction | None = None
+
+
 def review_local_revision(
     builddir_path: str,
     args: argparse.Namespace,
-    allow: AllowedFeatures,
-    nixpkgs_config: Path,
-    commit: str | None,
-    *,
-    staged: bool = False,
-    print_result: bool = False,
+    build_config_factory: Callable[[str], BuildConfig],
+    target: LocalRevisionTarget | None = None,
 ) -> Path:
+    target = target or LocalRevisionTarget()
     with Builddir(builddir_path) as builddir:
-        review = Review(
-            builddir=builddir,
-            build_args=args.build_args,
-            no_shell=args.no_shell,
-            run=args.run,
-            remote=args.remote,
-            only_packages=set(args.package),
-            eval_type="local",
-            additional_packages=set(args.additional_package),
-            package_regexes=args.package_regex,
-            skip_packages=set(args.skip_package),
-            skip_packages_regex=args.skip_package_regex,
-            systems=args.systems.split(" "),
-            allow=allow,
-            sandbox=args.sandbox,
-            build_graph=args.build_graph,
-            nixpkgs_config=nixpkgs_config,
-            extra_nixpkgs_config=args.extra_nixpkgs_config,
-            num_eval_workers=args.num_eval_workers,
-            max_memory_size=args.max_memory_size,
+        review = _review_from_args(
+            builddir,
+            args,
+            build_config_factory(builddir.nix_path),
         )
         review.review_commit(
-            builddir.path, args.branch, commit, staged=staged, print_result=print_result
+            builddir.path,
+            args.branch,
+            target.commit,
+            action=target.action,
+            staged=target.staged,
         )
         return builddir.path
