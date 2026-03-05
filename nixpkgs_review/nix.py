@@ -286,8 +286,6 @@ def _nix_eval_filter(packages: NixEvalResult) -> list[Attr]:
 def multi_system_eval(
     attr_names_per_system: dict[System, set[str]],
     build_config: BuildConfig,
-    *,
-    instantiate: bool = False,
 ) -> dict[System, list[Attr]]:
     attr_json = NamedTemporaryFile(mode="w+", delete=False)  # noqa: SIM115
     delete = True
@@ -304,7 +302,6 @@ def multi_system_eval(
             str(build_config.num_eval_workers),
             "--max-memory-size",
             str(build_config.max_memory_size),
-            *(() if instantiate else ("--no-instantiate",)),
             *_nix_common_flags(build_config.allow, build_config.nix_path),
             "--expr",
             f"(import {eval_script} {{ attr-json = {attr_json.name}; }})",
@@ -349,21 +346,15 @@ def multi_system_eval(
 
 
 def nix_build(
-    attr_names_per_system: dict[System, set[str]],
+    attrs_per_system: dict[System, list[Attr]],
     args: str,
     cache_directory: Path,
     build_config: BuildConfig,
     build_graph: str,
 ) -> dict[System, list[Attr]]:
-    if not attr_names_per_system:
+    if not attrs_per_system:
         info("Nothing to be built.")
         return {}
-
-    attrs_per_system: dict[System, list[Attr]] = multi_system_eval(
-        attr_names_per_system,
-        build_config,
-        instantiate=True,
-    )
 
     filtered_drv_paths = [
         f"{attr.drv_path}^*"
