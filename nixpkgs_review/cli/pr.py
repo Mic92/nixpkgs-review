@@ -115,7 +115,11 @@ def pr_command(args: argparse.Namespace) -> str:
                     builddir=builddir,
                     package_filter=package_filter_from_args(args),
                     build_config=build_config_from_args(
-                        args, allow, builddir.nix_path, nixpkgs_config
+                        args,
+                        allow,
+                        builddir.nix_path,
+                        nixpkgs_config,
+                        include_tests=args.tests,
                     ),
                     review_config=ReviewConfig(
                         remote=args.remote,

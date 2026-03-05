@@ -27,6 +27,7 @@ class BuildConfig:
     nixpkgs_config: Path
     num_eval_workers: int = 1
     max_memory_size: int = 4096
+    include_tests: bool = False
 
 
 @dataclass
@@ -65,7 +66,11 @@ class Attr:
         return self._path_verified
 
     def is_test(self) -> bool:
-        return self.name.startswith("nixosTests")
+        return (
+            self.name.startswith("nixosTests")
+            or ".tests." in self.name
+            or self.name.endswith(".tests")
+        )
 
     def outputs_with_name(self) -> dict[str, Path]:
         def with_output(output: str) -> str:
@@ -249,6 +254,12 @@ def _nix_eval_filter(packages: NixEvalResult) -> list[Attr]:
         "tests.trivial",
         "tests.writers",
     }
+
+    def is_blacklisted(name: str) -> bool:
+        return name in blacklist or any(
+            name.startswith(f"{entry}.") for entry in blacklist
+        )
+
     attr_by_path: dict[Path, Attr] = {}
     broken = []
     for props in packages:
@@ -266,7 +277,7 @@ def _nix_eval_filter(packages: NixEvalResult) -> list[Attr]:
             name=name,
             exists=extra_value.get("exists", True),
             broken=extra_value.get("broken", True),
-            blacklisted=name in blacklist,
+            blacklisted=is_blacklisted(name),
             outputs=outputs,
             drv_path=drv_path,
         )
@@ -304,7 +315,7 @@ def multi_system_eval(
             str(build_config.max_memory_size),
             *_nix_common_flags(build_config.allow, build_config.nix_path),
             "--expr",
-            f"(import {eval_script} {{ attr-json = {attr_json.name}; }})",
+            f"""(import {eval_script} {{ attr-json = {attr_json.name}; include-tests = {str(build_config.include_tests).lower()}; }})""",
             "--apply",
             "d: { inherit (d) exists broken; }",
         ]

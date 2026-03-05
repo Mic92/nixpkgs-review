@@ -606,6 +606,7 @@ class Review:
         report = Report(
             commit,
             attrs_per_system,
+            self.build_config,
             self.package_filter,
             ReportOptions(
                 extra_nixpkgs_config=self.review_config.extra_nixpkgs_config,
@@ -807,7 +808,7 @@ def _join_packages_for_system(
     changed_attrs: dict[Path, Attr],
     specified_attrs: dict[Path, Attr],
 ) -> dict[Path, Attr]:
-    # ofborg does not include tests and manual evaluation is too expensive
+    # ofborg does not include tests, so don't mark them as nonexistent
     tests = {path for path, attr in specified_attrs.items() if attr.is_test()}
 
     nonexistent = specified_attrs.keys() - changed_attrs.keys() - tests
@@ -1052,6 +1053,8 @@ def build_config_from_args(
     allow: AllowedFeatures,
     nix_path: str,
     nixpkgs_config: Path,
+    *,
+    include_tests: bool,
 ) -> BuildConfig:
     """Create a BuildConfig from parsed CLI arguments."""
     return BuildConfig(
@@ -1060,6 +1063,7 @@ def build_config_from_args(
         nixpkgs_config=nixpkgs_config,
         num_eval_workers=args.num_eval_workers,
         max_memory_size=args.max_memory_size,
+        include_tests=include_tests,
     )
 
 
