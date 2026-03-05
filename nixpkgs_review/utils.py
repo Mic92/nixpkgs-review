@@ -69,7 +69,7 @@ def sh(  # noqa: PLR0913
     *,
     cwd: Path | str | None = None,
     env: dict[str, str] | None = None,
-    stdin: str | None = None,
+    stdin: str | int | IO[Any] | None = None,
     stdout: int | None = None,
     stderr: int | None = None,
     quiet: bool = False,
@@ -77,13 +77,22 @@ def sh(  # noqa: PLR0913
     if not quiet:
         info("$ " + shlex.join(command))
     env = os.environ | env if env else None
+
+    input_: str | None = None
+    stdin_: int | IO[Any] | None = None
+    if isinstance(stdin, str):
+        input_ = stdin
+    else:
+        stdin_ = stdin
+
     return subprocess.run(
         command,
         cwd=cwd,
         text=True,
         check=False,
         env=env,
-        input=stdin,
+        input=input_,
+        stdin=stdin_,
         stdout=stdout,
         stderr=stderr,
     )
