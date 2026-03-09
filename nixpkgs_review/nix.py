@@ -24,10 +24,10 @@ class BuildConfig:
 
     allow: AllowedFeatures
     nix_path: str
-    local_system: str
     nixpkgs_config: Path
     num_eval_workers: int = 1
     max_memory_size: int = 4096
+    include_tests: bool = False
 
 
 @dataclass
@@ -66,7 +66,11 @@ class Attr:
         return self._path_verified
 
     def is_test(self) -> bool:
-        return self.name.startswith("nixosTests")
+        return (
+            self.name.startswith("nixosTests")
+            or ".tests." in self.name
+            or self.name.endswith(".tests")
+        )
 
     def outputs_with_name(self) -> dict[str, Path]:
         def with_output(output: str) -> str:
@@ -99,17 +103,14 @@ class ShellConfig:
     """Configuration for launching a nix-shell."""
 
     cache_directory: Path
-    local_system: str
     build_graph: str
     nix_path: str
-    nixpkgs_config: Path
-    nixpkgs_overlay: Path
     run: str | None = None
     sandbox: bool = False
 
 
 def nix_shell(
-    attrs_per_system: dict[System, list[str]],
+    attrs_per_system: dict[System, list[Attr]],
     config: ShellConfig,
 ) -> None:
     bin_name = f"{config.build_graph}-shell"
@@ -121,8 +122,6 @@ def nix_shell(
     shell_file_args = build_shell_file_args(
         cache_dir=config.cache_directory,
         attrs_per_system=attrs_per_system,
-        local_system=config.local_system,
-        nixpkgs_config=config.nixpkgs_config,
     )
     if config.sandbox:
         args = _nix_shell_sandbox(nix_shell_bin, shell_file_args, config)
@@ -200,9 +199,6 @@ def _nix_shell_sandbox(
         *bind("/"),
         *bind("/dev", dev=True),
         *tmpfs("/tmp"),  # noqa: S108
-        # Required for evaluation
-        *bind(config.nixpkgs_config),
-        *bind(config.nixpkgs_overlay),
         # /run (also cover sockets for wayland/pulseaudio and pipewires)
         *bind(Path("/run/user").joinpath(uid), dev=True, try_=True),
         # HOME
@@ -258,6 +254,12 @@ def _nix_eval_filter(packages: NixEvalResult) -> list[Attr]:
         "tests.trivial",
         "tests.writers",
     }
+
+    def is_blacklisted(name: str) -> bool:
+        return name in blacklist or any(
+            name.startswith(f"{entry}.") for entry in blacklist
+        )
+
     attr_by_path: dict[Path, Attr] = {}
     broken = []
     for props in packages:
@@ -275,7 +277,7 @@ def _nix_eval_filter(packages: NixEvalResult) -> list[Attr]:
             name=name,
             exists=extra_value.get("exists", True),
             broken=extra_value.get("broken", True),
-            blacklisted=name in blacklist,
+            blacklisted=is_blacklisted(name),
             outputs=outputs,
             drv_path=drv_path,
         )
@@ -311,10 +313,9 @@ def multi_system_eval(
             str(build_config.num_eval_workers),
             "--max-memory-size",
             str(build_config.max_memory_size),
-            "--no-instantiate",
             *_nix_common_flags(build_config.allow, build_config.nix_path),
             "--expr",
-            f"(import {eval_script} {{ attr-json = {attr_json.name}; }})",
+            f"""(import {eval_script} {{ attr-json = {attr_json.name}; include-tests = {str(build_config.include_tests).lower()}; }})""",
             "--apply",
             "d: { inherit (d) exists broken; }",
         ]
@@ -356,37 +357,33 @@ def multi_system_eval(
 
 
 def nix_build(
-    attr_names_per_system: dict[System, set[str]],
+    attrs_per_system: dict[System, list[Attr]],
     args: str,
     cache_directory: Path,
     build_config: BuildConfig,
     build_graph: str,
 ) -> dict[System, list[Attr]]:
-    if not attr_names_per_system:
+    if not attrs_per_system:
         info("Nothing to be built.")
         return {}
 
-    attrs_per_system: dict[System, list[Attr]] = multi_system_eval(
-        attr_names_per_system,
-        build_config,
-    )
+    filtered_drv_paths = [
+        f"{attr.drv_path}^*"
+        for attrs in attrs_per_system.values()
+        for attr in attrs
+        if not (attr.broken or attr.blacklisted)
+    ]
 
-    filtered_per_system = {
-        system: [attr.name for attr in attrs if not (attr.broken or attr.blacklisted)]
-        for system, attrs in attrs_per_system.items()
-    }
-
-    if all(len(filtered) == 0 for filtered in filtered_per_system.values()):
+    if len(filtered_drv_paths) == 0:
         return attrs_per_system
 
     command = [
         build_graph,
         "build",
-        "--file",
-        REVIEW_SHELL,
         *_nix_common_flags(build_config.allow, build_config.nix_path),
         "--no-link",
         "--keep-going",
+        "--stdin",
     ]
 
     if platform == "linux":
@@ -397,88 +394,37 @@ def nix_build(
             "relaxed",
         ]
 
-    shell_file_args = build_shell_file_args(
-        cache_dir=cache_directory,
-        attrs_per_system=filtered_per_system,
-        local_system=build_config.local_system,
-        nixpkgs_config=build_config.nixpkgs_config,
-    )
-    _write_review_shell_drv(
-        cache_directory=cache_directory,
-        shell_file_args=shell_file_args,
-        allow=build_config.allow,
-        nix_path=build_config.nix_path,
-    )
+    command += shlex.split(args)
 
-    command += shell_file_args + shlex.split(args)
+    rebuilds_file = cache_directory / "rebuilds.txt"
+    with rebuilds_file.open("w+") as f:
+        f.write("".join(f"{p}\n" for p in filtered_drv_paths))
+        f.flush()
+        f.seek(0, os.SEEK_SET)
 
-    sh(command)
+        sh(command, stdin=f)
+
     return attrs_per_system
 
 
 def build_shell_file_args(
     cache_dir: Path,
-    attrs_per_system: dict[System, list[str]],
-    local_system: str,
-    nixpkgs_config: Path,
+    attrs_per_system: dict[System, list[Attr]],
 ) -> list[str]:
-    attrs_file = cache_dir.joinpath("attrs.nix")
-    with attrs_file.open("w+") as f:
-        f.write("{\n")
-        for system, attrs in attrs_per_system.items():
-            f.write(f"  {system} = [\n")
-            for attr in attrs:
-                f.write(f'    "{attr}"\n')
-            f.write("  ];\n")
-        f.write("}")
+    outputs_file = cache_dir.joinpath("outputs.json")
+    with outputs_file.open("w+") as f:
+        json.dump(
+            [
+                str(output)
+                for attrs in attrs_per_system.values()
+                for attr in attrs
+                for output in (attr.outputs or {}).values()
+            ],
+            f,
+        )
 
     return [
         "--argstr",
-        "local-system",
-        local_system,
-        "--argstr",
-        "nixpkgs-path",
-        str(cache_dir.joinpath("nixpkgs/")),
-        "--argstr",
-        "nixpkgs-config-path",
-        str(nixpkgs_config),
-        "--argstr",
-        "attrs-path",
-        str(attrs_file),
+        "outputs-path",
+        str(outputs_file),
     ]
-
-
-def _write_review_shell_drv(
-    cache_directory: Path,
-    shell_file_args: list[str],
-    allow: AllowedFeatures,
-    nix_path: str,
-) -> None:
-    review_drv_link: Path = cache_directory / "review-shell.drv"
-
-    cmd: list[str] = [
-        "nix-instantiate",
-        *_nix_common_flags(allow, nix_path),
-        *shell_file_args,
-        REVIEW_SHELL,
-    ]
-    res = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if res.returncode != 0:
-        msg = "Failed to instantiate review shell derivation for caching"
-        if res.stderr:
-            msg = f"{msg}: {res.stderr.strip()}"
-        raise NixpkgsReviewError(msg)
-
-    drv_lines = [line.strip() for line in res.stdout.splitlines() if line.strip()]
-    if not drv_lines:
-        msg = "No review shell derivation path produced for caching"
-        raise NixpkgsReviewError(msg)
-
-    drv_path = drv_lines[-1]
-    review_drv_link.unlink(missing_ok=True)
-    review_drv_link.symlink_to(drv_path)

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from .nix import Attr
+    from .nix import Attr, BuildConfig
 
 # https://github.com/orgs/community/discussions/27190
 MAX_GITHUB_COMMENT_LENGTH = 65536
@@ -327,6 +327,7 @@ class Report:
         self,
         commit: str | None,
         attrs_per_system: dict[str, list[Attr]],
+        build_config: BuildConfig,
         package_filter: PackageFilter,
         options: ReportOptions | None = None,
     ) -> None:
@@ -337,6 +338,7 @@ class Report:
         self.max_workers = options.max_workers
         self.attrs = attrs_per_system
         self.checkout = options.checkout
+        self.build_config = build_config
         self.package_filter = package_filter
 
         self.extra_nixpkgs_config = (
@@ -350,11 +352,8 @@ class Report:
             reports[system] = SystemReport(attrs)
         self.system_reports: dict[System, SystemReport] = order_reports(reports)
 
-    def built_packages(self) -> dict[System, list[str]]:
-        return {
-            system: [a.name for a in report.built]
-            for system, report in self.system_reports.items()
-        }
+    def built_packages(self) -> dict[System, list[Attr]]:
+        return {system: report.built for system, report in self.system_reports.items()}
 
     def write(self, directory: Path, pr: int | None) -> None:
         # write logs first because snippets from them may be needed for the report
@@ -413,6 +412,14 @@ class Report:
         for option_name, option_value in options.items():
             if option_value:
                 cmd += f" --{option_name} " + f" --{option_name} ".join(option_value)
+
+        flags = {
+            "tests": self.build_config.include_tests,
+        }
+        for flag_name, flag_enabled in flags.items():
+            if flag_enabled:
+                cmd += f" --{flag_name}"
+
         return cmd
 
     def _generate_header(self, pr: int | None) -> str:
