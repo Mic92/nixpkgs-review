@@ -315,6 +315,12 @@ def common_flags() -> list[CommonFlag]:
             default=4096,
             help="Maximum `nix-eval-jobs` per worker memory size in megabyte (warning, workers can shortly exceed the limit)",
         ),
+        CommonFlag(
+            "--pkgs",
+            type=str,
+            default=None,
+            help="Alternative package set to use for building, e.g. pkgsMusl, pkgsStatic, or pkgsCross.aarch64-multiplatform",
+        ),
     ]
 
 

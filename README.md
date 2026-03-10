@@ -267,6 +267,45 @@ As an alternative, one can also specify remote builder as usual in
 `/etc/nix/machines` or via the `nix.buildMachines` nixos options in
 `configuration.nix`. This allows to parallelize builds across multiple machines.
 
+## Cross compile, static, cuda
+
+If you want to cross compile you can do that with the `--pkgs=` flag:
+
+```console
+$ nixpkgs-review pr --pkgs=pkgsCross.aarch64-multiplatform 37244
+```
+
+You can also compile with musl:
+
+```console
+$ nixpkgs-review pr --pkgs=pkgsMusl 37244
+```
+
+or statically
+
+```console
+$ nixpkgs-review pr --pkgs=pkgsStatic 37244
+```
+
+or with cuda
+
+```console
+$ nixpkgs-review pr --pkgs=pkgsCuda 37244
+```
+
+Keep in mind that not every package is cross compileable or can be compiled with
+musl or statically. Please see
+[Only building a subset of packages](#only-building-a-subset-of-packages) how to
+limit which packages are build.
+
+> **Note:** `pkgsMusl` and `pkgsStatic` do not support full evaluation. You must
+> specify which packages to build with `--package`:
+>
+> ```console
+> $ nixpkgs-review pr --pkgs=pkgsMusl --package hello 37244
+> $ nixpkgs-review pr --pkgs=pkgsStatic --package hello --package curl 37244
+> ```
+
 ## GitHub API token
 
 **Nixpkgs-review** requires a GitHub token to use cached evaluation results from
