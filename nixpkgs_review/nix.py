@@ -28,6 +28,7 @@ class BuildConfig:
     nixpkgs_config: Path
     num_eval_workers: int = 1
     max_memory_size: int = 4096
+    pkgs: str | None = None
 
 
 @dataclass
@@ -106,6 +107,7 @@ class ShellConfig:
     nixpkgs_overlay: Path
     run: str | None = None
     sandbox: bool = False
+    pkgs: str | None = None
 
 
 def nix_shell(
@@ -123,6 +125,7 @@ def nix_shell(
         attrs_per_system=attrs_per_system,
         local_system=config.local_system,
         nixpkgs_config=config.nixpkgs_config,
+        pkgs=config.pkgs,
     )
     if config.sandbox:
         args = _nix_shell_sandbox(nix_shell_bin, shell_file_args, config)
@@ -270,7 +273,7 @@ def _nix_eval_filter(packages: NixEvalResult) -> list[Attr]:
             outputs = {output: Path(path) for output, path in props["outputs"].items()}
 
         # the 'name' field might be quoted, so get the unqoted one from 'attrPath'
-        name = props["attrPath"][1]
+        name = ".".join(props["attrPath"][1:])
         attr = Attr(
             name=name,
             exists=extra_value.get("exists", True),
@@ -402,6 +405,7 @@ def nix_build(
         attrs_per_system=filtered_per_system,
         local_system=build_config.local_system,
         nixpkgs_config=build_config.nixpkgs_config,
+        pkgs=build_config.pkgs,
     )
     _write_review_shell_drv(
         cache_directory=cache_directory,
@@ -421,6 +425,7 @@ def build_shell_file_args(
     attrs_per_system: dict[System, list[str]],
     local_system: str,
     nixpkgs_config: Path,
+    pkgs: str | None = None,
 ) -> list[str]:
     attrs_file = cache_dir.joinpath("attrs.nix")
     with attrs_file.open("w+") as f:
@@ -445,6 +450,9 @@ def build_shell_file_args(
         "--argstr",
         "attrs-path",
         str(attrs_file),
+        "--argstr",
+        "alt-pkgs",
+        pkgs or "",
     ]
 
 
