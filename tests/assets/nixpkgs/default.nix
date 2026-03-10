@@ -46,4 +46,13 @@ lib.genAttrs' (lib.range 1 (config.pkgCount or 1)) (
     '';
   })) // {
   inherit lib mkShell bashInteractive stdenv buildEnv;
+  pkgsAlt = lib.genAttrs' (lib.range 1 (config.pkgCount or 1)) (
+    i:
+    lib.nameValuePair "pkg${toString i}" (mkDerivation {
+      name = "alt-pkg${toString i}";
+      buildCommand = ''
+        cat ${./pkg1.txt} > $out
+      '';
+    })
+  );
 }
