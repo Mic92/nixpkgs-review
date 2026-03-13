@@ -402,7 +402,7 @@ Ensure that your system is capable of building for the specified architectures,
 either locally or through the remote builder protocol.
 
 ```console
-$ nixpkgs-review pr --system aarch64-linux 98734
+$ nixpkgs-review pr --systems aarch64-linux 98734
 ```
 
 ## Review changes inside sandbox [EXPERIMENTAL]
