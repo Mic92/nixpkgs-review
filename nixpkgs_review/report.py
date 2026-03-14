@@ -320,6 +320,7 @@ class ReportOptions:
     show_header: bool = True
     show_logs: bool = False
     max_workers: int | None = 1
+    pkgs: str | None = None
 
 
 class Report:
@@ -338,6 +339,7 @@ class Report:
         self.attrs = attrs_per_system
         self.checkout = options.checkout
         self.package_filter = package_filter
+        self.pkgs = options.pkgs
 
         self.extra_nixpkgs_config = (
             options.extra_nixpkgs_config
@@ -383,6 +385,7 @@ class Report:
                 "skip_packages_regex": [
                     r.pattern for r in self.package_filter.skip_packages_regex
                 ],
+                "pkgs": self.pkgs,
                 "result": {
                     system: report.serialize()
                     for system, report in self.system_reports.items()
@@ -400,6 +403,8 @@ class Report:
             cmd += f" --extra-nixpkgs-config '{self.extra_nixpkgs_config}'"
         if self.checkout != "merge":
             cmd += f" --checkout {self.checkout}"
+        if self.pkgs:
+            cmd += f" --pkgs={self.pkgs}"
 
         options = {
             "package": self.package_filter.only_packages,

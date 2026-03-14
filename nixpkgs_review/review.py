@@ -87,6 +87,13 @@ class ReviewConfig:
     show_pr_info: bool = True
 
 
+def _prefix_with_pkgs(packages: set[str], pkgs: str | None) -> set[str]:
+    """Prefix package names with the alternative package set path (e.g. pkgsMusl.hello)."""
+    if not pkgs:
+        return packages
+    return {f"{pkgs}.{p}" for p in packages}
+
+
 def print_packages(
     names: list[str],
     msg: str,
@@ -176,6 +183,10 @@ class Review:
     def _use_github_eval(self) -> bool:
         # If the user explicitly asks for local eval, just do it
         if self.review_config.eval_type == "local" or self.package_filter.only_packages:
+            return False
+
+        if self.build_config.pkgs:
+            warn("Non-default --pkgs provided. Falling back to local evaluation")
             return False
 
         # Handle the GH_TOKEN eventually not being provided
@@ -379,7 +390,10 @@ class Review:
                     self.git_checkout(base_commit)
 
         changed_attrs = {
-            system: set(self.package_filter.only_packages) for system in self.systems
+            system: _prefix_with_pkgs(
+                set(self.package_filter.only_packages), self.build_config.pkgs
+            )
+            for system in self.systems
         }
 
         return self.build(changed_attrs, self.shell_options.build_args)
@@ -409,6 +423,7 @@ class Review:
             self.builddir.nix_path,
             self.systems,
             self.build_config.allow,
+            self.build_config.pkgs,
         )
 
         if head_commit is None:
@@ -422,6 +437,7 @@ class Review:
             self.builddir.nix_path,
             self.systems,
             self.build_config.allow,
+            self.build_config.pkgs,
             check_meta=True,
         )
 
@@ -466,8 +482,11 @@ class Review:
             self.package_filter,
             self.build_config,
         )
+        prefixed_additional = _prefix_with_pkgs(
+            self.package_filter.additional_packages, self.build_config.pkgs
+        )
         packages_per_system = {
-            system: self.package_filter.additional_packages | packages
+            system: prefixed_additional | packages
             for system, packages in packages_per_system.items()
         }
         return nix_build(
@@ -565,7 +584,9 @@ class Review:
 
         if self.package_filter.only_packages:
             packages_per_system = {
-                system: set(self.package_filter.only_packages)
+                system: _prefix_with_pkgs(
+                    set(self.package_filter.only_packages), self.build_config.pkgs
+                )
                 for system in self.systems
             }
 
@@ -608,6 +629,7 @@ class Review:
                 show_header=self.review_config.show_header,
                 show_logs=self.review_config.show_logs,
                 max_workers=min(32, os.cpu_count() or 1),
+                pkgs=self.build_config.pkgs,
             ),
         )
         report.print_console(path, pr)
@@ -645,6 +667,7 @@ class Review:
                 nixpkgs_overlay=self.builddir.overlay.path,
                 run=self.shell_options.run,
                 sandbox=self.shell_options.sandbox,
+                pkgs=self.build_config.pkgs,
             )
             nix_shell(report.built_packages(), shell_config)
 
@@ -726,6 +749,7 @@ def _list_packages_system(
     system: System,
     nix_path: str,
     allow: AllowedFeatures,
+    pkgs: str | None = None,
     *,
     check_meta: bool = False,
 ) -> list[Package]:
@@ -747,6 +771,7 @@ def _list_packages_system(
         "--allow-import-from-derivation"
         if allow.ifd
         else "--no-allow-import-from-derivation",
+        *(["-A", pkgs] if pkgs else []),
     ]
     if check_meta:
         cmd.append("--meta")
@@ -765,6 +790,7 @@ def list_packages(
     nix_path: str,
     systems: set[System],
     allow: AllowedFeatures,
+    pkgs: str | None = None,
     *,
     check_meta: bool = False,
 ) -> dict[System, list[Package]]:
@@ -775,6 +801,7 @@ def list_packages(
             nix_path=nix_path,
             allow=allow,
             check_meta=check_meta,
+            pkgs=pkgs,
         )
 
     return results
@@ -879,7 +906,9 @@ def filter_packages_per_system(
         specified_eval_input: dict[System, set[str]] = {}
         for system, changed in changed_packages_per_system.items():
             changed_eval_input[system] = changed
-            specified_eval_input[system] = package_filter.only_packages
+            specified_eval_input[system] = _prefix_with_pkgs(
+                package_filter.only_packages, build_config.pkgs
+            )
 
         # Two multi_system_eval calls (one for changed, one for specified),
         # each evaluating all systems in parallel via nix-eval-jobs workers
@@ -1041,6 +1070,7 @@ def build_config_from_args(
         nixpkgs_config=nixpkgs_config,
         num_eval_workers=args.num_eval_workers,
         max_memory_size=args.max_memory_size,
+        pkgs=args.pkgs,
     )
 
 
