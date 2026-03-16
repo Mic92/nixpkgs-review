@@ -27,7 +27,13 @@ def rev_command(args: argparse.Namespace) -> Path:
         return review_local_revision(
             f"rev-{commit}",
             args,
-            partial(build_config_from_args, args, allow, nixpkgs_config=nixpkgs_config),
+            partial(
+                build_config_from_args,
+                args,
+                allow,
+                nixpkgs_config=nixpkgs_config,
+                include_tests=args.tests,
+            ),
             LocalRevisionTarget(
                 commit=commit,
                 action=ReviewAction(print_result=args.print_result),

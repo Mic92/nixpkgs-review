@@ -461,17 +461,22 @@ class Review:
     def build(
         self, packages_per_system: dict[System, set[str]], args: str
     ) -> dict[System, list[Attr]]:
-        packages_per_system = filter_packages_per_system(
+        attrs_per_system = filter_packages_per_system(
             packages_per_system,
             self.package_filter,
             self.build_config,
         )
-        packages_per_system = {
-            system: self.package_filter.additional_packages | packages
-            for system, packages in packages_per_system.items()
+        additional_attrs_per_system = eval_packages_per_system(
+            dict.fromkeys(self.systems, self.package_filter.additional_packages),
+            self.build_config,
+        )
+        combined_attrs_per_system = {
+            system: list((attrs | additional_attrs_per_system.get(system, {})).values())
+            for system, attrs in attrs_per_system.items()
         }
+
         return nix_build(
-            packages_per_system,
+            combined_attrs_per_system,
             args,
             self.builddir.path,
             self.build_config,
@@ -601,6 +606,7 @@ class Review:
         report = Report(
             commit,
             attrs_per_system,
+            self.build_config,
             self.package_filter,
             ReportOptions(
                 extra_nixpkgs_config=self.review_config.extra_nixpkgs_config,
@@ -638,11 +644,8 @@ class Review:
         if not self.shell_options.no_shell:
             shell_config = ShellConfig(
                 cache_directory=path,
-                local_system=self.build_config.local_system,
                 build_graph=self.shell_options.build_graph,
                 nix_path=self.builddir.nix_path,
-                nixpkgs_config=self.build_config.nixpkgs_config,
-                nixpkgs_overlay=self.builddir.overlay.path,
                 run=self.shell_options.run,
                 sandbox=self.shell_options.sandbox,
             )
@@ -804,58 +807,59 @@ def _collect_package_attrs(
 def _join_packages_for_system(
     changed_attrs: dict[Path, Attr],
     specified_attrs: dict[Path, Attr],
-) -> set[str]:
-    # ofborg does not include tests and manual evaluation is too expensive
-    tests = {path: attr for path, attr in specified_attrs.items() if attr.is_test()}
+) -> dict[Path, Attr]:
+    # ofborg does not include tests, so don't mark them as nonexistent
+    tests = {path for path, attr in specified_attrs.items() if attr.is_test()}
 
-    nonexistent = specified_attrs.keys() - changed_attrs.keys() - tests.keys()
+    nonexistent = specified_attrs.keys() - changed_attrs.keys() - tests
 
     if len(nonexistent) != 0:
         die(
             f"The following packages specified with `-p` are not rebuilt by the pull request: "
             f"{' '.join(specified_attrs[path].name for path in nonexistent)}"
         )
-    union_paths = (changed_attrs.keys() & specified_attrs.keys()) | tests.keys()
+    union_paths = (changed_attrs.keys() & specified_attrs.keys()) | tests
 
-    return {specified_attrs[path].name for path in union_paths}
+    return {path: specified_attrs[path] for path in union_paths}
 
 
 def _apply_package_filters(
-    packages: set[str],
+    packages: dict[Path, Attr],
     skip_packages: set[str],
     skip_package_regexes: list[Pattern[str]],
-) -> set[str]:
+) -> dict[Path, Attr]:
     """Apply skip filters to the package set."""
     if skip_packages:
-        packages = packages - skip_packages
+        packages = {
+            path: attr
+            for path, attr in packages.items()
+            if attr.name not in skip_packages
+        }
 
-    for attr in packages.copy():
-        for regex in skip_package_regexes:
-            if regex.match(attr):
-                packages.discard(attr)
-
-    return packages
+    return {
+        path: attr
+        for path, attr in packages.items()
+        if not any(regex.match(attr.name) for regex in skip_package_regexes)
+    }
 
 
 def _match_package_regexes(
-    changed_packages: set[str],
+    changed_attrs: dict[Path, Attr],
     package_regexes: list[Pattern[str]],
-) -> set[str]:
+) -> dict[Path, Attr]:
     """Find packages matching any of the given regex patterns."""
-    packages = set()
-    for attr in changed_packages:
-        for regex in package_regexes:
-            if regex.match(attr):
-                packages.add(attr)
-                break  # No need to check other regexes for this attr
-    return packages
+    return {
+        path: attr
+        for path, attr in changed_attrs.items()
+        if any(regex.match(attr.name) for regex in package_regexes)
+    }
 
 
 def filter_packages_per_system(
     changed_packages_per_system: dict[System, set[str]],
     package_filter: PackageFilter,
     build_config: BuildConfig,
-) -> dict[System, set[str]]:
+) -> dict[System, dict[Path, Attr]]:
     needs_filtering = any(
         [
             package_filter.only_packages,
@@ -867,12 +871,16 @@ def filter_packages_per_system(
 
     # Short-circuit if no filtering is needed
     if not needs_filtering:
-        return changed_packages_per_system
+        return eval_packages_per_system(
+            changed_packages_per_system,
+            build_config,
+        )
 
     # When --package is used, we need to evaluate both changed and specified
     # packages to find their drv paths and intersect them. Batch all systems
     # into a single multi_system_eval call for parallelism.
-    joined_per_system: dict[System, set[str]] = {}
+    joined_per_system: dict[System, dict[Path, Attr]] = {}
+    changed_attrs_per_system: dict[System, dict[Path, Attr]] = {}
     if package_filter.only_packages:
         # Build a combined attr set: all changed + specified packages per system
         changed_eval_input: dict[System, set[str]] = {}
@@ -903,22 +911,23 @@ def filter_packages_per_system(
             joined_per_system[system] = _join_packages_for_system(
                 changed_attrs, specified_attrs
             )
+            changed_attrs_per_system[system] = changed_attrs
 
-    result: dict[System, set[str]] = {}
-    for system, changed_packages in changed_packages_per_system.items():
-        packages: set[str] = set()
+    result: dict[System, dict[Path, Attr]] = {}
+    for system, changed_attrs in changed_attrs_per_system.items():
+        packages: dict[Path, Attr] = {}
 
         if package_filter.only_packages:
-            packages = joined_per_system.get(system, set())
+            packages = joined_per_system.get(system, {})
 
         if package_filter.package_regexes:
             packages |= _match_package_regexes(
-                changed_packages, package_filter.package_regexes
+                changed_attrs, package_filter.package_regexes
             )
 
         # If no packages selected yet, use all changed packages
         if not packages:
-            packages = changed_packages.copy()
+            packages = changed_attrs.copy()
 
         result[system] = _apply_package_filters(
             packages,
@@ -927,6 +936,18 @@ def filter_packages_per_system(
         )
 
     return result
+
+
+def eval_packages_per_system(
+    packages_per_system: dict[System, set[str]],
+    build_config: BuildConfig,
+) -> dict[System, dict[Path, Attr]]:
+    return {
+        system: _collect_package_attrs(results)
+        for system, results in multi_system_eval(
+            packages_per_system, build_config
+        ).items()
+    }
 
 
 @contextmanager
@@ -1032,15 +1053,17 @@ def build_config_from_args(
     allow: AllowedFeatures,
     nix_path: str,
     nixpkgs_config: Path,
+    *,
+    include_tests: bool,
 ) -> BuildConfig:
     """Create a BuildConfig from parsed CLI arguments."""
     return BuildConfig(
         allow=allow,
         nix_path=nix_path,
-        local_system=current_system(),
         nixpkgs_config=nixpkgs_config,
         num_eval_workers=args.num_eval_workers,
         max_memory_size=args.max_memory_size,
+        include_tests=include_tests,
     )
 
 

@@ -1,4 +1,7 @@
-{ attr-json }:
+{
+  attr-json,
+  include-tests,
+}:
 
 with builtins;
 mapAttrs (
@@ -62,7 +65,19 @@ mapAttrs (
         else
           lib.flatten (lib.mapAttrsToList (name': _: getProperties "${name}.${name'}") pkg)
       else
-        [ (pkgOrFake name pkg) ];
+        [ (pkgOrFake name pkg) ]
+        ++ lib.optionals include-tests (
+          let
+            tests = pkg.tests or { };
+            maybeTestsIsDerivation = tryEval (lib.isDerivation tests);
+          in
+          if maybeTestsIsDerivation.success && maybeTestsIsDerivation.value then
+            [ (pkgOrFake "${name}.tests" pkg.tests) ]
+          else
+            lib.mapAttrsToList (test: drv: pkgOrFake "${name}.tests.${test}" drv) (
+              lib.optionalAttrs (lib.isAttrs tests) tests
+            )
+        );
   in
   listToAttrs (concatMap getProperties attrs) // { recurseForDerivations = true; }
 ) (fromJSON (readFile attr-json))
