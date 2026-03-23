@@ -6,8 +6,8 @@
   # Path to Nix file containing a list of attributes to build
   nixpkgs-path,
   # Path to this review's nixpkgs
-  alt-pkgs ? "",
-  # Non-empty string when using an alternative package set (e.g. pkgsCross.aarch64-multiplatform)
+  alt-pkgs ? null,
+  # Alternative package set name (e.g. pkgsCross.aarch64-multiplatform), or null for default
   local-pkgs ? import nixpkgs-path {
     system = local-system;
     config = import nixpkgs-config-path;
@@ -43,7 +43,7 @@ let
   # always wrap in buildEnv to avoid nixpkgs platform filtering on nativeBuildInputs
   # which would silently drop cross-compiled packages from the dependency graph.
   # Otherwise, use the buildEnv threshold of 50 to preserve setup hooks in the shell.
-  useEnv = alt-pkgs != "" || builtins.length attrs > 50;
+  useEnv = alt-pkgs != null || builtins.length attrs > 50;
 in
 (import nixpkgs-path { }).mkShell {
   name = "review-shell";

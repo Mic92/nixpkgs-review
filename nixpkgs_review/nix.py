@@ -450,9 +450,7 @@ def build_shell_file_args(
         "--argstr",
         "attrs-path",
         str(attrs_file),
-        "--argstr",
-        "alt-pkgs",
-        pkgs or "",
+        *(["--argstr", "alt-pkgs", pkgs] if pkgs else []),
     ]
 
 
