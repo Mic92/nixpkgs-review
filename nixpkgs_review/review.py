@@ -17,9 +17,9 @@ from xml.etree import ElementTree as ET
 from . import git, http_requests
 from .builddir import Builddir
 from .errors import NixpkgsReviewError
-from .nixpkgs import fetch_refs, resolve_git_dir
 from .github import GithubClient, GitHubPullRequest
 from .nix import Attr, BuildConfig, ShellConfig, multi_system_eval, nix_build, nix_shell
+from .nixpkgs import fetch_refs
 from .report import Report, ReportOptions
 from .utils import (
     PackageFilter,
@@ -33,7 +33,7 @@ from .utils import (
 
 if TYPE_CHECKING:
     import argparse
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable
     from re import Pattern
 
     from .allow import AllowedFeatures
@@ -954,7 +954,6 @@ def filter_packages_per_system(
         )
 
     return result
-
 
 
 def differences(
