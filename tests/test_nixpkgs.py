@@ -10,7 +10,12 @@ from pathlib import Path
 
 import pytest
 
-from nixpkgs_review.nixpkgs import find_nixpkgs_root, is_bare_repository, resolve_git_dir
+from nixpkgs_review.cli import main
+from nixpkgs_review.nixpkgs import (
+    find_nixpkgs_root,
+    is_bare_repository,
+    resolve_git_dir,
+)
 
 from .conftest import Chdir, Helpers
 
@@ -159,8 +164,6 @@ def test_wip_command_fails_in_bare_repo(helpers: Helpers) -> None:
         os.environ["XDG_CACHE_HOME"] = str(path / "cache")
 
         with Chdir(bare_root), pytest.raises(SystemExit, match="1"):
-            from nixpkgs_review.cli import main
-
             main(
                 "nixpkgs-review",
                 ["wip", "--remote", str(bare_root), "--build-graph", "nix"],
