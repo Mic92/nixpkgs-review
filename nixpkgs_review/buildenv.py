@@ -2,57 +2,15 @@ from __future__ import annotations
 
 import contextlib
 import os
-import subprocess
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING
 
+from .nixpkgs import find_nixpkgs_root
 from .utils import die
 
 if TYPE_CHECKING:
     import types
-
-
-def is_bare_repository() -> bool:
-    """Check if CWD is inside a bare git repository."""
-    result = subprocess.run(
-        ["git", "rev-parse", "--is-bare-repository"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return result.returncode == 0 and result.stdout.strip() == "true"
-
-
-def _is_bare_nixpkgs_repo() -> Path | None:
-    """Check if CWD is a bare git repo containing nixpkgs.
-
-    Returns the repo root path if so, None otherwise.
-    """
-    if not is_bare_repository():
-        return None
-
-    has_nixpkgs = subprocess.run(
-        ["git", "cat-file", "-e", "HEAD:nixos/release.nix"],
-        capture_output=True,
-        check=False,
-    )
-    if has_nixpkgs.returncode != 0:
-        return None
-
-    return Path.cwd()
-
-
-def find_nixpkgs_root() -> Path | None:
-    root_path = Path.cwd()
-    while True:
-        if (root_path / "nixos" / "release.nix").exists():
-            return root_path
-        if root_path == root_path.parent:
-            break
-        root_path = root_path.parent
-
-    return _is_bare_nixpkgs_repo()
 
 
 class Buildenv:

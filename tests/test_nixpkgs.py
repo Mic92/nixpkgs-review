@@ -1,4 +1,4 @@
-"""Tests for bare repository support."""
+"""Tests for nixpkgs repository detection (nixpkgs_review.nixpkgs)."""
 
 from __future__ import annotations
 
@@ -9,8 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from nixpkgs_review.buildenv import find_nixpkgs_root, is_bare_repository
-from nixpkgs_review.review import resolve_git_dir
+from nixpkgs_review.nixpkgs import find_nixpkgs_root, is_bare_repository, resolve_git_dir
 
 from .conftest import Chdir, Helpers
 

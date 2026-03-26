@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 
 from nixpkgs_review import git
 from nixpkgs_review.allow import AllowedFeatures
-from nixpkgs_review.buildenv import Buildenv, is_bare_repository
+from nixpkgs_review.buildenv import Buildenv
+from nixpkgs_review.nixpkgs import is_bare_repository
 from nixpkgs_review.review import (
     LocalRevisionTarget,
     ReviewAction,
