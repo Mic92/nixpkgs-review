@@ -14,16 +14,8 @@ from nixpkgs_review.nixpkgs import find_nixpkgs_root, is_bare_repository, resolv
 from .conftest import Chdir, Helpers
 
 
-GIT_ENV = {
-    "GIT_AUTHOR_NAME": "test",
-    "GIT_AUTHOR_EMAIL": "test@test",
-    "GIT_COMMITTER_NAME": "test",
-    "GIT_COMMITTER_EMAIL": "test@test",
-}
-
-
 def _git(repo: Path, *args: str) -> None:
-    subprocess.run(["git", "-C", str(repo), *args], check=True, env={**os.environ, **GIT_ENV})
+    subprocess.run(["git", "-C", str(repo), *args], check=True)
 
 
 def _make_bare_with_dotgit(path: Path) -> Path:
@@ -97,7 +89,6 @@ def _make_true_bare(path: Path, *, with_nixpkgs: bool = True) -> Path:
     subprocess.run(
         ["git", "clone", "--bare", str(src), str(bare)],
         check=True,
-        env={**os.environ, **GIT_ENV},
     )
     return bare
 
