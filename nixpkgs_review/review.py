@@ -982,6 +982,15 @@ def resolve_git_dir() -> Path:
         case (False, True):
             return dotgit
         case _:
+            # Maybe we're in a bare repo (no .git entry at all).
+            result = subprocess.run(
+                ["git", "rev-parse", "--git-dir"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                return Path(result.stdout.strip())
             msg = "Cannot find .git file or directory in current directory"
             raise NixpkgsReviewError(msg)
 
