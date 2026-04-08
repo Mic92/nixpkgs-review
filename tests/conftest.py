@@ -248,6 +248,31 @@ sandbox-build-dir = {test_nix_dir.joinpath("build")}
                 yield setup_git(nixpkgs_path)
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _isolate_git() -> Iterator[None]:
+    """Prevent the user's git configuration from affecting tests.
+
+    Sets identity variables and points GIT_CONFIG_GLOBAL / GIT_CONFIG_SYSTEM
+    at /dev/null so settings like commit.gpgsign or gpg.format don't leak in.
+    """
+    overrides = {
+        "GIT_AUTHOR_NAME": "nixpkgs-review",
+        "GIT_AUTHOR_EMAIL": "nixpkgs-review@example.com",
+        "GIT_COMMITTER_NAME": "nixpkgs-review",
+        "GIT_COMMITTER_EMAIL": "nixpkgs-review@example.com",
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+        "GIT_CONFIG_SYSTEM": "/dev/null",
+    }
+    saved = {k: os.environ.get(k) for k in overrides}
+    os.environ.update(overrides)
+    yield
+    for k, v in saved.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+
+
 @pytest.fixture
 def helpers() -> type[Helpers]:
     return Helpers

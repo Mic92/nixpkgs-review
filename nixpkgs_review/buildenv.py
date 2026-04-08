@@ -6,20 +6,11 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING
 
+from .nixpkgs import find_nixpkgs_root
 from .utils import die
 
 if TYPE_CHECKING:
     import types
-
-
-def find_nixpkgs_root() -> Path | None:
-    root_path = Path.cwd()
-    while True:
-        if (root_path / "nixos" / "release.nix").exists():
-            return root_path
-        if root_path == root_path.parent:
-            return None
-        root_path = root_path.parent
 
 
 class Buildenv:
