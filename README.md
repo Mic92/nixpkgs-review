@@ -28,7 +28,7 @@ automatically builds packages changed in the pull requests.
 To use it without installing it, use:
 
 ```console
-$ nix run 'nixpkgs#nixpkgs-review'
+$ nix run 'nixpkgs#nixpkgs-review' -- pr <PR number>
 ```
 
 To run it from the git repository:
