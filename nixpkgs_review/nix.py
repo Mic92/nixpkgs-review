@@ -127,19 +127,22 @@ def nix_shell(
         nixpkgs_config=config.nixpkgs_config,
         pkgs=config.pkgs,
     )
-    with TemporaryDirectory(prefix="nixpkgs-review-links-") as dirname:
-        bin_link = Path(dirname) / bin_name
-        bin_link.symlink_to(os.path.realpath(nix_shell_bin))
-        if config.sandbox:
+    if config.sandbox:
+        with TemporaryDirectory(prefix="nixpkgs-review-links-") as dirname:
+            bin_link = Path(dirname) / bin_name
+            bin_link.symlink_to(os.path.realpath(nix_shell_bin))
             args = _nix_shell_sandbox(str(bin_link), shell_file_args, config, dirname)
-        else:
-            args = [
-                str(bin_link),
-                *shell_file_args,
-                "--nix-path",
-                config.nix_path,
-                REVIEW_SHELL,
-            ]
+            if config.run:
+                args.extend(["--run", config.run])
+            sh(args, cwd=config.cache_directory)
+    else:
+        args = [
+            nix_shell_bin,
+            *shell_file_args,
+            "--nix-path",
+            config.nix_path,
+            REVIEW_SHELL,
+        ]
         if config.run:
             args.extend(["--run", config.run])
         sh(args, cwd=config.cache_directory)
