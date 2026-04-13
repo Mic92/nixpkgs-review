@@ -8,7 +8,7 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from sys import platform
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import TYPE_CHECKING, Final, NotRequired, TypedDict
 
 from .errors import NixpkgsReviewError
@@ -128,7 +128,13 @@ def nix_shell(
         pkgs=config.pkgs,
     )
     if config.sandbox:
-        args = _nix_shell_sandbox(nix_shell_bin, shell_file_args, config)
+        with TemporaryDirectory(prefix="nixpkgs-review-links-") as dirname:
+            bin_link = Path(dirname) / bin_name
+            bin_link.symlink_to(os.path.realpath(nix_shell_bin))
+            args = _nix_shell_sandbox(str(bin_link), shell_file_args, config, dirname)
+            if config.run:
+                args.extend(["--run", config.run])
+            sh(args, cwd=config.cache_directory)
     else:
         args = [
             nix_shell_bin,
@@ -137,15 +143,16 @@ def nix_shell(
             config.nix_path,
             REVIEW_SHELL,
         ]
-    if config.run:
-        args.extend(["--run", config.run])
-    sh(args, cwd=config.cache_directory)
+        if config.run:
+            args.extend(["--run", config.run])
+        sh(args, cwd=config.cache_directory)
 
 
 def _nix_shell_sandbox(
     nix_shell: str,
     shell_file_args: list[str],
     config: ShellConfig,
+    extra_bind_dir: str,
 ) -> list[str]:
     if platform != "linux":
         msg = "Sandbox mode is only available on Linux platforms."
@@ -219,6 +226,7 @@ def _nix_shell_sandbox(
         # GitHub
         *bind(hub_config, try_=True),
         *bind(gh_config, try_=True),
+        *bind(extra_bind_dir),
     ]
     return [
         bwrap,
