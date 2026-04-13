@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import fcntl
 import itertools
 import os
 import shutil
@@ -8,7 +7,6 @@ import subprocess
 import sys
 import tempfile
 import time
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -21,6 +19,7 @@ from .builddir import Builddir
 from .errors import NixpkgsReviewError
 from .github import GithubClient, GitHubPullRequest
 from .nix import Attr, BuildConfig, ShellConfig, multi_system_eval, nix_build, nix_shell
+from .nixpkgs import fetch_refs
 from .report import Report, ReportOptions
 from .utils import (
     PackageFilter,
@@ -28,14 +27,13 @@ from .utils import (
     current_system,
     die,
     info,
-    sh,
     system_order_key,
     warn,
 )
 
 if TYPE_CHECKING:
     import argparse
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable
     from re import Pattern
 
     from .allow import AllowedFeatures
@@ -956,77 +954,6 @@ def filter_packages_per_system(
         )
 
     return result
-
-
-@contextmanager
-def locked_open(filename: Path, mode: str = "r") -> Iterator[IO[str]]:
-    """
-    This is a context manager that provides an advisory write lock on the file specified by `filename` when entering the context, and releases the lock when leaving the context.
-    The lock is acquired using the `fcntl` module's `LOCK_EX` flag, which applies an exclusive write lock to the file.
-    """
-    with filename.open(mode) as fd:
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        yield fd
-        fcntl.flock(fd, fcntl.LOCK_UN)
-
-
-def resolve_git_dir() -> Path:
-    dotgit = Path(".git")
-    match (dotgit.is_file(), dotgit.is_dir()):
-        case (True, False):
-            actual_git_dir = dotgit.read_text().strip()
-            if not actual_git_dir.startswith("gitdir: "):
-                msg = f"Invalid .git file: {actual_git_dir} found in current directory"
-                raise NixpkgsReviewError(msg)
-            return Path() / actual_git_dir[8:]
-        case (False, True):
-            return dotgit
-        case _:
-            msg = "Cannot find .git file or directory in current directory"
-            raise NixpkgsReviewError(msg)
-
-
-def fetch_refs(repo: str, *refs: str, shallow_depth: int = 1) -> list[str]:
-    shallow = subprocess.run(
-        ["git", "rev-parse", "--is-shallow-repository"],
-        text=True,
-        stdout=subprocess.PIPE,
-        check=False,
-    )
-    if shallow.returncode != 0:
-        msg = f"Failed to detect if {repo} is shallow repository"
-        raise NixpkgsReviewError(msg)
-
-    fetch_cmd = [
-        "git",
-        "-c",
-        "fetch.prune=false",
-        "fetch",
-        "--no-tags",
-        "--force",
-        repo,
-    ]
-    if shallow.stdout.strip() == "true":
-        fetch_cmd.append(f"--depth={shallow_depth}")
-    for i, ref in enumerate(refs):
-        fetch_cmd.append(f"{ref}:refs/nixpkgs-review/{i}")
-    dotgit = resolve_git_dir()
-    with locked_open(dotgit / "nixpkgs-review", "w"):
-        res = sh(fetch_cmd)
-        if res.returncode != 0:
-            msg = f"Failed to fetch {refs} from {repo}. git fetch failed with exit code {res.returncode}"
-            raise NixpkgsReviewError(msg)
-        shas = []
-        for i, ref in enumerate(refs):
-            rev_parse_cmd = ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"]
-            out = subprocess.run(
-                rev_parse_cmd, text=True, stdout=subprocess.PIPE, check=False
-            )
-            if out.returncode != 0:
-                msg = f"Failed to fetch {ref} from {repo} with command: {''.join(rev_parse_cmd)}"
-                raise NixpkgsReviewError(msg)
-            shas.append(out.stdout.strip())
-        return shas
 
 
 def differences(
