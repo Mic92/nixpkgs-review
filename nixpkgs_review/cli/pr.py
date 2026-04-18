@@ -44,6 +44,17 @@ def parse_pr_numbers(number_args: list[str]) -> list[int]:
     return prs
 
 
+def _dedupe_pr_numbers(prs: list[int]) -> list[int]:
+    deduped: list[int] = []
+    seen: set[int] = set()
+    for pr in prs:
+        if pr in seen:
+            continue
+        seen.add(pr)
+        deduped.append(pr)
+    return deduped
+
+
 def _validate_pr_json(args: argparse.Namespace, prs: list[int]) -> dict[int, Any]:
     pr_objects: dict[int, Any] = {}
     for obj in args.pr_json:
@@ -72,6 +83,7 @@ def _handle_deprecated_args(args: argparse.Namespace) -> None:
 
 def pr_command(args: argparse.Namespace) -> str:
     prs: list[int] = parse_pr_numbers(args.number)
+    included_prs = _dedupe_pr_numbers(parse_pr_numbers(args.include_pr))
     _handle_deprecated_args(args)
 
     checkout_option = CheckoutOption[args.checkout.upper()]
@@ -128,6 +140,11 @@ def pr_command(args: argparse.Namespace) -> str:
                         show_header=not args.no_headers,
                         show_logs=not args.no_logs,
                         show_pr_info=not args.no_pr_info,
+                        included_prs=[
+                            included_pr
+                            for included_pr in included_prs
+                            if included_pr != pr
+                        ],
                     ),
                     shell_options=ShellOptions(
                         no_shell=args.no_shell,

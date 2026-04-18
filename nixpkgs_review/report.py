@@ -7,7 +7,7 @@ import re
 import socket
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 from .utils import (
@@ -317,6 +317,7 @@ class ReportOptions:
 
     extra_nixpkgs_config: str = "{ }"
     checkout: Literal["merge", "commit"] = "merge"
+    included_prs: list[int] = field(default_factory=list)
     show_header: bool = True
     show_logs: bool = False
     max_workers: int | None = 1
@@ -340,6 +341,7 @@ class Report:
         self.checkout = options.checkout
         self.package_filter = package_filter
         self.pkgs = options.pkgs
+        self.included_prs = options.included_prs
 
         self.extra_nixpkgs_config = (
             options.extra_nixpkgs_config
@@ -375,6 +377,7 @@ class Report:
                 "pr": pr,
                 "commit": self.commit,
                 "checkout": self.checkout,
+                "included_prs": self.included_prs,
                 "extra-nixpkgs-config": self.extra_nixpkgs_config,
                 "only_packages": list(self.package_filter.only_packages),
                 "additional_packages": list(self.package_filter.additional_packages),
@@ -403,6 +406,8 @@ class Report:
             cmd += f" --extra-nixpkgs-config '{self.extra_nixpkgs_config}'"
         if self.checkout != "merge":
             cmd += f" --checkout {self.checkout}"
+        for included_pr in self.included_prs:
+            cmd += f" --include-pr {included_pr}"
         if self.pkgs:
             cmd += f" --pkgs={self.pkgs}"
 
