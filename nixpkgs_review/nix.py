@@ -85,8 +85,7 @@ REVIEW_SHELL: Final[str] = str(ROOT.joinpath("nix/review-shell.nix"))
 
 def _nix_common_flags(allow: AllowedFeatures, nix_path: str) -> list[str]:
     return [
-        "--extra-experimental-features",
-        "nix-command" if allow.url_literals else "nix-command no-url-literals",
+        *allow.nix_flags(experimental_features=["nix-command"]),
         "--nix-path",
         nix_path,
         "--allow-import-from-derivation"
