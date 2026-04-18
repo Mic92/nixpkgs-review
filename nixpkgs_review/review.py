@@ -753,8 +753,7 @@ def _list_packages_system(
 ) -> list[Package]:
     cmd = [
         "nix-env",
-        "--extra-experimental-features",
-        "" if allow.url_literals else "no-url-literals",
+        *([] if allow.url_literals else ["--option", "lint-url-literals", "fatal"]),
         "--option",
         "system",
         system,
