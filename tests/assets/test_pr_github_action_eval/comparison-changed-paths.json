@@ -1,8 +1,54 @@
 {
+  "attrdiffByPlatform": {
+    "x86_64-linux": {
+      "added": [],
+      "changed": [
+        "pkg1"
+      ],
+      "removed": [
+        "pkg2"
+      ]
+    },
+    "aarch64-linux": {
+      "added": [],
+      "changed": [
+        "pkg1"
+      ],
+      "removed": [
+        "pkg2"
+      ]
+    },
+    "x86_64-darwin": {
+      "added": [],
+      "changed": [
+        "pkg1"
+      ],
+      "removed": [
+        "pkg2"
+      ]
+    },
+    "aarch64-darwin": {
+      "added": [],
+      "changed": [
+        "pkg1"
+      ],
+      "removed": [
+        "pkg2"
+      ]
+    }
+  },
   "rebuildsByPlatform": {
-    "x86_64-linux": ["pkg1"],
-    "aarch64-linux": ["pkg1"],
-    "x86_64-darwin": ["pkg1"],
-    "aarch64-darwin": ["pkg1"]
+    "x86_64-linux": [
+      "pkg1"
+    ],
+    "aarch64-linux": [
+      "pkg1"
+    ],
+    "x86_64-darwin": [
+      "pkg1"
+    ],
+    "aarch64-darwin": [
+      "pkg1"
+    ]
   }
 }

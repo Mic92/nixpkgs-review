@@ -13,7 +13,7 @@ from urllib.error import HTTPError
 import pytest
 
 from nixpkgs_review.cli import main
-from nixpkgs_review.utils import nix_nom_tool
+from nixpkgs_review.utils import current_system, nix_nom_tool
 
 if TYPE_CHECKING:
     from .conftest import Helpers, Nixpkgs
@@ -383,6 +383,10 @@ def test_pr_github_action_eval(
                 ],
             )
             helpers.assert_built(path, "pkg1", "bashInteractive")
+            # pkg2 is only listed in attrdiffByPlatform.removed
+            report = helpers.load_report(path)
+            non_existent = report["result"][current_system()]["non-existent"]
+            assert [a["name"] for a in non_existent] == ["pkg2"]
 
 
 @patch("nixpkgs_review.http_requests.urlopen")

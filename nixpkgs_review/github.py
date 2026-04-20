@@ -65,7 +65,8 @@ class GitHubArtifactsResponse(TypedDict):
 
 
 class GitHubChangedPaths(TypedDict, total=False):
-    rebuildsByPlatform: dict[str, list[str]]
+    attrdiffByPlatform: dict[System, dict[str, list[str]]]
+    rebuildsByPlatform: dict[System, list[str]]
 
 
 def pr_url(pr: int) -> str:
@@ -288,24 +289,24 @@ class GithubClient:
     def _process_comparison_artifact(
         self, artifact_id: int
     ) -> dict[System, set[str]] | None:
-        changed_paths = self.get_json_from_artifact(
+        raw = self.get_json_from_artifact(
             workflow_id=artifact_id,
             json_filename="changed-paths.json",
         )
-        if not isinstance(changed_paths, dict):
-            msg = f"Expected changed_paths to be a dict, got {type(changed_paths)}"
+        if not isinstance(raw, dict):
+            msg = f"Expected changed_paths to be a dict, got {type(raw)}"
             raise TypeError(msg)
+        changed_paths = cast("GitHubChangedPaths", raw)
 
-        if (path := changed_paths.get("rebuildsByPlatform")) is not None:
-            if not isinstance(path, dict):
-                msg = f"Expected rebuildsByPlatform to be a dict, got {type(path)}"
-                raise TypeError(msg)
-            return {
-                # Convert package lists to package sets
-                system: set(packages_list)
-                for system, packages_list in path.items()
-            }
-        return None
+        packages_per_system: dict[System, set[str]] = {}
+        for system, rebuilds in (changed_paths.get("rebuildsByPlatform") or {}).items():
+            packages_per_system.setdefault(system, set()).update(rebuilds)
+        # rebuildsByPlatform omits added/removed attrs; without them a pure
+        # package removal is reported as "no rebuilds".
+        for system, diff in (changed_paths.get("attrdiffByPlatform") or {}).items():
+            packages = packages_per_system.setdefault(system, set())
+            packages.update(diff.get("added", []), diff.get("removed", []))
+        return packages_per_system or None
 
     def get_github_action_eval_result(
         self, pr: GitHubPullRequest
