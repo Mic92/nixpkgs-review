@@ -648,9 +648,10 @@ class Review:
             else:
                 self.github_client.approve_pr(
                     pr,
-                    "Approved automatically following the successful run of `nixpkgs-review`."
-                    + ("\n\n@NixOS/nixpkgs-merge-bot merge" if action.merge_pr else ""),
+                    "Approved automatically following the successful run of `nixpkgs-review`.",
                 )
+                if action.merge_pr:
+                    self.github_client.comment_issue(pr, "@NixOS/nixpkgs-merge-bot merge")
 
         if action.print_result:
             print(report.markdown(path, pr))
