@@ -269,19 +269,18 @@ class SystemReport:
         self.built: list[Attr] = []
 
         for attr in attrs:
-            match attr:
-                case _ if attr.broken:
-                    self.broken.append(attr)
-                case _ if attr.blacklisted:
-                    self.blacklisted.append(attr)
-                case _ if not attr.exists:
-                    self.non_existent.append(attr)
-                case _ if not attr.was_build():
-                    self.failed.append(attr)
-                case _ if attr.is_test():
-                    self.tests.append(attr)
-                case _:
-                    self.built.append(attr)
+            if not attr.exists:
+                self.non_existent.append(attr)
+            elif attr.broken:
+                self.broken.append(attr)
+            elif attr.blacklisted:
+                self.blacklisted.append(attr)
+            elif not attr.was_build():
+                self.failed.append(attr)
+            elif attr.is_test():
+                self.tests.append(attr)
+            else:
+                self.built.append(attr)
 
     def serialize(self) -> dict[str, list[str]]:
         return {

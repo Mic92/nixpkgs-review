@@ -64,6 +64,7 @@ class GitHubArtifactsResponse(TypedDict):
 
 
 class GitHubChangedPaths(TypedDict, total=False):
+    attrdiffByPlatform: dict[str, JSONType]
     rebuildsByPlatform: dict[str, list[str]]
 
 
@@ -295,16 +296,45 @@ class GithubClient:
             msg = f"Expected changed_paths to be a dict, got {type(changed_paths)}"
             raise TypeError(msg)
 
+        packages_per_system: dict[System, set[str]] = {}
         if (path := changed_paths.get("rebuildsByPlatform")) is not None:
             if not isinstance(path, dict):
                 msg = f"Expected rebuildsByPlatform to be a dict, got {type(path)}"
                 raise TypeError(msg)
-            return {
-                # Convert package lists to package sets
-                system: set(packages_list)
-                for system, packages_list in path.items()
-            }
-        return None
+            for system, packages_list in path.items():
+                if not isinstance(packages_list, list):
+                    msg = f"Expected rebuildsByPlatform.{system} to be a list, got {type(packages_list)}"
+                    raise TypeError(msg)
+                packages_per_system[cast("System", system)] = set(packages_list)
+
+        if (attrdiff_by_platform := changed_paths.get("attrdiffByPlatform")) is not None:
+            if not isinstance(attrdiff_by_platform, dict):
+                msg = f"Expected attrdiffByPlatform to be a dict, got {type(attrdiff_by_platform)}"
+                raise TypeError(msg)
+
+            # Newer CI artifacts expose per-platform additions/removals directly.
+            # Reuse the CI-selected rebuild set and add only the pieces that would
+            # otherwise be lost in reporting: new attrs and removed attrs.
+            for system, platform_diff in attrdiff_by_platform.items():
+                if not isinstance(platform_diff, dict):
+                    msg = (
+                        f"Expected attrdiffByPlatform.{system} to be a dict, "
+                        f"got {type(platform_diff)}"
+                    )
+                    raise TypeError(msg)
+                packages = packages_per_system.setdefault(cast("System", system), set())
+                for kind in ("added", "removed"):
+                    if (package_names := platform_diff.get(kind)) is None:
+                        continue
+                    if not isinstance(package_names, list):
+                        msg = (
+                            f"Expected attrdiffByPlatform.{system}.{kind} to be a list, "
+                            f"got {type(package_names)}"
+                        )
+                        raise TypeError(msg)
+                    packages.update(package_names)
+
+        return packages_per_system or None
 
     def get_github_action_eval_result(
         self, pr: GitHubPullRequest
