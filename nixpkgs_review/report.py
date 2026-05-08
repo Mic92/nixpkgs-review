@@ -106,7 +106,7 @@ def remove_ansi_escape_sequences(text: str) -> str:
 
 
 def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
-    res = ""
+    logs = []
     seen_tails = set()
     for pkg in packages:
         if tail := html.escape(
@@ -114,16 +114,14 @@ def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
                 get_file_tail(logs_dir / get_log_filename(pkg, system))
             )
         ):
-            if not res:
-                res = "\n---\n"
-                res += f"<details>\n<summary>Error logs: `{system}`</summary>\n"
             if tail in seen_tails:
                 continue
-            res += f"<details>\n<summary>{html.escape(pkg.name)}</summary>\n<pre>{tail}</pre>\n</details>\n"
+            logs.append(f"<details>\n<summary>{html.escape(pkg.name)}</summary>\n<pre>{tail}</pre>\n</details>")
             seen_tails.add(tail)
-    if res:
-        res += "</details>\n"
-    return res
+    if not logs:
+        return ""
+    else:
+        return f"\n---\n<details>\n<summary>Error logs: `{system}`</summary>\n{"\n".join(logs)}\n</details>\n"
 
 
 class LazyDirectory:
