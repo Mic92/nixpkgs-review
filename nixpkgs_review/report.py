@@ -120,6 +120,8 @@ def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
             seen_tails.add(tail)
     if not logs:
         return ""
+    elif len(logs) <= 2:
+        return f"\n---\n{"\n".join(logs)}\n"
     else:
         return f"\n---\n<details>\n<summary>Error logs: `{system}`</summary>\n{"\n".join(logs)}\n</details>\n"
 
