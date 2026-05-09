@@ -116,14 +116,15 @@ def html_logs_section(logs_dir: Path, packages: list[Attr], system: str) -> str:
         ):
             if tail in seen_tails:
                 continue
-            logs.append(f"<details>\n<summary>{html.escape(pkg.name)}</summary>\n<pre>{tail}</pre>\n</details>")
+            logs.append(
+                f"<details>\n<summary>{html.escape(pkg.name)}</summary>\n<pre>{tail}</pre>\n</details>"
+            )
             seen_tails.add(tail)
     if not logs:
         return ""
-    elif len(logs) <= 2:
-        return f"\n---\n{"\n".join(logs)}\n"
-    else:
-        return f"\n---\n<details>\n<summary>Error logs: `{system}`</summary>\n{"\n".join(logs)}\n</details>\n"
+    if len(logs) <= 2:
+        return f"\n---\n{'\n'.join(logs)}\n"
+    return f"\n---\n<details>\n<summary>Error logs: `{system}`</summary>\n{'\n'.join(logs)}\n</details>\n"
 
 
 class LazyDirectory:
