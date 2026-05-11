@@ -483,9 +483,12 @@ class Review:
         prefixed_additional = _prefix_with_pkgs(
             self.package_filter.additional_packages, self.build_config.pkgs
         )
+        systems_additional: set[str] = (
+            self.systems if len(prefixed_additional) > 0 else set()
+        )
         packages_per_system = {
-            system: prefixed_additional | packages
-            for system, packages in packages_per_system.items()
+            system: prefixed_additional | packages_per_system.get(system, set())
+            for system in packages_per_system.keys() | systems_additional
         }
         return nix_build(
             packages_per_system,
