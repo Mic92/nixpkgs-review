@@ -11,8 +11,8 @@ if [[ -z $version ]]; then
   exit 1
 fi
 
-if [[ "$(git symbolic-ref --short HEAD)" != "master" ]]; then
-  echo "must be on master branch" >&2
+if [[ "$(git symbolic-ref --short HEAD)" != "main" ]]; then
+  echo "must be on main branch" >&2
   exit 1
 fi
 
@@ -33,8 +33,8 @@ if [[ -n $uncommitted_changes ]]; then
   echo -e "There are uncommitted changes, exiting:\n${uncommitted_changes}" >&2
   exit 1
 fi
-git pull git@github.com:Mic92/nixpkgs-review master
-unpushed_commits=$(git log --format=oneline origin/master..master)
+git pull git@github.com:Mic92/nixpkgs-review main
+unpushed_commits=$(git log --format=oneline origin/main..main)
 if [[ $unpushed_commits != "" ]]; then
   echo -e "\nThere are unpushed changes, exiting:\n$unpushed_commits" >&2
   exit 1
@@ -51,7 +51,7 @@ git checkout -b "release-${version}"
 git commit -m "bump version ${version}"
 git push origin "release-${version}"
 pr_url=$(gh pr create \
-  --base master \
+  --base main \
   --head "release-${version}" \
   --title "Release ${version}" \
   --body "Release ${version} of nixpkgs-review")
@@ -61,8 +61,8 @@ pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
 
 # Enable auto-merge with specific merge method and delete branch
 gh pr merge "$pr_number" --auto --merge --delete-branch
-git checkout master
+git checkout main
 
 waitForPr "release-${version}"
-git pull git@github.com:Mic92/nixpkgs-review master
+git pull git@github.com:Mic92/nixpkgs-review main
 gh release create "${version}" --draft --title "${version}" --notes ""
