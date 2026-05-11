@@ -323,7 +323,7 @@ class Review:
 
         try:
             with http_requests.urlopen(diff_url) as response:
-                diff_content = response.read().decode("utf-8")
+                diff_content = response.read().decode("utf-8", errors="replace")
             self._display_diff_preview(diff_content)
         except (URLError, OSError):
             pass
