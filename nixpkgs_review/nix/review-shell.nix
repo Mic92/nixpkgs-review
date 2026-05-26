@@ -26,7 +26,13 @@ let
         config = nixpkgs-config;
       };
     in
-    map (attrString: lib.attrByPath (lib.splitString "." attrString) null system-pkg) system-attrs;
+    map (
+      attrString:
+      let
+        attr = lib.attrByPath (lib.splitString "." attrString) null system-pkg;
+      in
+      attr.all or attr
+    ) system-attrs;
   attrs = lib.flatten (lib.mapAttrsToList extractPackagesForSystem (import attrs-path));
   supportIgnoreSingleFileOutputs = (lib.functionArgs local-pkgs.buildEnv) ? ignoreSingleFileOutputs;
   env = local-pkgs.buildEnv (
