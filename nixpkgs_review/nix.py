@@ -79,6 +79,9 @@ class Attr:
             with_output(output): path for output, path in (self.outputs or {}).items()
         }
 
+    def serialize(self) -> dict:
+        return {"name": self.name, "aliases": self.aliases}
+
 
 REVIEW_SHELL: Final[str] = str(ROOT.joinpath("nix/review-shell.nix"))
 
