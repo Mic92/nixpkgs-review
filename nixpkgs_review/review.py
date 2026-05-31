@@ -165,12 +165,10 @@ class Review:
         if not review_config.systems:
             msg = "Systems is empty"
             raise NixpkgsReviewError(msg)
+        self._systems_input = {s.lower() for s in review_config.systems}
         self.systems = set(
             itertools.chain(
-                *(
-                    self._process_aliases_for_systems(s.lower())
-                    for s in review_config.systems
-                )
+                *[self._process_aliases_for_systems(s) for s in self._systems_input]
             )
         )
         self.build_config = build_config
@@ -566,6 +564,22 @@ class Review:
             case CheckoutOption.BASE:
                 self.git_worktree(base_rev)
 
+    def _drop_deprecated_x86_64_darwin(self, pr: GitHubPullRequest) -> None:
+        # x86_64-darwin is deprecated after release-26.05. Drop it when the PR
+        # targets a newer branch, unless the user explicitly asked for it.
+        if (
+            "x86_64-darwin" not in self.systems
+            or "x86_64-darwin" in self._systems_input
+            or "25.11" in pr["base"]["ref"]
+            or "26.05" in pr["base"]["ref"]
+        ):
+            return
+        warn(
+            "x86_64-darwin is deprecated after release-26.05; "
+            "skipping it (pass `--systems x86_64-darwin` explicitly to override)."
+        )
+        self.systems.discard("x86_64-darwin")
+
     def build_pr(self, pr_number: int) -> dict[System, list[Attr]]:
         pr = (
             cast("GitHubPullRequest", self.review_config.pr_object)
@@ -573,6 +587,7 @@ class Review:
             else self.github_client.pull_request(pr_number)
         )
         self.head_commit = pr["head"]["sha"]
+        self._drop_deprecated_x86_64_darwin(pr)
 
         if self.review_config.show_pr_info:
             self._display_pr_info(pr, pr_number)
