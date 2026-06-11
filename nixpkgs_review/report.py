@@ -446,6 +446,7 @@ class Report:
             ":white_check_mark:", report.tests, "built", what="test"
         )
         msg += html_pkgs_section(":white_check_mark:", report.built, "built")
+        msg += "\n"  # render concatenated multi report.md files correctly
         return msg
 
     def _append_logs(self, msg: str, root: Path) -> str:
