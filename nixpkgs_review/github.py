@@ -30,6 +30,7 @@ class GitHubUser(TypedDict):
 class GitHubRef(TypedDict):
     sha: Required[str]
     label: Required[str]
+    ref: Required[str]
 
 
 class GitHubPullRequest(TypedDict):
