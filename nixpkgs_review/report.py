@@ -432,20 +432,16 @@ class Report:
     def _generate_system_report(self, system: str, report: SystemReport) -> str:
         msg = "\n---\n"
         msg += f"### `{system}`\n"
+        msg += html_pkgs_section("⏩", report.broken, "marked as broken and skipped")
         msg += html_pkgs_section(
-            ":fast_forward:", report.broken, "marked as broken and skipped"
-        )
-        msg += html_pkgs_section(
-            ":fast_forward:",
+            "⏩",
             report.non_existent,
             "present in ofBorg's evaluation, but not found in the checkout",
         )
-        msg += html_pkgs_section(":fast_forward:", report.blacklisted, "blacklisted")
-        msg += html_pkgs_section(":x:", report.failed, "failed to build")
-        msg += html_pkgs_section(
-            ":white_check_mark:", report.tests, "built", what="test"
-        )
-        msg += html_pkgs_section(":white_check_mark:", report.built, "built")
+        msg += html_pkgs_section("⏩", report.blacklisted, "blacklisted")
+        msg += html_pkgs_section("❌", report.failed, "failed to build")
+        msg += html_pkgs_section("✅", report.tests, "built", what="test")
+        msg += html_pkgs_section("✅", report.built, "built")
         msg += "\n"  # render concatenated multi report.md files correctly
         return msg
 
