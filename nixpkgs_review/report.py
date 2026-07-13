@@ -256,8 +256,8 @@ def write_error_logs(
             fut.result()
 
 
-def _serialize_attrs(attrs: list[Attr]) -> list[str]:
-    return [a.name for a in attrs]
+def _serialize_attrs(attrs: list[Attr]) -> list[dict]:
+    return [a.serialize() for a in attrs]
 
 
 class SystemReport:
@@ -284,7 +284,7 @@ class SystemReport:
                 case _:
                     self.built.append(attr)
 
-    def serialize(self) -> dict[str, list[str]]:
+    def serialize(self) -> dict[str, list[dict]]:
         return {
             "broken": _serialize_attrs(self.broken),
             "non-existent": _serialize_attrs(self.non_existent),
