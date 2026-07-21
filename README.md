@@ -444,6 +444,16 @@ either locally or through the remote builder protocol.
 $ nixpkgs-review pr --systems aarch64-linux 98734
 ```
 
+## Review changes with additional PRs included
+
+Sometimes a pull request depends on changes in another pull request to pass. To
+merge additional pull requests when reviewing a pull request, use the
+`--include-pr` flag multiple times:
+
+```console
+$ nixpkgs-review pr 12345 --include-pr 67890 --include-pr 98734
+```
+
 ## Review changes inside sandbox [EXPERIMENTAL]
 
 The `--sandbox` flag setups a sandbox using

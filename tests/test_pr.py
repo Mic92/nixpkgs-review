@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import zipfile
 from http.client import HTTPMessage
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, Mock, mock_open, patch
 from urllib.error import HTTPError
@@ -13,6 +14,7 @@ from urllib.error import HTTPError
 import pytest
 
 from nixpkgs_review.cli import main
+from nixpkgs_review.cli.pr import _dedupe_pr_numbers
 from nixpkgs_review.utils import nix_nom_tool
 
 if TYPE_CHECKING:
@@ -98,6 +100,38 @@ def setup_repo(nixpkgs: Nixpkgs) -> tuple[str, str, str]:
     head = git_rev_parse("HEAD^2")
     merge = git_rev_parse("HEAD")
     return base, head, merge
+
+
+def setup_repo_with_included_pr(nixpkgs: Nixpkgs) -> tuple[str, str, str, str]:
+    subprocess.run(["git", "checkout", "-b", "pull/2/head"], check=True)
+    nixpkgs.path.joinpath("pkg2.txt").write_text("bar")
+    subprocess.run(["git", "add", "pkg2.txt"], check=True)
+    subprocess.run(["git", "commit", "-m", "included-change"], check=True)
+    subprocess.run(["git", "push", str(nixpkgs.remote), "pull/2/head"], check=True)
+    included_head = git_rev_parse("HEAD")
+
+    subprocess.run(["git", "checkout", "-b", "pull/1/head", "master"], check=True)
+    default_nix = nixpkgs.path.joinpath("default.nix")
+    default_nix.write_text(
+        default_nix.read_text().replace(
+            "cat ${./pkg1.txt} > $out",
+            "cat ${./pkg1.txt} ${./pkg2.txt} > $out",
+        )
+    )
+    subprocess.run(["git", "add", "default.nix"], check=True)
+    subprocess.run(["git", "commit", "-m", "main-change"], check=True)
+    subprocess.run(["git", "checkout", "-b", "pull/1/merge", "master"], check=True)
+    subprocess.run(["git", "merge", "--no-ff", "pull/1/head"], check=True)
+    subprocess.run(["git", "push", str(nixpkgs.remote), "pull/1/merge"], check=True)
+
+    base = git_rev_parse("HEAD^1")
+    head = git_rev_parse("HEAD^2")
+    merge = git_rev_parse("HEAD")
+    return base, head, merge, included_head
+
+
+def test_dedupe_pr_numbers_preserves_order() -> None:
+    assert _dedupe_pr_numbers([2, 3, 2, 1, 3]) == [2, 3, 1]
 
 
 @patch("nixpkgs_review.utils.shutil.which", return_value=None)
@@ -227,6 +261,54 @@ def test_pr_local_eval_without_merge_commit_sha(
             ],
         )
         helpers.assert_built(path, "pkg1")
+
+
+@patch("nixpkgs_review.http_requests.urlopen")
+def test_pr_local_eval_with_included_prs(
+    mock_urlopen: MagicMock,
+    helpers: Helpers,
+) -> None:
+    with helpers.nixpkgs() as nixpkgs:
+        base, head, merge, included_head = setup_repo_with_included_pr(nixpkgs)
+
+        main_pr = create_mock_pr_response(
+            base_rev=base,
+            head_rev=head,
+            merge_rev=merge,
+        )
+        included_pr = create_mock_pr_response(
+            pr_number=2,
+            base_rev=base,
+            head_rev=included_head,
+            merge_rev=None,
+        )
+
+        mock_urlopen.side_effect = [
+            mock_open(read_data=json.dumps(main_pr).encode())(),
+            mock_open(read_data=create_mock_diff_content().encode())(),
+            mock_open(read_data=json.dumps(included_pr).encode())(),
+        ]
+
+        path = main(
+            "nixpkgs-review",
+            [
+                "pr",
+                "1",
+                "--remote",
+                str(nixpkgs.remote),
+                "--eval",
+                "local",
+                "--run",
+                "exit 0",
+                "--include-pr",
+                "2",
+            ],
+        )
+        helpers.assert_built(path, "pkg1")
+        report = helpers.load_report(path)
+        assert report["included_prs"] == [2]
+        report_md = (Path(path) / "report.md").read_text()
+        assert "Command: `nixpkgs-review pr 1 --include-pr 2`" in report_md
 
 
 @pytest.mark.skipif(not shutil.which("bwrap"), reason="`bwrap` not found in PATH")
