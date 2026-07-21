@@ -13,7 +13,7 @@ from urllib.error import HTTPError
 import pytest
 
 from nixpkgs_review.cli import main
-from nixpkgs_review.utils import nix_nom_tool
+from nixpkgs_review.utils import current_system, nix_nom_tool
 
 if TYPE_CHECKING:
     from .conftest import Helpers, Nixpkgs
@@ -383,6 +383,90 @@ def test_pr_github_action_eval(
                 ],
             )
             helpers.assert_built(path, "pkg1", "bashInteractive")
+
+
+@patch("nixpkgs_review.http_requests.urlopen")
+def test_pr_github_action_eval_uses_attrdiff_by_platform_removed_attrs(
+    mock_urlopen: MagicMock,
+    helpers: Helpers,
+) -> None:
+    with helpers.nixpkgs() as nixpkgs:
+        base, head, merge = setup_repo(nixpkgs)
+
+        pr = json.loads(
+            helpers.read_asset("test_pr_github_action_eval/github-pull-363128.json")
+        )
+        pr["merge_commit_sha"] = merge
+        pr["base"]["sha"] = base
+        pr["head"]["sha"] = head
+
+        system = current_system()
+        mock_zip = io.BytesIO()
+        with zipfile.ZipFile(mock_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(
+                "changed-paths.json",
+                json.dumps(
+                    {
+                        "attrdiffByPlatform": {
+                            system: {
+                                "added": [],
+                                "changed": ["pkg1"],
+                                "removed": ["pkg2"],
+                            }
+                        },
+                        "rebuildsByPlatform": {system: ["pkg1"]},
+                    }
+                ),
+            )
+        mock_zip.seek(0)
+
+        additional_mocks = [
+            mock_open(
+                read_data=helpers.read_asset(
+                    "test_pr_github_action_eval/github-workflows-363128.json"
+                ).encode()
+            )(),
+            mock_open(
+                read_data=helpers.read_asset(
+                    "test_pr_github_action_eval/github-artifacts-363128.json"
+                ).encode()
+            )(),
+            mock_open(read_data=mock_zip.getvalue())(),
+        ]
+
+        mock_urlopen.side_effect = [
+            mock_open(read_data=json.dumps(pr).encode())(),
+            mock_open(read_data=create_mock_diff_content().encode())(),
+            *additional_mocks,
+        ]
+
+        hdrs = HTTPMessage()
+        hdrs.add_header("Location", "http://example.com")
+        http_error = HTTPError(
+            url="http://example.com",
+            code=302,
+            msg="Found",
+            hdrs=hdrs,
+            fp=None,
+        )
+
+        with patch(
+            "nixpkgs_review.github.no_redirect_opener.open", side_effect=http_error
+        ):
+            path = main(
+                "nixpkgs-review",
+                [
+                    "pr",
+                    "--remote",
+                    str(nixpkgs.remote),
+                    "--run",
+                    "exit 0",
+                    "363128",
+                ],
+            )
+            helpers.assert_built(path, "pkg1")
+            report = helpers.load_report(path)
+            assert {*report["result"][system]["non-existent"]} == {"pkg2"}
 
 
 @patch("nixpkgs_review.http_requests.urlopen")
