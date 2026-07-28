@@ -213,7 +213,7 @@ def common_flags() -> list[CommonFlag]:
         CommonFlag(
             "--merge-pr",
             action="store_true",
-            help="Merge PR with Merge Bot on review success (must be used with --approve-pr)",
+            help="Merge PR on review success (must be used with --approve-pr)",
         ),
         CommonFlag(
             "-p",
