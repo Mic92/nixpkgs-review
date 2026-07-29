@@ -43,7 +43,7 @@ class Attr:
     _path_verified: bool | None = field(init=False, default=None)
 
     def was_build(self) -> bool:
-        if self.outputs is None or len(self.outputs) == 0:
+        if not self.outputs:
             return False
 
         if self._path_verified is not None:
@@ -391,7 +391,7 @@ def nix_build(
         for system, attrs in attrs_per_system.items()
     }
 
-    if all(len(filtered) == 0 for filtered in filtered_per_system.values()):
+    if all(not filtered for filtered in filtered_per_system.values()):
         return attrs_per_system
 
     command = [

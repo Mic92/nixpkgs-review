@@ -15,10 +15,14 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
+def _git_rev_parse(*args: str) -> list[str]:
+    return ["git", "rev-parse", *args]
+
+
 def is_bare_repository() -> bool:
     """Check if CWD is inside a bare git repository."""
     result = subprocess.run(
-        ["git", "rev-parse", "--is-bare-repository"],
+        _git_rev_parse("--is-bare-repository"),
         capture_output=True,
         text=True,
         check=False,
@@ -66,7 +70,7 @@ def find_nixpkgs_root() -> Path | None:
 def resolve_git_dir() -> Path:
     """Return the path to the git directory for the repo at CWD."""
     result = subprocess.run(
-        ["git", "rev-parse", "--git-dir"],
+        _git_rev_parse("--git-dir"),
         capture_output=True,
         text=True,
         check=False,
@@ -91,7 +95,7 @@ def locked_open(filename: Path, mode: str = "r") -> Iterator[IO[str]]:
 
 def fetch_refs(repo: str, *refs: str, shallow_depth: int = 1) -> list[str]:
     shallow = subprocess.run(
-        ["git", "rev-parse", "--is-shallow-repository"],
+        _git_rev_parse("--is-shallow-repository"),
         text=True,
         stdout=subprocess.PIPE,
         check=False,
@@ -121,7 +125,7 @@ def fetch_refs(repo: str, *refs: str, shallow_depth: int = 1) -> list[str]:
             raise NixpkgsReviewError(msg)
         shas = []
         for i, ref in enumerate(refs):
-            rev_parse_cmd = ["git", "rev-parse", "--verify", f"refs/nixpkgs-review/{i}"]
+            rev_parse_cmd = _git_rev_parse("--verify", f"refs/nixpkgs-review/{i}")
             out = subprocess.run(
                 rev_parse_cmd, text=True, stdout=subprocess.PIPE, check=False
             )

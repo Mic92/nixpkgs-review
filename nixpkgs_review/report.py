@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
 # https://github.com/orgs/community/discussions/27190
 MAX_GITHUB_COMMENT_LENGTH = 65536
+_FAST_FORWARD_EMOJI = ":fast_forward:"
 
 
 def get_log_filename(a: Attr, system: str) -> str:
@@ -52,7 +53,7 @@ def _package_printer(
         what: str = "package",
         log: Callable[[str], None] = warn,
     ) -> None:
-        if len(packages) == 0:
+        if not packages:
             return
         plural = "s" if len(packages) > 1 else ""
         log(f"{len(packages)} {what}{plural} {msg}:")
@@ -70,7 +71,7 @@ def _package_printer(
 def html_pkgs_section(
     emoji: str, packages: list[Attr], msg: str, what: str = "package"
 ) -> str:
-    if len(packages) == 0:
+    if not packages:
         return ""
     plural = "s" if len(packages) > 1 else ""
     res = "<details>\n"
@@ -79,7 +80,7 @@ def html_pkgs_section(
     )
     for pkg in packages:
         res += f"    <li>{pkg.name}"
-        if len(pkg.aliases) > 0:
+        if pkg.aliases:
             res += f" ({', '.join(pkg.aliases)})"
         res += "</li>\n"
     res += "  </ul>\n</details>\n"
@@ -367,7 +368,7 @@ class Report:
 
     def succeeded(self) -> bool:
         """Whether the report is considered a success or a failure"""
-        return all((len(report.failed) == 0) for report in self.system_reports.values())
+        return all(not report.failed for report in self.system_reports.values())
 
     def json(self, pr: int | None) -> str:
         return json.dumps(
@@ -433,14 +434,14 @@ class Report:
         msg = "\n---\n"
         msg += f"### `{system}`\n"
         msg += html_pkgs_section(
-            ":fast_forward:", report.broken, "marked as broken and skipped"
+            _FAST_FORWARD_EMOJI, report.broken, "marked as broken and skipped"
         )
         msg += html_pkgs_section(
-            ":fast_forward:",
+            _FAST_FORWARD_EMOJI,
             report.non_existent,
             "present in ofBorg's evaluation, but not found in the checkout",
         )
-        msg += html_pkgs_section(":fast_forward:", report.blacklisted, "blacklisted")
+        msg += html_pkgs_section(_FAST_FORWARD_EMOJI, report.blacklisted, "blacklisted")
         msg += html_pkgs_section(":x:", report.failed, "failed to build")
         msg += html_pkgs_section(
             ":white_check_mark:", report.tests, "built", what="test"

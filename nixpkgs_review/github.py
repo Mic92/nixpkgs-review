@@ -251,19 +251,19 @@ class GithubClient:
         req = urllib.request.Request(new_url)  # noqa: S310
         with (
             http_requests.urlopen(req) as new_resp,
-            tempfile.TemporaryDirectory() as _temp_dir,
+            tempfile.TemporaryDirectory() as temp_dir,
         ):
-            temp_dir = Path(_temp_dir)
+            temp_path = Path(temp_dir)
             # download zip file to disk
-            artifact_zip = temp_dir / "artifact.zip"
+            artifact_zip = temp_path / "artifact.zip"
             with artifact_zip.open("wb") as f:
                 shutil.copyfileobj(new_resp, f)
 
             # Extract zip archive to temporary directory
             with zipfile.ZipFile(artifact_zip, "r") as zip_ref:
-                zip_ref.extract(json_filename, temp_dir)
+                zip_ref.extract(json_filename, temp_path)
 
-            with (temp_dir / json_filename).open() as json_file:
+            with (temp_path / json_filename).open() as json_file:
                 result: JSONType = json.load(json_file)
                 return result
 

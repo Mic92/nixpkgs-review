@@ -387,7 +387,7 @@ def parse_args(command: str, args: list[str]) -> argparse.Namespace:
     if argcomplete:
         argcomplete.autocomplete(main_parser)
 
-    if args == []:
+    if not args:
         main_parser.print_help()
         sys.exit(2)
 

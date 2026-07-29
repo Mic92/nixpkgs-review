@@ -481,9 +481,7 @@ class Review:
         prefixed_additional = _prefix_with_pkgs(
             self.package_filter.additional_packages, self.build_config.pkgs
         )
-        systems_additional: set[str] = (
-            self.systems if len(prefixed_additional) > 0 else set()
-        )
+        systems_additional: set[str] = self.systems if prefixed_additional else set()
         packages_per_system = {
             system: prefixed_additional | packages_per_system.get(system, set())
             for system in packages_per_system.keys() | systems_additional
@@ -841,7 +839,7 @@ def _collect_package_attrs(
             assert attr.drv_path is not None
             attrs[attr.drv_path] = attr
 
-    if not ignore_nonexisting and len(nonexisting) > 0:
+    if not ignore_nonexisting and nonexisting:
         die(f"These packages do not exist: {' '.join(nonexisting)}")
     return attrs
 
@@ -855,7 +853,7 @@ def _join_packages_for_system(
 
     nonexistent = specified_attrs.keys() - changed_attrs.keys() - tests.keys()
 
-    if len(nonexistent) != 0:
+    if nonexistent:
         die(
             f"The following packages specified with `-p` are not rebuilt by the pull request: "
             f"{' '.join(specified_attrs[path].name for path in nonexistent)}"
@@ -872,7 +870,7 @@ def _apply_package_filters(
 ) -> set[str]:
     """Apply skip filters to the package set."""
     if skip_packages:
-        packages = packages - skip_packages
+        packages -= skip_packages
 
     for attr in packages.copy():
         for regex in skip_package_regexes:
