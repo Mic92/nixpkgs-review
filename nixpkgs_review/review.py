@@ -18,7 +18,15 @@ from . import git, http_requests
 from .builddir import Builddir
 from .errors import NixpkgsReviewError
 from .github import GithubClient, GitHubPullRequest
-from .nix import Attr, BuildConfig, ShellConfig, multi_system_eval, nix_build, nix_shell
+from .nix import (
+    Attr,
+    BuildConfig,
+    ShellConfig,
+    multi_system_eval,
+    nix_build,
+    nix_common_flags,
+    nix_shell,
+)
 from .nixpkgs import fetch_refs
 from .report import Report, ReportOptions
 from .utils import (
@@ -416,10 +424,8 @@ class Review:
         print("Local evaluation for computing rebuilds")
 
         base_packages: dict[System, list[Package]] = list_packages(
-            self.builddir.nix_path,
+            self.build_config,
             self.systems,
-            self.build_config.allow,
-            self.build_config.pkgs,
         )
 
         if head_commit is None:
@@ -430,10 +436,8 @@ class Review:
             self.git_merge(head_commit)
 
         merged_packages: dict[System, list[Package]] = list_packages(
-            self.builddir.nix_path,
+            self.build_config,
             self.systems,
-            self.build_config.allow,
-            self.build_config.pkgs,
             check_meta=True,
         )
 
@@ -687,6 +691,7 @@ class Review:
                 run=self.shell_options.run,
                 sandbox=self.shell_options.sandbox,
                 pkgs=self.build_config.pkgs,
+                options=self.build_config.options,
             )
             nix_shell(report.built_packages(), shell_config)
 
@@ -766,30 +771,23 @@ def parse_packages_xml(stdout: IO[str]) -> list[Package]:
 
 def _list_packages_system(
     system: System,
-    nix_path: str,
-    allow: AllowedFeatures,
-    pkgs: str | None = None,
+    build_config: BuildConfig,
     *,
     check_meta: bool = False,
 ) -> list[Package]:
     cmd = [
         "nix-env",
-        *([] if allow.url_literals else ["--option", "lint-url-literals", "fatal"]),
         "--option",
         "system",
         system,
         "-f",
         "<nixpkgs>",
-        "--nix-path",
-        nix_path,
+        *nix_common_flags(build_config),
         "-qaP",
         "--xml",
         "--out-path",
         "--show-trace",
-        "--allow-import-from-derivation"
-        if allow.ifd
-        else "--no-allow-import-from-derivation",
-        *(["-A", pkgs] if pkgs else []),
+        *(["-A", build_config.pkgs] if build_config.pkgs else []),
     ]
     if check_meta:
         cmd.append("--meta")
@@ -805,24 +803,15 @@ def _list_packages_system(
 
 
 def list_packages(
-    nix_path: str,
+    build_config: BuildConfig,
     systems: set[System],
-    allow: AllowedFeatures,
-    pkgs: str | None = None,
     *,
     check_meta: bool = False,
 ) -> dict[System, list[Package]]:
-    results: dict[System, list[Package]] = {}
-    for system in systems:
-        results[system] = _list_packages_system(
-            system=system,
-            nix_path=nix_path,
-            allow=allow,
-            check_meta=check_meta,
-            pkgs=pkgs,
-        )
-
-    return results
+    return {
+        system: _list_packages_system(system, build_config, check_meta=check_meta)
+        for system in systems
+    }
 
 
 def _collect_package_attrs(
@@ -1018,6 +1007,7 @@ def build_config_from_args(
         num_eval_workers=args.num_eval_workers,
         max_memory_size=args.max_memory_size,
         pkgs=args.pkgs,
+        options=tuple((name, value) for name, value in args.options),
     )
 
 
