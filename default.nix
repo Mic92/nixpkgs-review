@@ -60,8 +60,10 @@ python3Packages.buildPythonApplication {
 
   checkPhase = ''
     # Set up test dependencies
-    export TEST_BASH_PATH="${if stdenv.isLinux then pkgsStatic.bash else bash}"
-    export TEST_COREUTILS_PATH="${if stdenv.isLinux then pkgsStatic.coreutils else coreutils}"
+    export TEST_BASH_PATH="${if stdenv.hostPlatform.isLinux then pkgsStatic.bash else bash}"
+    export TEST_COREUTILS_PATH="${
+      if stdenv.hostPlatform.isLinux then pkgsStatic.coreutils else coreutils
+    }"
     export TEST_NIXPKGS_PATH="${path}"
 
     # Run tests
