@@ -91,6 +91,7 @@ class ReviewConfig:
     show_header: bool = True
     show_logs: bool = False
     show_pr_info: bool = True
+    included_prs: list[int] = field(default_factory=list)
 
 
 def _prefix_with_pkgs(packages: set[str], pkgs: str | None) -> set[str]:
@@ -182,6 +183,7 @@ class Review:
         self.build_config = build_config
         self.shell_options = shell_options
         self.head_commit: str | None = None
+        self._included_pr_revs: list[str] | None = None
 
     @property
     def _use_github_eval(self) -> bool:
@@ -337,18 +339,40 @@ class Review:
         print(f"{'=' * 80}\n")
 
     def git_merge(self, commit: str) -> None:
+        # Commit the merge so further merges (--include-pr) can stack on top;
+        # the worktree is throwaway, so never sign.
         res = git.run(
-            ["merge", "--no-commit", "--no-ff", commit], cwd=self.worktree_dir()
+            ["merge", "--no-ff", "--no-edit", "--no-gpg-sign", commit],
+            cwd=self.worktree_dir(),
         )
         if res.returncode != 0:
             msg = f"Failed to merge {commit} into {self.worktree_dir()}. git merge failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
+
+    def _merge_included_prs(self) -> None:
+        """Included PRs are treated as part of the base: they are merged into
+        every state we evaluate or build so only the reviewed PR shows up as
+        a change."""
+        if not self.review_config.included_prs:
+            return
+        if self._included_pr_revs is None:
+            heads = [
+                self.github_client.pull_request(n)["head"]["sha"]
+                for n in self.review_config.included_prs
+            ]
+            self._included_pr_revs = fetch_refs(self.review_config.remote, *heads)
+        for n, rev in zip(
+            self.review_config.included_prs, self._included_pr_revs, strict=True
+        ):
+            info(f"Merging included PR #{n} ({rev})")
+            self.git_merge(rev)
 
     def git_checkout(self, commit: str) -> None:
         res = git.run(["checkout", commit], cwd=self.worktree_dir())
         if res.returncode != 0:
             msg = f"Failed to checkout {commit} in {self.worktree_dir()}. git checkout failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
+        self._merge_included_prs()
 
     def apply_unstaged(self, *, staged: bool = False) -> None:
         args = [
@@ -473,6 +497,7 @@ class Review:
         if res.returncode != 0:
             msg = f"Failed to add worktree for {commit} in {self.worktree_dir()}. git worktree failed with exit code {res.returncode}"
             raise NixpkgsReviewError(msg)
+        self._merge_included_prs()
 
     def build(
         self, packages_per_system: dict[System, set[str]], args: str
@@ -646,6 +671,7 @@ class Review:
             ReportOptions(
                 extra_nixpkgs_config=self.review_config.extra_nixpkgs_config,
                 checkout=self.review_config.checkout.name.lower(),  # type: ignore[arg-type]
+                included_prs=self.review_config.included_prs,
                 show_header=self.review_config.show_header,
                 show_logs=self.review_config.show_logs,
                 max_workers=min(32, os.cpu_count() or 1),
