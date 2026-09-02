@@ -42,6 +42,8 @@ lint.ignore = [
   "TD",
   # fixmes
   "FIX",
+  # copyright headers
+  "CPY",
 
   # Trailing comma missing
   "COM812",

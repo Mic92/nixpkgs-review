@@ -228,7 +228,7 @@ class GithubClient:
         """
         download_url: str = f"https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/{workflow_id}/zip"
 
-        req = urllib.request.Request(download_url, headers=self.headers)  # noqa: S310
+        req = urllib.request.Request(download_url, headers=self.headers)
         try:
             with no_redirect_opener.open(req) as resp:
                 pass
