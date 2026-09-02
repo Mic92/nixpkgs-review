@@ -29,6 +29,7 @@ class BuildConfig:
     num_eval_workers: int = 1
     max_memory_size: int = 4096
     pkgs: str | None = None
+    options: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass
@@ -86,16 +87,22 @@ class Attr:
 REVIEW_SHELL: Final[str] = str(ROOT.joinpath("nix/review-shell.nix"))
 
 
-def _nix_common_flags(allow: AllowedFeatures, nix_path: str) -> list[str]:
+def option_flags(options: tuple[tuple[str, str], ...]) -> list[str]:
+    return [tok for name, value in options for tok in ("--option", name, value)]
+
+
+def nix_common_flags(build_config: BuildConfig) -> list[str]:
+    allow = build_config.allow
     return [
         "--extra-experimental-features",
         "nix-command",
         *([] if allow.url_literals else ["--option", "lint-url-literals", "fatal"]),
         "--nix-path",
-        nix_path,
+        build_config.nix_path,
         "--allow-import-from-derivation"
         if allow.ifd
         else "--no-allow-import-from-derivation",
+        *option_flags(build_config.options),
     ]
 
 
@@ -112,6 +119,7 @@ class ShellConfig:
     run: str | None = None
     sandbox: bool = False
     pkgs: str | None = None
+    options: tuple[tuple[str, str], ...] = ()
 
 
 def nix_shell(
@@ -145,6 +153,7 @@ def nix_shell(
             *shell_file_args,
             "--nix-path",
             config.nix_path,
+            *option_flags(config.options),
             REVIEW_SHELL,
         ]
         if config.run:
@@ -240,6 +249,7 @@ def _nix_shell_sandbox(
         *shell_file_args,
         "--nix-path",
         config.nix_path,
+        *option_flags(config.options),
         REVIEW_SHELL,
     ]
 
@@ -327,7 +337,7 @@ def multi_system_eval(
             "--max-memory-size",
             str(build_config.max_memory_size),
             "--no-instantiate",
-            *_nix_common_flags(build_config.allow, build_config.nix_path),
+            *nix_common_flags(build_config),
             "--expr",
             f"(import {eval_script} {{ attr-json = {attr_json.name}; }})",
             "--apply",
@@ -399,7 +409,7 @@ def nix_build(
         "build",
         "--file",
         REVIEW_SHELL,
-        *_nix_common_flags(build_config.allow, build_config.nix_path),
+        *nix_common_flags(build_config),
         "--no-link",
         "--keep-going",
     ]
@@ -422,8 +432,7 @@ def nix_build(
     _write_review_shell_drv(
         cache_directory=cache_directory,
         shell_file_args=shell_file_args,
-        allow=build_config.allow,
-        nix_path=build_config.nix_path,
+        build_config=build_config,
     )
 
     command += shell_file_args + shlex.split(args)
@@ -469,14 +478,13 @@ def build_shell_file_args(
 def _write_review_shell_drv(
     cache_directory: Path,
     shell_file_args: list[str],
-    allow: AllowedFeatures,
-    nix_path: str,
+    build_config: BuildConfig,
 ) -> None:
     review_drv_link: Path = cache_directory / "review-shell.drv"
 
     cmd: list[str] = [
         "nix-instantiate",
-        *_nix_common_flags(allow, nix_path),
+        *nix_common_flags(build_config),
         *shell_file_args,
         REVIEW_SHELL,
     ]

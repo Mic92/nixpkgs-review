@@ -321,6 +321,18 @@ def common_flags() -> list[CommonFlag]:
             default=None,
             help="Alternative package set to use for building, e.g. pkgsMusl, pkgsStatic, or pkgsCross.aarch64-multiplatform",
         ),
+        CommonFlag(
+            "--option",
+            dest="options",
+            type=str,
+            nargs=2,
+            metavar=("NAME", "VALUE"),
+            action="append",
+            default=[],
+            help="Set a Nix configuration option, e.g. --option cores 4 "
+            "(can be passed multiple times). Passed through to the nix eval, build "
+            "and shell invocations; see `man nix.conf` for available settings",
+        ),
     ]
 
 

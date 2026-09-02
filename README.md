@@ -267,6 +267,18 @@ As an alternative, one can also specify remote builder as usual in
 `/etc/nix/machines` or via the `nix.buildMachines` nixos options in
 `configuration.nix`. This allows to parallelize builds across multiple machines.
 
+## Setting arbitrary Nix options
+
+Use `--option NAME VALUE` to pass any Nix configuration setting through to the
+nix evaluation, build and shell invocations nixpkgs-review makes, the same way
+`nix --option` works. It can be given multiple times:
+
+```console
+$ nixpkgs-review pr --option cores 4 --option sandbox false 37244
+```
+
+See `man nix.conf` for the full list of available settings.
+
 ## Cross compile, static, cuda
 
 If you want to cross compile you can do that with the `--pkgs=` flag:
