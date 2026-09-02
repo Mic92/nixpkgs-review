@@ -308,6 +308,9 @@ def test_pr_ofborg_eval(mock_urlopen: MagicMock, helpers: Helpers) -> None:
         helpers.assert_built(path, "pkg1")
 
 
+# Without a token nixpkgs-review silently falls back to local evaluation and
+# the artifact code path is never exercised.
+@patch.dict("os.environ", {"GITHUB_TOKEN": "foo"})
 @patch("nixpkgs_review.http_requests.urlopen")
 def test_pr_github_action_eval(
     mock_urlopen: MagicMock,
