@@ -220,6 +220,7 @@ def _write_log_for_attr(
                 "nix",
                 "--extra-experimental-features",
                 "nix-command",
+                *(["--store", attr.store] if attr.store else []),
                 "log",
                 f"{attr.drv_path}^*",
                 *extra_nix_log_args,

@@ -333,6 +333,20 @@ def common_flags() -> list[CommonFlag]:
             "(can be passed multiple times). Passed through to the nix eval, build "
             "and shell invocations; see `man nix.conf` for available settings",
         ),
+        CommonFlag(
+            "--store",
+            type=str,
+            default=None,
+            help="Nix store to build in, passed verbatim to nix as `--store` "
+            "(e.g. `local?root=/tmp/review-store`)",
+        ),
+        CommonFlag(
+            "--eval-store",
+            type=str,
+            default=None,
+            help="Store for evaluation artifacts, passed verbatim to nix as "
+            "`--eval-store` (e.g. `auto` to keep evaluation local with a remote --store)",
+        ),
     ]
 
 

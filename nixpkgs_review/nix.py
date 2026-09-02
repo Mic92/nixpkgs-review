@@ -30,6 +30,8 @@ class BuildConfig:
     max_memory_size: int = 4096
     pkgs: str | None = None
     options: tuple[tuple[str, str], ...] = ()
+    store: str | None = None
+    eval_store: str | None = None
 
 
 @dataclass
@@ -41,6 +43,7 @@ class Attr:
     outputs: dict[str, Path] | None
     drv_path: Path | None
     aliases: list[str] = field(default_factory=list)
+    store: str | None = None
     _path_verified: bool | None = field(init=False, default=None)
 
     def was_build(self) -> bool:
@@ -55,6 +58,7 @@ class Attr:
                 "nix",
                 "--extra-experimental-features",
                 "nix-command",
+                *store_flags(self.store),
                 "store",
                 "verify",
                 "--no-contents",
@@ -91,6 +95,13 @@ def option_flags(options: tuple[tuple[str, str], ...]) -> list[str]:
     return [tok for name, value in options for tok in ("--option", name, value)]
 
 
+def store_flags(store: str | None, eval_store: str | None = None) -> list[str]:
+    return [
+        *(["--store", store] if store else []),
+        *(["--eval-store", eval_store] if eval_store else []),
+    ]
+
+
 def nix_common_flags(build_config: BuildConfig) -> list[str]:
     allow = build_config.allow
     return [
@@ -103,6 +114,7 @@ def nix_common_flags(build_config: BuildConfig) -> list[str]:
         if allow.ifd
         else "--no-allow-import-from-derivation",
         *option_flags(build_config.options),
+        *store_flags(build_config.store, build_config.eval_store),
     ]
 
 
@@ -120,6 +132,8 @@ class ShellConfig:
     sandbox: bool = False
     pkgs: str | None = None
     options: tuple[tuple[str, str], ...] = ()
+    store: str | None = None
+    eval_store: str | None = None
 
 
 def nix_shell(
@@ -139,6 +153,11 @@ def nix_shell(
         nixpkgs_config=config.nixpkgs_config,
         pkgs=config.pkgs,
     )
+    if config.store:
+        warn(
+            "Using a non-default --store: the review shell may fail to run "
+            "binaries built into it, since they are not in the local /nix/store."
+        )
     if config.sandbox:
         with TemporaryDirectory(prefix="nixpkgs-review-links-") as dirname:
             bin_link = Path(dirname) / bin_name
@@ -154,6 +173,7 @@ def nix_shell(
             "--nix-path",
             config.nix_path,
             *option_flags(config.options),
+            *store_flags(config.store, config.eval_store),
             REVIEW_SHELL,
         ]
         if config.run:
@@ -250,6 +270,7 @@ def _nix_shell_sandbox(
         "--nix-path",
         config.nix_path,
         *option_flags(config.options),
+        *store_flags(config.store, config.eval_store),
         REVIEW_SHELL,
     ]
 
@@ -269,7 +290,7 @@ class NixEvalPropsExtra(TypedDict):
 NixEvalResult = list[NixEvalProps]
 
 
-def _nix_eval_filter(packages: NixEvalResult) -> list[Attr]:
+def _nix_eval_filter(packages: NixEvalResult, store: str | None) -> list[Attr]:
     # workaround https://github.com/NixOS/ofborg/issues/269
     blacklist = {
         "appimage-run-tests",
@@ -303,6 +324,7 @@ def _nix_eval_filter(packages: NixEvalResult) -> list[Attr]:
             blacklisted=name in blacklist,
             outputs=outputs,
             drv_path=drv_path,
+            store=store,
         )
         if attr.drv_path is not None:
             if (other := attr_by_path.get(attr.drv_path)) is None:
@@ -371,7 +393,7 @@ def multi_system_eval(
             systems_packages[system].append(eval_result)
 
         return {
-            system: _nix_eval_filter(packages)
+            system: _nix_eval_filter(packages, build_config.store)
             for system, packages in systems_packages.items()
         }
     finally:
