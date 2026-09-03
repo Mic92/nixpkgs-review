@@ -274,7 +274,8 @@ def _nix_eval_filter(packages: NixEvalResult, store: str | None) -> list[Attr]:
             name=name,
             exists=extra_value.get("exists", True),
             broken=extra_value.get("broken", True),
-            blacklisted=name in blacklist,
+            # entries like tests.trivial are attrsets that evalAttrs.nix expands
+            blacklisted=any(name == b or name.startswith(b + ".") for b in blacklist),
             outputs=outputs,
             drv_path=drv_path,
             store=store,
