@@ -16,11 +16,6 @@ let
     inherit mkDerivation;
   };
 
-  mkShell = attrs: mkDerivation (attrs // {
-    name = attrs.name or "shell";
-    buildCommand = "echo 'mock shell' > $out";
-  });
-
   bashInteractive = mkDerivation {
     name = "bash-interactive";
     buildCommand = ''
@@ -29,13 +24,6 @@ let
     '';
   };
 
-  buildEnv = args: mkDerivation {
-    inherit (args) name paths;
-    buildCommand = ''
-      mkdir -p $out
-      ln -s $paths $out
-    '';
-  };
 in
 lib.genAttrs' (lib.range 1 (config.pkgCount or 1)) (
   i:
@@ -45,7 +33,7 @@ lib.genAttrs' (lib.range 1 (config.pkgCount or 1)) (
       cat ${./pkg1.txt} > $out
     '';
   })) // {
-  inherit lib mkShell bashInteractive stdenv buildEnv;
+  inherit lib bashInteractive stdenv;
   pkgsAlt = lib.genAttrs' (lib.range 1 (config.pkgCount or 1)) (
     i:
     lib.nameValuePair "pkg${toString i}" (mkDerivation {

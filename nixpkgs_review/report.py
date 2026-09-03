@@ -355,11 +355,8 @@ class Report:
             reports[system] = SystemReport(attrs)
         self.system_reports: dict[System, SystemReport] = order_reports(reports)
 
-    def built_packages(self) -> dict[System, list[str]]:
-        return {
-            system: [a.name for a in report.built]
-            for system, report in self.system_reports.items()
-        }
+    def built_packages(self) -> list[Attr]:
+        return [a for report in self.system_reports.values() for a in report.built]
 
     def write(self, directory: Path, pr: int | None) -> None:
         # write logs first because snippets from them may be needed for the report

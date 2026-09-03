@@ -124,7 +124,6 @@ def test_rev_command_with_pkgs_and_package(helpers: Helpers) -> None:
         helpers.assert_built(path, "pkgsAlt.pkg1")
 
 
-# make sure we test above and below the buildEnv threshold in review-shell.nix
 @pytest.mark.parametrize("pkg_count", [0, 1, 10, 51])
 def test_rev_command_with_pkg_count(helpers: Helpers, pkg_count: int) -> None:
     with helpers.nixpkgs() as nixpkgs:

@@ -9,7 +9,7 @@ automatically builds packages changed in the pull requests.
 
 - [ofborg](https://github.com/NixOS/ofborg) support: reuses evaluation output of
   CI to skip local evaluation, but also falls back if ofborg is not finished
-- provides a `nix-shell` with all packages that did not fail to build
+- drops you into a shell with all packages that did not fail to build on `PATH`
 - remote builder support
 - allows to build a subset of packages (great for mass-rebuilds)
 - allow to build nixos tests
@@ -140,18 +140,18 @@ $ nixpkgs-review pr --print-result 37242
 
 Often, after reviewing a diff on a pull request, you may want to say "This diff
 looks good to me, approve/merge it provided that there are no package build
-failures". To do so, run the following subcommands from within the nix-shell
+failures". To do so, run the following subcommands from within the review shell
 provided by nixpkgs-review.
 
 ```console
 $ nixpkgs-review pr 37242
-nix-shell> nixpkgs-review approve
+review-shell> nixpkgs-review approve
 # Or, if you have maintainer access and would like to merge (provided no build failures):
-nix-shell> nixpkgs-review merge
+review-shell> nixpkgs-review merge
 # It is also possible to upload the result report from here
-nix-shell> nixpkgs-review post-result
+review-shell> nixpkgs-review post-result
 # Review-comments can also be shown
-nix-shell> nixpkgs-review comments
+review-shell> nixpkgs-review comments
 ```
 
 ## Optional tools
@@ -188,10 +188,10 @@ $ nixpkgs-review pr 37242 --extra-nixpkgs-config '{ cudaSupport = true; }'
 
 ## Using nixpkgs-review in scripts or other programs
 
-After building, `nixpkgs-review` will normally start a `nix-shell` with the
-packages built, to allow for interactive testing. To use `nixpkgs-review`
-non-interactively in scripts, use the `--no-shell` command, which can allow for
-batch processing of multiple reviews or use in scripts/bots.
+After building, `nixpkgs-review` will normally start your `$SHELL` with the
+built packages on `PATH`, to allow for interactive testing. To use
+`nixpkgs-review` non-interactively in scripts, use the `--no-shell` command,
+which can allow for batch processing of multiple reviews or use in scripts/bots.
 
 Example testing multiple unrelated PRs and posting the build results as PR
 comments for later review:
@@ -203,7 +203,7 @@ done
 ```
 
 `nixpkgs-review` also accepts a `--run` flag that allows to run a custom command
-inside the nix-shell instead of an interactive session:
+(via `bash -c`) in that environment instead of an interactive session:
 
 ```console
 $ nixpkgs-review pr --run 'jq < report.json' --systems all 340297
@@ -249,8 +249,8 @@ nixpkgs-review accept multiple pull request numbers at once:
 $ nixpkgs-review pr 94524 94494 94522 94493 94520
 ```
 
-This will first evaluate & build all pull requests in serial. Then a nix-shell
-will be opened for each of them after the previous shell has been closed.
+This will first evaluate & build all pull requests in serial. Then a review
+shell will be opened for each of them after the previous shell has been closed.
 
 Tip: Since it's hard to keep track of the numbers, for each opened shell the
 corresponding pull request URL is shown.
@@ -432,8 +432,8 @@ subcommand.
 ## Review changes for other operating systems/architectures
 
 The `--systems` flag allows setting a system different from the current one.
-Note that the result nix-shell may not be able to execute all hooks correctly
-since the architecture/operating system mismatches.
+Binaries for a foreign architecture/operating system will be on `PATH` in the
+review shell but naturally won't run unless you have binfmt emulation set up.
 
 By default, `nixpkgs-review` targets only the current system
 (`--systems current`). You can also explicitly provide one or several systems to

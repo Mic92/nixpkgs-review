@@ -47,7 +47,6 @@ def _build_config(options: tuple[tuple[str, str], ...] = ()) -> BuildConfig:
     return BuildConfig(
         allow=AllowedFeatures([]),
         nix_path="",
-        local_system="x86_64-linux",
         nixpkgs_config=Path("/dev/null"),
         options=options,
     )

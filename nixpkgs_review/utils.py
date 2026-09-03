@@ -115,8 +115,8 @@ def current_system() -> str:
 
 
 def nix_nom_tool() -> str:
-    "Return `nom` and `nom-shell` if found in $PATH"
-    return "nom" if shutil.which("nom") and shutil.which("nom-shell") else "nix"
+    "Return `nom` if found in $PATH"
+    return "nom" if shutil.which("nom") else "nix"
 
 
 def system_order_key(system: System) -> str:

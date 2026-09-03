@@ -709,16 +709,9 @@ class Review:
         if not self.shell_options.no_shell:
             shell_config = ShellConfig(
                 cache_directory=path,
-                local_system=self.build_config.local_system,
-                build_graph=self.shell_options.build_graph,
-                nix_path=self.builddir.nix_path,
-                nixpkgs_config=self.build_config.nixpkgs_config,
-                nixpkgs_overlay=self.builddir.overlay.path,
                 run=self.shell_options.run,
                 sandbox=self.shell_options.sandbox,
-                options=self.build_config.options,
                 store=self.build_config.store,
-                eval_store=self.build_config.eval_store,
             )
             nix_shell(report.built_packages(), shell_config)
 
@@ -1029,7 +1022,6 @@ def build_config_from_args(
     return BuildConfig(
         allow=allow,
         nix_path=nix_path,
-        local_system=current_system(),
         nixpkgs_config=nixpkgs_config,
         num_eval_workers=args.num_eval_workers,
         max_memory_size=args.max_memory_size,
