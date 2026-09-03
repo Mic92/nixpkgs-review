@@ -136,15 +136,41 @@ def system_order_key(system: System) -> str:
     return "".join(reversed(system.split("-")))
 
 
-def available_memory_mib() -> int:
-    """MemAvailable on Linux, otherwise half of the physical memory."""
+def _zfs_arc_reclaimable_mib() -> int:
+    """The ZFS ARC shrinks under pressure but MemAvailable counts it as used."""
+    stats = {"size": 0, "c_min": 0}
+    try:
+        for line in Path("/proc/spl/kstat/zfs/arcstats").read_text().splitlines():
+            match line.split():
+                case [name, _, value] if name in stats:
+                    stats[name] = int(value)
+    except OSError:
+        return 0
+    return max(0, stats["size"] - stats["c_min"]) // (1024 * 1024)
+
+
+def memory_mib() -> tuple[int, int]:
+    """(total, available). Without /proc/meminfo assume half is available."""
+    total = os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") // (1024 * 1024)
     try:
         for line in Path("/proc/meminfo").read_text().splitlines():
             if line.startswith("MemAvailable:"):
-                return int(line.split()[1]) // 1024
+                available = int(line.split()[1]) // 1024 + _zfs_arc_reclaimable_mib()
+                return total, min(available, total)
     except OSError:
         pass
-    return os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") // (2 * 1024 * 1024)
+    return total, total // 2
+
+
+def eval_memory_budget_mib() -> int:
+    """Memory the package listing may use by default.
+
+    MemAvailable is only a snapshot and workers overshoot --max-memory-size
+    until the next attribute boundary, so keep an absolute reserve for the
+    rest of the system and only plan with 60% of what remains."""
+    total, available = memory_mib()
+    reserve = max(2048, total // 10)
+    return max(0, int((available - reserve) * 0.6))
 
 
 MIN_WORKER_MIB = 2048
@@ -163,8 +189,9 @@ def default_eval_resources(
     budget more workers beat more memory per worker. Below ~2GiB single large
     closures (haskellPackages, CUDA) start to thrash, above ~4GiB nothing is
     gained."""
-    cores = os.cpu_count() or 1
-    budget = int(available_memory_mib() * 0.75)
+    # leave a core for the desktop and nix-daemon
+    cores = max(1, (os.cpu_count() or 1) - 1)
+    budget = eval_memory_budget_mib()
     if workers and max_memory_size:
         return workers, max_memory_size
     if workers:
