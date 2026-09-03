@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import itertools
+import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -10,9 +12,8 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Final, cast
 from urllib.error import URLError
-from xml.etree import ElementTree as ET
 
 from . import git, http_requests
 from .builddir import Builddir
@@ -30,9 +31,11 @@ from .nix import (
 from .nixpkgs import fetch_refs
 from .report import Report, ReportOptions
 from .utils import (
+    ROOT,
     PackageFilter,
     System,
     current_system,
+    default_eval_resources,
     die,
     info,
     system_order_key,
@@ -120,8 +123,6 @@ class Package:
     version: str
     attr_path: str
     store_path: str | None
-    homepage: str | None
-    description: str | None
     position: str | None
     old_pkg: Package | None = field(default=None, init=False)
 
@@ -751,91 +752,15 @@ class Review:
         )
 
 
-def _extract_meta_value(elem: ET.Element) -> str:
-    if elem.attrib["type"] == "strings":
-        return ", ".join(e.attrib["value"] for e in elem)
-    return elem.attrib["value"]
+LIST_PACKAGES_NIX: Final[str] = str(ROOT.joinpath("nix/listPackages.nix"))
 
 
-def parse_packages_xml(stdout: IO[str]) -> list[Package]:
-    packages: list[Package] = []
-    current_pkg: Package | None = None
-
-    context = ET.iterparse(stdout, events=("start", "end"))  # noqa: S314
-    for event, elem in context:
-        if elem.tag == "item" and event == "start":
-            attrs = elem.attrib
-            current_pkg = Package(
-                pname=attrs["pname"],
-                version=attrs["version"],
-                attr_path=attrs["attrPath"],
-                store_path=None,
-                homepage=None,
-                description=None,
-                position=None,
-            )
-        elif (
-            elem.tag == "item"
-            and event == "end"
-            and current_pkg
-            and current_pkg.store_path
-        ):
-            packages.append(current_pkg)
-        elif (
-            elem.tag == "output"
-            and event == "start"
-            and elem.attrib["name"] == "out"
-            and current_pkg
-        ):
-            current_pkg.store_path = elem.attrib["path"]
-        elif elem.tag == "meta" and event == "end" and current_pkg:
-            name = elem.attrib["name"]
-            match name:
-                case "homepage":
-                    current_pkg.homepage = _extract_meta_value(elem)
-                case "description":
-                    current_pkg.description = _extract_meta_value(elem)
-                case "position":
-                    current_pkg.position = _extract_meta_value(elem)
-
-        # delete element/attribute connections to free up memory, but don't clear
-        # meta `string`s before they are processed
-        if event == "end" and elem.tag != "string":
-            elem.clear()
-    return packages
-
-
-def _list_packages_system(
-    system: System,
-    build_config: BuildConfig,
-    *,
-    check_meta: bool = False,
-) -> list[Package]:
-    cmd = [
-        "nix-env",
-        "--option",
-        "system",
-        system,
-        "-f",
-        "<nixpkgs>",
-        *nix_common_flags(build_config),
-        "-qaP",
-        "--xml",
-        "--out-path",
-        "--show-trace",
-        *(["-A", build_config.pkgs] if build_config.pkgs else []),
-    ]
-    if check_meta:
-        cmd.append("--meta")
-    info("$ " + " ".join(cmd))
-    with tempfile.NamedTemporaryFile(mode="w") as tmp:
-        res = subprocess.run(cmd, stdout=tmp, check=False)
-        if res.returncode != 0:
-            msg = f"Failed to list packages: nix-env failed with exit code {res.returncode}"
-            raise NixpkgsReviewError(msg)
-        tmp.flush()
-        with Path(tmp.name).open() as f:
-            return parse_packages_xml(f)
+def _parse_drv_name(name: str) -> tuple[str, str]:
+    """builtins.parseDrvName: version starts at the first dash not followed by a letter."""
+    for i, c in enumerate(name):
+        if c == "-" and i + 1 < len(name) and not name[i + 1].isalpha():
+            return name[:i], name[i + 1 :]
+    return name, ""
 
 
 def list_packages(
@@ -844,10 +769,53 @@ def list_packages(
     *,
     check_meta: bool = False,
 ) -> dict[System, list[Package]]:
-    return {
-        system: _list_packages_system(system, build_config, check_meta=check_meta)
-        for system in systems
-    }
+    """List every package of <nixpkgs> for `systems` with nix-eval-jobs.
+
+    Compared to `nix-env -qaP` this bounds memory per worker and evaluates
+    systems and attributes in parallel."""
+    cmd = [
+        "nix-eval-jobs",
+        "--workers",
+        str(build_config.num_eval_workers),
+        "--max-memory-size",
+        str(build_config.max_memory_size),
+        "--no-instantiate",
+        *(["--meta"] if check_meta else []),
+        *nix_common_flags(build_config),
+        "--expr",
+        (
+            f"import {LIST_PACKAGES_NIX} "
+            f"{{ systems = builtins.fromJSON ''{json.dumps(sorted(systems))}''; "
+            f"pkgs = {json.dumps(build_config.pkgs)}; }}"
+        ),
+    ]
+    info("$ " + shlex.join(cmd))
+    packages: dict[System, list[Package]] = {system: [] for system in systems}
+    # keep nix-env -A semantics: attr paths are relative to <nixpkgs>
+    prefix = [build_config.pkgs] if build_config.pkgs else []
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True) as proc:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            job = json.loads(line)
+            # aliases that throw, meta.broken/unfree refusals, ...: nix-env
+            # skipped those silently as well
+            if "error" in job:
+                continue
+            system, *attr = job["attrPath"]
+            pname, version = _parse_drv_name(job["name"])
+            packages[system].append(
+                Package(
+                    pname=pname,
+                    version=version,
+                    attr_path=".".join(prefix + attr),
+                    store_path=job["outputs"].get("out"),
+                    position=(job.get("meta") or {}).get("position"),
+                )
+            )
+    if proc.returncode != 0:
+        msg = f"Failed to list packages: nix-eval-jobs exited with {proc.returncode}"
+        raise NixpkgsReviewError(msg)
+    return packages
 
 
 def _collect_package_attrs(
@@ -1035,12 +1003,15 @@ def build_config_from_args(
     nixpkgs_config: Path,
 ) -> BuildConfig:
     """Create a BuildConfig from parsed CLI arguments."""
+    workers, max_memory_size = default_eval_resources(
+        args.num_eval_workers, args.max_memory_size
+    )
     return BuildConfig(
         allow=allow,
         nix_path=nix_path,
         nixpkgs_config=nixpkgs_config,
-        num_eval_workers=args.num_eval_workers,
-        max_memory_size=args.max_memory_size,
+        num_eval_workers=workers,
+        max_memory_size=max_memory_size,
         pkgs=args.pkgs,
         options=tuple((name, value) for name, value in args.options),
         store=args.store,

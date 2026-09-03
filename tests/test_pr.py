@@ -554,7 +554,7 @@ def test_pr_checkout_base_with_packages(
 
 
 @patch("nixpkgs_review.http_requests.urlopen")
-@patch("nixpkgs_review.review._list_packages_system")
+@patch("nixpkgs_review.review.list_packages")
 def test_pr_only_packages_does_not_trigger_an_eval(
     mock_eval: MagicMock,
     mock_urlopen: MagicMock,

@@ -134,3 +134,44 @@ def system_order_key(system: System) -> str:
     `aarch64-linux` -> `linuxaarch64`
     """
     return "".join(reversed(system.split("-")))
+
+
+def available_memory_mib() -> int:
+    """MemAvailable on Linux, otherwise half of the physical memory."""
+    try:
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1]) // 1024
+    except OSError:
+        pass
+    return os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") // (2 * 1024 * 1024)
+
+
+MIN_WORKER_MIB = 2048
+MAX_WORKER_MIB = 4096
+LONE_WORKER_MIB = 16 * 1024
+MAX_AUTO_WORKERS = 32
+
+
+def default_eval_resources(
+    workers: int | None, max_memory_size: int | None
+) -> tuple[int, int]:
+    """Pick nix-eval-jobs --workers/--max-memory-size for a full nixpkgs listing.
+
+    Measured on nixpkgs: wall time scales ~W^0.74 while each worker (re)start
+    only costs ~26s of re-forcing the shared stdenv core, so within a memory
+    budget more workers beat more memory per worker. Below ~2GiB single large
+    closures (haskellPackages, CUDA) start to thrash, above ~4GiB nothing is
+    gained."""
+    cores = os.cpu_count() or 1
+    budget = int(available_memory_mib() * 0.75)
+    if workers and max_memory_size:
+        return workers, max_memory_size
+    if workers:
+        return workers, max(MIN_WORKER_MIB, min(budget // workers, LONE_WORKER_MIB))
+    if max_memory_size is None:
+        max_memory_size = max(MIN_WORKER_MIB, min(budget // cores, MAX_WORKER_MIB))
+    workers = max(1, min(budget // max_memory_size, cores, MAX_AUTO_WORKERS))
+    if workers == 1:
+        max_memory_size = max(max_memory_size, min(budget, LONE_WORKER_MIB))
+    return workers, max_memory_size

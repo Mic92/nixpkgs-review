@@ -312,14 +312,16 @@ def common_flags() -> list[CommonFlag]:
         CommonFlag(
             "--num-eval-workers",
             type=int,
-            default=1,
-            help="Number of parallel `nix-eval-jobs` workers to run simultaneously (warning, can imply heavy RAM usage)",
+            default=None,
+            help="Number of parallel `nix-eval-jobs` workers. Defaults to as many as fit into "
+            "75%% of the available memory at --max-memory-size each, capped at the CPU count",
         ),
         CommonFlag(
             "--max-memory-size",
             type=int,
-            default=4096,
-            help="Maximum `nix-eval-jobs` per worker memory size in megabyte (warning, workers can shortly exceed the limit)",
+            default=None,
+            help="Memory in MiB after which a `nix-eval-jobs` worker is restarted (workers can briefly exceed it). "
+            "Defaults to 75%% of the available memory split across the workers, clamped to 2048..4096",
         ),
         CommonFlag(
             "--pkgs",
