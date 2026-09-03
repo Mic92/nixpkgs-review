@@ -716,7 +716,6 @@ class Review:
                 nixpkgs_overlay=self.builddir.overlay.path,
                 run=self.shell_options.run,
                 sandbox=self.shell_options.sandbox,
-                pkgs=self.build_config.pkgs,
                 options=self.build_config.options,
                 store=self.build_config.store,
                 eval_store=self.build_config.eval_store,

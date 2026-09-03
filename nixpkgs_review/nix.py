@@ -130,7 +130,6 @@ class ShellConfig:
     nixpkgs_overlay: Path
     run: str | None = None
     sandbox: bool = False
-    pkgs: str | None = None
     options: tuple[tuple[str, str], ...] = ()
     store: str | None = None
     eval_store: str | None = None
@@ -151,7 +150,6 @@ def nix_shell(
         attrs_per_system=attrs_per_system,
         local_system=config.local_system,
         nixpkgs_config=config.nixpkgs_config,
-        pkgs=config.pkgs,
     )
     if config.store:
         warn(
@@ -449,7 +447,6 @@ def nix_build(
         attrs_per_system=filtered_per_system,
         local_system=build_config.local_system,
         nixpkgs_config=build_config.nixpkgs_config,
-        pkgs=build_config.pkgs,
     )
     _write_review_shell_drv(
         cache_directory=cache_directory,
@@ -468,7 +465,6 @@ def build_shell_file_args(
     attrs_per_system: dict[System, list[str]],
     local_system: str,
     nixpkgs_config: Path,
-    pkgs: str | None = None,
 ) -> list[str]:
     attrs_file = cache_dir.joinpath("attrs.nix")
     with attrs_file.open("w+") as f:
@@ -493,7 +489,6 @@ def build_shell_file_args(
         "--argstr",
         "attrs-path",
         str(attrs_file),
-        *(["--argstr", "alt-pkgs", pkgs] if pkgs else []),
     ]
 
 
