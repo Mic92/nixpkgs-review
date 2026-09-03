@@ -323,6 +323,7 @@ class ReportOptions:
     show_logs: bool = False
     max_workers: int | None = 1
     pkgs: str | None = None
+    tests: bool = False
 
 
 class Report:
@@ -342,6 +343,7 @@ class Report:
         self.checkout = options.checkout
         self.package_filter = package_filter
         self.pkgs = options.pkgs
+        self.tests = options.tests
         self.included_prs = options.included_prs
 
         self.extra_nixpkgs_config = (
@@ -408,6 +410,8 @@ class Report:
             cmd += f" --include-pr {included_pr}"
         if self.pkgs:
             cmd += f" --pkgs={self.pkgs}"
+        if self.tests:
+            cmd += " --tests"
 
         options = {
             "package": self.package_filter.only_packages,

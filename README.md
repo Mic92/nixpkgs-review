@@ -406,6 +406,10 @@ attribute set:
 $ nixpkgs-review pr -p nixosTests.ferm 47077
 ```
 
+With `--tests`, the `passthru.tests` of every package that is going to be built
+are built as well and listed under "tests" in the report. They honour
+`--skip-package`/`--skip-package-regex`, e.g. `-P 'netbird\.tests\..*'`.
+
 ## Ignoring ofborg evaluations
 
 By default, nixpkgs-review will use ofborg's evaluation result if available to

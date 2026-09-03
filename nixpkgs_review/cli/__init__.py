@@ -340,6 +340,11 @@ def common_flags() -> list[CommonFlag]:
             "and shell invocations; see `man nix.conf` for available settings",
         ),
         CommonFlag(
+            "--tests",
+            action="store_true",
+            help="Also build passthru.tests of the packages selected for building",
+        ),
+        CommonFlag(
             "--store",
             type=str,
             default=None,

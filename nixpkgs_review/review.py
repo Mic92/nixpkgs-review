@@ -517,13 +517,28 @@ class Review:
             system: prefixed_additional | packages_per_system.get(system, set())
             for system in packages_per_system.keys() | systems_additional
         }
-        return nix_build(
-            packages_per_system,
+        if not packages_per_system:
+            info("Nothing to be built.")
+            return {}
+        attrs_per_system = multi_system_eval(
+            packages_per_system, self.build_config, instantiate=True
+        )
+        # --tests expands attrs during eval, after the name based filters ran.
+        for system, attrs in attrs_per_system.items():
+            keep = _apply_package_filters(
+                {a.name for a in attrs},
+                self.package_filter.skip_packages,
+                self.package_filter.skip_packages_regex,
+            )
+            attrs_per_system[system] = [a for a in attrs if a.name in keep]
+        nix_build(
+            attrs_per_system,
             args,
             self.builddir.path,
             self.build_config,
             self.shell_options.build_graph,
         )
+        return attrs_per_system
 
     def _fetch_packages_from_github_eval(
         self, pr: GitHubPullRequest
@@ -676,6 +691,7 @@ class Review:
                 show_logs=self.review_config.show_logs,
                 max_workers=min(32, os.cpu_count() or 1),
                 pkgs=self.build_config.pkgs,
+                tests=self.build_config.include_tests,
             ),
         )
         report.print_console(path, pr)
@@ -859,7 +875,7 @@ def _join_packages_for_system(
     changed_attrs: dict[Path, Attr],
     specified_attrs: dict[Path, Attr],
 ) -> set[str]:
-    # ofborg does not include tests and manual evaluation is too expensive
+    # the GitHub eval does not include tests, so do not treat them as nonexistent
     tests = {path: attr for path, attr in specified_attrs.items() if attr.is_test()}
 
     nonexistent = specified_attrs.keys() - changed_attrs.keys() - tests.keys()
@@ -1029,6 +1045,7 @@ def build_config_from_args(
         options=tuple((name, value) for name, value in args.options),
         store=args.store,
         eval_store=args.eval_store,
+        include_tests=args.tests,
     )
 
 

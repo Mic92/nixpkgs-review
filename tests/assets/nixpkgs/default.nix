@@ -32,6 +32,11 @@ lib.genAttrs' (lib.range 1 (config.pkgCount or 1)) (
     buildCommand = ''
       cat ${./pkg1.txt} > $out
     '';
+  } // {
+    tests = lib.genAttrs [ "simple" "slow" ] (t: mkDerivation {
+      name = "pkg${toString i}-test-${t}";
+      buildCommand = "cat ${./pkg1.txt} > $out";
+    });
   })) // {
   inherit lib bashInteractive stdenv;
   pkgsAlt = lib.genAttrs' (lib.range 1 (config.pkgCount or 1)) (

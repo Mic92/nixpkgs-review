@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from nixpkgs_review.cli import main
+from nixpkgs_review.utils import current_system
 
 if TYPE_CHECKING:
     from .conftest import Helpers
@@ -24,6 +26,34 @@ def test_rev_command(helpers: Helpers) -> None:
             ["rev", "HEAD", "--remote", str(nixpkgs.remote), "--run", "exit 0"],
         )
         helpers.assert_built(path, "pkg1")
+
+
+def test_rev_command_with_tests(helpers: Helpers) -> None:
+    with helpers.nixpkgs() as nixpkgs:
+        nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "commit", "-m", "example-change"], check=True)
+        path = main(
+            "nixpkgs-review",
+            [
+                "rev",
+                "HEAD",
+                "--remote",
+                str(nixpkgs.remote),
+                "--run",
+                "exit 0",
+                "--build-graph",
+                "nix",
+                "--tests",
+                "--skip-package-regex",
+                r".*\.tests\.slow",
+            ],
+        )
+        helpers.assert_built(path, "pkg1")
+        report = helpers.load_report(path)
+        tests = report["result"][current_system()]["tests"]
+        assert [a["name"] for a in tests] == ["pkg1.tests.simple"]
+        assert (Path(path) / "report.md").read_text().count(" --tests") == 1
 
 
 def test_rev_command_without_nom(helpers: Helpers) -> None:

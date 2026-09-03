@@ -31,6 +31,7 @@ class BuildConfig:
     options: tuple[tuple[str, str], ...] = ()
     store: str | None = None
     eval_store: str | None = None
+    include_tests: bool = False
 
 
 @dataclass
@@ -71,7 +72,11 @@ class Attr:
         return self._path_verified
 
     def is_test(self) -> bool:
-        return self.name.startswith("nixosTests")
+        return (
+            self.name.startswith("nixosTests")
+            or ".tests." in self.name
+            or self.name.endswith(".tests")
+        )
 
     def outputs_with_name(self) -> dict[str, Path]:
         def with_output(output: str) -> str:
@@ -311,7 +316,10 @@ def multi_system_eval(
             *([] if instantiate else ["--no-instantiate"]),
             *nix_common_flags(build_config),
             "--expr",
-            f"(import {eval_script} {{ attr-json = {attr_json.name}; }})",
+            (
+                f"(import {eval_script} {{ attr-json = {attr_json.name}; "
+                f"include-tests = {str(build_config.include_tests).lower()}; }})"
+            ),
             "--apply",
             "d: { inherit (d) exists broken; }",
         ]
@@ -353,20 +361,12 @@ def multi_system_eval(
 
 
 def nix_build(
-    attr_names_per_system: dict[System, set[str]],
+    attrs_per_system: dict[System, list[Attr]],
     args: str,
     cache_directory: Path,
     build_config: BuildConfig,
     build_graph: str,
-) -> dict[System, list[Attr]]:
-    if not attr_names_per_system:
-        info("Nothing to be built.")
-        return {}
-
-    attrs_per_system: dict[System, list[Attr]] = multi_system_eval(
-        attr_names_per_system, build_config, instantiate=True
-    )
-
+) -> None:
     installables = [
         f"{attr.drv_path}^*"
         for attrs in attrs_per_system.values()
@@ -374,7 +374,7 @@ def nix_build(
         if attr.drv_path and not (attr.broken or attr.blacklisted)
     ]
     if not installables:
-        return attrs_per_system
+        return
 
     # Lets users re-run the exact build without re-evaluating:
     #   nix build --stdin < derivations
@@ -394,4 +394,3 @@ def nix_build(
         *shlex.split(args),
     ]
     sh(command, stdin="\n".join(installables))
-    return attrs_per_system
