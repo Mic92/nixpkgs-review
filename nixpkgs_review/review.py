@@ -793,7 +793,13 @@ def list_packages(
     packages: dict[System, list[Package]] = {system: [] for system in systems}
     # keep nix-env -A semantics: attr paths are relative to <nixpkgs>
     prefix = [build_config.pkgs] if build_config.pkgs else []
-    with subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True) as proc:
+    # Per-attribute eval errors also end up on stderr, thousands of them for
+    # nixpkgs (aliases, unsupported platforms). Only show them if the whole
+    # listing fails.
+    with (
+        tempfile.TemporaryFile(mode="w+") as stderr,
+        subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=stderr, text=True) as proc,
+    ):
         assert proc.stdout is not None
         for line in proc.stdout:
             job = json.loads(line)
@@ -812,9 +818,13 @@ def list_packages(
                     position=(job.get("meta") or {}).get("position"),
                 )
             )
-    if proc.returncode != 0:
-        msg = f"Failed to list packages: nix-eval-jobs exited with {proc.returncode}"
-        raise NixpkgsReviewError(msg)
+        if proc.wait() != 0:
+            stderr.seek(0)
+            sys.stderr.write(stderr.read())
+            msg = (
+                f"Failed to list packages: nix-eval-jobs exited with {proc.returncode}"
+            )
+            raise NixpkgsReviewError(msg)
     return packages
 
 
