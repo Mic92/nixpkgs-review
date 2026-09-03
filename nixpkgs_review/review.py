@@ -690,7 +690,6 @@ class Review:
                 nixpkgs_overlay=self.builddir.overlay.path,
                 run=self.shell_options.run,
                 sandbox=self.shell_options.sandbox,
-                pkgs=self.build_config.pkgs,
                 options=self.build_config.options,
             )
             nix_shell(report.built_packages(), shell_config)

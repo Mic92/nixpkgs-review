@@ -6,8 +6,6 @@
   # Path to Nix file containing a list of attributes to build
   nixpkgs-path,
   # Path to this review's nixpkgs
-  alt-pkgs ? null,
-  # Alternative package set name (e.g. pkgsCross.aarch64-multiplatform), or null for default
   local-pkgs ? import nixpkgs-path {
     system = local-system;
     config = import nixpkgs-config-path;
@@ -35,27 +33,28 @@ let
     ) system-attrs;
   attrs = lib.flatten (lib.mapAttrsToList extractPackagesForSystem (import attrs-path));
   supportIgnoreSingleFileOutputs = (lib.functionArgs local-pkgs.buildEnv) ? ignoreSingleFileOutputs;
+  # Always go through buildEnv rather than putting attrs into mkShell directly:
+  # - only bin/ ends up on PATH, so setup hooks and propagated inputs of the
+  #   reviewed packages don't leak into the shell and mask missing runtime
+  #   dependencies of unwrapped programs,
+  # - nixpkgs' platform filtering on nativeBuildInputs would otherwise
+  #   silently drop cross/foreign-system packages.
   env = local-pkgs.buildEnv (
     {
       name = "env";
       paths = attrs;
+      pathsToLink = [ "/bin" ];
       ignoreCollisions = true;
     }
     // lib.optionalAttrs supportIgnoreSingleFileOutputs {
       ignoreSingleFileOutputs = true;
     }
   );
-  # When using an alternative package set (cross, musl, static, cuda…),
-  # always wrap in buildEnv to avoid nixpkgs platform filtering on nativeBuildInputs
-  # which would silently drop cross-compiled packages from the dependency graph.
-  # Otherwise, use the buildEnv threshold of 50 to preserve setup hooks in the shell.
-  useEnv = alt-pkgs != null || builtins.length attrs > 50;
 in
 (import nixpkgs-path { }).mkShell {
   name = "review-shell";
   preferLocalBuild = true;
   allowSubstitutes = false;
   dontWrapQtApps = true;
-  # see test_rev_command_with_pkg_count
-  packages = if useEnv then [ env ] else attrs;
+  packages = [ env ];
 }
