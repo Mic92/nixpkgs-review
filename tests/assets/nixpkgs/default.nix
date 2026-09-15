@@ -1,11 +1,5 @@
 {
-  config ? (
-    let configFile = builtins.getEnv "NIXPKGS_CONFIG";
-    in
-      if configFile != "" && builtins.pathExists configFile then
-        import configFile
-      else
-        { }),
+  config, # no default, to ensure it's being passed to real nixpkgs
   system ? null, # deadnix: skip
 }@args:
 with import ./config.nix;

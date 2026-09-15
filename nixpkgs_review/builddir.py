@@ -13,6 +13,8 @@ from .utils import warn
 if TYPE_CHECKING:
     import types
 
+    from .buildenv import Buildenv
+
 
 class DisableKeyboardInterrupt:
     def __enter__(self) -> None:
@@ -60,7 +62,7 @@ def create_cache_directory(name: str) -> Path | TemporaryDirectory[str]:
 
 
 class Builddir:
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, buildenv: Buildenv) -> None:
         self.environ = os.environ.copy()
         self.directory = create_cache_directory(name)
         self._temp_directory: TemporaryDirectory[str] | None = None
@@ -75,6 +77,7 @@ class Builddir:
         self.worktree_dir = self.path / "nixpkgs"
         self.worktree_dir.mkdir()
         self._nix_path_parts = [
+            f"nixpkgs-wrapper={buildenv.nixpkgs_wrapper}",
             f"nixpkgs={self.worktree_dir}",
             f"nixpkgs-overlays={self.overlay.path}",
         ]

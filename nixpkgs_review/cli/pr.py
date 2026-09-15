@@ -104,23 +104,24 @@ def pr_command(args: argparse.Namespace) -> str:
     builddir = None
     with (
         Buildenv(
-            allow_aliases=allow.aliases, extra_nixpkgs_config=args.extra_nixpkgs_config
-        ) as nixpkgs_config,
+            allow_aliases=allow.aliases,
+            extra_nixpkgs_config=args.extra_nixpkgs_config,
+            extra_nixpkgs_args=args.extra_nixpkgs_args,
+        ) as buildenv,
         ExitStack() as stack,
     ):
         review = None
         for pr in prs:
-            builddir = stack.enter_context(Builddir(f"pr-{pr}"))
+            builddir = stack.enter_context(Builddir(f"pr-{pr}", buildenv))
             try:
                 review = Review(
                     builddir=builddir,
                     package_filter=package_filter_from_args(args),
-                    build_config=build_config_from_args(
-                        args, allow, builddir.nix_path, nixpkgs_config
-                    ),
+                    build_config=build_config_from_args(args, allow, builddir.nix_path),
                     review_config=ReviewConfig(
                         remote=args.remote,
                         extra_nixpkgs_config=args.extra_nixpkgs_config,
+                        extra_nixpkgs_args=args.extra_nixpkgs_args,
                         systems=args.systems.split(" "),
                         api_token=args.token,
                         eval_type=args.eval,

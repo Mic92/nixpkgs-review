@@ -10,9 +10,8 @@ let
   forSystem =
     system:
     let
-      nixpkgs = import <nixpkgs> {
+      nixpkgs = import <nixpkgs-wrapper> {
         inherit system;
-        config = import (builtins.getEnv "NIXPKGS_CONFIG");
       };
       inherit (nixpkgs) lib;
       root = if pkgs == null then nixpkgs else lib.attrByPath (lib.splitString "." pkgs) { } nixpkgs;
