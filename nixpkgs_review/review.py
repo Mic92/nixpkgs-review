@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any, Final, cast
 from urllib.error import URLError
 
 from . import git, http_requests
-from .builddir import Builddir
 from .errors import NixpkgsReviewError
 from .github import GithubClient, GitHubPullRequest
 from .nix import (
@@ -48,6 +47,7 @@ if TYPE_CHECKING:
     from re import Pattern
 
     from .allow import AllowedFeatures
+    from .builddir import Builddir
 
 # keep up to date with `supportedPlatforms`
 # https://github.com/NixOS/ofborg/blob/cf2c6712bd7342406e799110e7cd465aa250cdca/ofborg/src/outpaths.nix#L12
@@ -86,6 +86,7 @@ class ReviewConfig:
 
     remote: str
     extra_nixpkgs_config: str
+    extra_nixpkgs_args: str
     systems: list[System]
     eval_type: str = "auto"
     api_token: str | None = None
@@ -210,7 +211,10 @@ class Review:
 
         # GHA evaluation only evaluates nixpkgs with an empty config.
         # Its results might be incorrect when a non-default nixpkgs config is requested
-        if self.review_config.extra_nixpkgs_config.replace(" ", "") == "{}":
+        if (
+            self.review_config.extra_nixpkgs_config.replace(" ", "") == "{}"
+            and self.review_config.extra_nixpkgs_args.replace(" ", "") == "{}"
+        ):
             return True
 
         warn("Non-default --extra-nixpkgs-config provided.")
@@ -676,7 +680,6 @@ class Review:
         action: ReviewAction | None = None,
     ) -> bool:
         action = action or ReviewAction()
-        os.environ.pop("NIXPKGS_CONFIG", None)
         os.environ["NIXPKGS_REVIEW_ROOT"] = str(path)
         if pr:
             os.environ["PR"] = str(pr)
@@ -686,6 +689,7 @@ class Review:
             self.package_filter,
             ReportOptions(
                 extra_nixpkgs_config=self.review_config.extra_nixpkgs_config,
+                extra_nixpkgs_args=self.review_config.extra_nixpkgs_args,
                 checkout=self.review_config.checkout.name.lower(),  # type: ignore[arg-type]
                 included_prs=self.review_config.included_prs,
                 show_header=self.review_config.show_header,
@@ -1010,7 +1014,6 @@ def build_config_from_args(
     args: argparse.Namespace,
     allow: AllowedFeatures,
     nix_path: str,
-    nixpkgs_config: Path,
 ) -> BuildConfig:
     """Create a BuildConfig from parsed CLI arguments."""
     workers, max_memory_size = default_eval_resources(
@@ -1019,7 +1022,6 @@ def build_config_from_args(
     return BuildConfig(
         allow=allow,
         nix_path=nix_path,
-        nixpkgs_config=nixpkgs_config,
         num_eval_workers=workers,
         max_memory_size=max_memory_size,
         pkgs=args.pkgs,
@@ -1043,6 +1045,7 @@ def _review_from_args(
         review_config=ReviewConfig(
             remote=args.remote,
             extra_nixpkgs_config=args.extra_nixpkgs_config,
+            extra_nixpkgs_args=args.extra_nixpkgs_args,
             systems=args.systems.split(" "),
             eval_type="local",
         ),
@@ -1066,23 +1069,22 @@ class LocalRevisionTarget:
 
 
 def review_local_revision(
-    builddir_path: str,
+    builddir: Builddir,
     args: argparse.Namespace,
     build_config_factory: Callable[[str], BuildConfig],
     target: LocalRevisionTarget | None = None,
 ) -> Path:
     target = target or LocalRevisionTarget()
-    with Builddir(builddir_path) as builddir:
-        review = _review_from_args(
-            builddir,
-            args,
-            build_config_factory(builddir.nix_path),
-        )
-        review.review_commit(
-            builddir.path,
-            args.branch,
-            target.commit,
-            action=target.action,
-            staged=target.staged,
-        )
-        return builddir.path
+    review = _review_from_args(
+        builddir,
+        args,
+        build_config_factory(builddir.nix_path),
+    )
+    review.review_commit(
+        builddir.path,
+        args.branch,
+        target.commit,
+        action=target.action,
+        staged=target.staged,
+    )
+    return builddir.path
