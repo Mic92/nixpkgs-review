@@ -24,7 +24,6 @@ class BuildConfig:
 
     allow: AllowedFeatures
     nix_path: str
-    nixpkgs_config: Path
     num_eval_workers: int = 1
     max_memory_size: int = 4096
     pkgs: str | None = None

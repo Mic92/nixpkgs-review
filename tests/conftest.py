@@ -130,7 +130,9 @@ def setup_nixpkgs(target: Path) -> Path:
         # Use paths without quotes so Nix treats them as paths and copies them to the store
         content = content.replace("@bash@", f"{bash_source}/bin/bash")
         content = content.replace("@coreutils@", f"{coreutils_source}/bin")
-        content = content.replace("@lib@", f"(import {nixpkgs_path} {{}}).lib")
+        content = content.replace(
+            "@lib@", f"(import {nixpkgs_path} {{ config = {{}}; }}).lib"
+        )
         config_out.write_text(content)
 
     return target
