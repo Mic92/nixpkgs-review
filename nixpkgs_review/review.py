@@ -18,7 +18,7 @@ from urllib.error import URLError
 from . import git, http_requests
 from .builddir import Builddir
 from .errors import NixpkgsReviewError
-from .github import GithubClient, GitHubPullRequest
+from .github import GithubClient, GitHubPullRequest, github_repo_from_remote
 from .nix import (
     Attr,
     BuildConfig,
@@ -170,7 +170,9 @@ class Review:
     ) -> None:
         self.builddir = builddir
         self.review_config = review_config
-        self.github_client = GithubClient(review_config.api_token)
+        self.github_client = GithubClient(
+            review_config.api_token, github_repo_from_remote(review_config.remote)
+        )
         self.package_filter = package_filter or PackageFilter()
         if not review_config.systems:
             msg = "Systems is empty"
@@ -680,6 +682,9 @@ class Review:
         os.environ["NIXPKGS_REVIEW_ROOT"] = str(path)
         if pr:
             os.environ["PR"] = str(pr)
+            # Used by `post-result`, `approve`, `merge` and `comments` inside
+            # the nix-shell so they talk to the same repository as `--remote`.
+            os.environ["NIXPKGS_REVIEW_GITHUB_REPO"] = self.github_client.repo
         report = Report(
             commit,
             attrs_per_system,
@@ -695,7 +700,7 @@ class Review:
                 tests=self.build_config.include_tests,
             ),
         )
-        report.print_console(path, pr)
+        report.print_console(path, pr, self.github_client.repo)
         report.write(path, pr)
 
         success = report.succeeded()
