@@ -5,14 +5,21 @@ from typing import TYPE_CHECKING
 from nixpkgs_review.github import GithubClient
 from nixpkgs_review.utils import die
 
-from .utils import ensure_github_token, get_current_pr, get_review_root
+from .utils import (
+    ensure_github_token,
+    get_current_github_repo,
+    get_current_pr,
+    get_review_root,
+)
 
 if TYPE_CHECKING:
     import argparse
 
 
 def post_result_command(args: argparse.Namespace) -> None:
-    github_client = GithubClient(ensure_github_token(args.token))
+    github_client = GithubClient(
+        ensure_github_token(args.token), get_current_github_repo()
+    )
     pr = get_current_pr()
     root = get_review_root()
 
