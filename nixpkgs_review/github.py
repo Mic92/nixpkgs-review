@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import tempfile
 import urllib.error
@@ -69,8 +70,36 @@ class GitHubChangedPaths(TypedDict, total=False):
     rebuildsByPlatform: dict[System, list[str]]
 
 
-def pr_url(pr: int) -> str:
-    return f"https://github.com/NixOS/nixpkgs/pull/{pr}"
+DEFAULT_GITHUB_REPO = "NixOS/nixpkgs"
+
+_GITHUB_REMOTE_RE = re.compile(
+    r"""
+    ^(?:
+        (?:https?|ssh|git)://(?:[^@/]+@)?github\.com(?::\d+)?/  # URL form
+        |
+        (?:[^@/]+@)?github\.com:                               # scp-like form
+    )
+    (?P<repo>[^/]+/[^/]+?)
+    (?:\.git)?/?$
+    """,
+    re.VERBOSE,
+)
+
+
+def github_repo_from_remote(remote: str) -> str:
+    """Return the ``owner/name`` of a GitHub remote URL.
+
+    Falls back to ``NixOS/nixpkgs`` for remotes that are not hosted on GitHub
+    (e.g. a local path), since that is where the pull requests live.
+    """
+    match = _GITHUB_REMOTE_RE.match(remote.strip())
+    if match is None:
+        return DEFAULT_GITHUB_REPO
+    return match.group("repo")
+
+
+def pr_url(pr: int, repo: str = DEFAULT_GITHUB_REPO) -> str:
+    return f"https://github.com/{repo}/pull/{pr}"
 
 
 class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -91,8 +120,9 @@ no_redirect_opener = urllib.request.build_opener(NoRedirectHandler)
 
 
 class GithubClient:
-    def __init__(self, api_token: str | None) -> None:
+    def __init__(self, api_token: str | None, repo: str = DEFAULT_GITHUB_REPO) -> None:
         self.api_token = api_token
+        self.repo = repo
         self.headers: dict[str, str] = {
             "Content-Type": "application/json",
             "Accept": "application/vnd.github+json",
@@ -133,24 +163,22 @@ class GithubClient:
 
     def labels(self, pr: int) -> JSONType:
         "Fetch list of labels attached to a PR (or issue)"
-        return self.get(f"/repos/NixOS/nixpkgs/issues/{pr}/labels")
+        return self.get(f"/repos/{self.repo}/issues/{pr}/labels")
 
     def comment_issue(self, pr: int, msg: str) -> JSONType:
         "Post a comment on a PR with nixpkgs-review report"
-        print(f"Posting comment on {pr_url(pr)}")
-        return self.post(
-            f"/repos/NixOS/nixpkgs/issues/{pr}/comments", data={"body": msg}
-        )
+        print(f"Posting comment on {pr_url(pr, self.repo)}")
+        return self.post(f"/repos/{self.repo}/issues/{pr}/comments", data={"body": msg})
 
     def approve_pr(self, pr: int, comment: str = "") -> None:
         "Approve a PR with an optional comment"
-        print(f"Approving {pr_url(pr)}")
+        print(f"Approving {pr_url(pr, self.repo)}")
         data: dict[str, object] = {"event": "APPROVE"}
         if comment:
             data["body"] = comment
         try:
             self.post(
-                f"/repos/NixOS/nixpkgs/pulls/{pr}/reviews",
+                f"/repos/{self.repo}/pulls/{pr}/reviews",
                 data=data,
             )
         except urllib.error.HTTPError as e:
@@ -162,7 +190,7 @@ class GithubClient:
                 raise
 
     def is_nixpkgs_committer(self) -> bool:
-        resp = self.get("/repos/NixOS/nixpkgs")
+        resp = self.get(f"/repos/{self.repo}")
         if not isinstance(resp, dict):
             msg = f"Expected response to be a dict, got {type(resp)}"
             raise TypeError(msg)
@@ -181,7 +209,7 @@ class GithubClient:
 
     def merge_pr(self, pr: int, expected_head_sha: str | None = None) -> JSONType:
         "Merge a PR. Requires maintainer access to Nixpkgs"
-        print(f"Merging {pr_url(pr)}")
+        print(f"Merging {pr_url(pr, self.repo)}")
         node_id = self.pull_request(pr)["node_id"]
         q = dedent(f"""
         mutation EnqueuePR {{
@@ -215,7 +243,7 @@ class GithubClient:
 
     def pull_request(self, number: int) -> GitHubPullRequest:
         "Get a pull request"
-        response = self.get(f"repos/NixOS/nixpkgs/pulls/{number}")
+        response = self.get(f"repos/{self.repo}/pulls/{number}")
         if not isinstance(response, dict):
             msg = f"Expected pull request response to be a dict, got {type(response)}"
             raise TypeError(msg)
@@ -227,7 +255,7 @@ class GithubClient:
         - Extract the archive
         - Open, deserialize and return a specific `json_filename` JSON file
         """
-        download_url: str = f"https://api.github.com/repos/NixOS/nixpkgs/actions/artifacts/{workflow_id}/zip"
+        download_url: str = f"https://api.github.com/repos/{self.repo}/actions/artifacts/{workflow_id}/zip"
 
         req = urllib.request.Request(download_url, headers=self.headers)
         try:
@@ -270,7 +298,7 @@ class GithubClient:
 
     def _get_workflow_runs(self, commit_sha: str) -> list[Any] | None:
         workflow_runs_resp = self.get(
-            f"repos/NixOS/nixpkgs/actions/runs?head_sha={commit_sha}"
+            f"repos/{self.repo}/actions/runs?head_sha={commit_sha}"
         )
         if not isinstance(workflow_runs_resp, dict):
             msg = f"Expected workflow runs response to be a dict, got {type(workflow_runs_resp)}"

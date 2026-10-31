@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import json
 import string
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Required, TypedDict, cast
 
-from nixpkgs_review.github import GithubClient
+from nixpkgs_review.github import DEFAULT_GITHUB_REPO, GithubClient
 
-from .utils import ensure_github_token, get_current_pr
+from .utils import ensure_github_token, get_current_github_repo, get_current_pr
 
 if TYPE_CHECKING:
     import argparse
@@ -65,10 +66,11 @@ class GitHubGraphQLResponse(TypedDict):
     repository: Required[GitHubGraphQLRepository]
 
 
-def comments_query(pr: int) -> str:
+def comments_query(pr: int, repo: str = DEFAULT_GITHUB_REPO) -> str:
+    owner, name = repo.split("/", 1)
     return string.Template("""
 {
-    repository(owner: "NixOS", name: "nixpkgs") {
+    repository(owner: $owner, name: $name) {
         pullRequest(number: $pr) {
             author { login }
             body
@@ -104,7 +106,7 @@ def comments_query(pr: int) -> str:
         }
     }
 }
-""").substitute(pr=pr)
+""").substitute(pr=pr, owner=json.dumps(owner), name=json.dumps(name))
 
 
 @dataclass
@@ -169,9 +171,11 @@ def bold(text: str) -> str:
     return f"\033[1m{text}\033[0m"
 
 
-def get_comments(github_token: str, pr_num: int) -> list[Comment | Review]:
-    github_client = GithubClient(github_token)
-    query = comments_query(pr_num)
+def get_comments(
+    github_token: str, pr_num: int, repo: str = DEFAULT_GITHUB_REPO
+) -> list[Comment | Review]:
+    github_client = GithubClient(github_token, repo)
+    query = comments_query(pr_num, repo)
     data = github_client.graphql(query)
 
     response = cast("GitHubGraphQLResponse", data)
@@ -220,7 +224,9 @@ def colorize_diff(diff: str) -> str:
 
 
 def show_comments(args: argparse.Namespace) -> None:
-    comments = get_comments(ensure_github_token(args.token), get_current_pr())
+    comments = get_comments(
+        ensure_github_token(args.token), get_current_pr(), get_current_github_repo()
+    )
 
     for comment in comments:
         if isinstance(comment, Review) and (comment.body or comment.comments):
