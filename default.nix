@@ -80,10 +80,18 @@ python3Packages.buildPythonApplication {
       ++ lib.optional withNom' nix-output-monitor;
     in
     [
-      "--prefix PATH : ${lib.makeBinPath binPath}"
-      "--set-default NIX_SSL_CERT_FILE ${cacert}/etc/ssl/certs/ca-bundle.crt"
+      "--prefix"
+      "PATH"
+      ":"
+      (lib.makeBinPath binPath)
+
+      "--set-default"
+      "NIX_SSL_CERT_FILE"
+      "${cacert}/etc/ssl/certs/ca-bundle.crt"
+
       # we don't have any runtime deps but nix-review shells might inject unwanted dependencies
-      "--unset PYTHONPATH"
+      "--unset"
+      "PYTHONPATH"
     ];
 
   postInstall = lib.optionalString withAutocomplete ''
