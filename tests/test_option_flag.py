@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from nixpkgs_review.allow import AllowedFeatures
@@ -47,7 +46,6 @@ def _build_config(options: tuple[tuple[str, str], ...] = ()) -> BuildConfig:
     return BuildConfig(
         allow=AllowedFeatures([]),
         nix_path="",
-        nixpkgs_config=Path("/dev/null"),
         options=options,
     )
 
@@ -76,7 +74,7 @@ def test_build_config_from_args_carries_options() -> None:
         ["rev", "HEAD", "--option", "cores", "4", "--option", "max-jobs", "2"],
     )
     build_config: BuildConfig = build_config_from_args(
-        args, AllowedFeatures([]), nix_path="", nixpkgs_config=Path("/dev/null")
+        args, AllowedFeatures([]), nix_path=""
     )
     assert build_config.options == (("cores", "4"), ("max-jobs", "2"))
 
