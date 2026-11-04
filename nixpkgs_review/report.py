@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
+from .github import DEFAULT_GITHUB_REPO, pr_url
 from .utils import (
     PackageFilter,
     System,
@@ -501,11 +502,13 @@ class Report:
 
         return self._append_logs(msg, root)
 
-    def print_console(self, root: Path, pr: int | None) -> None:
+    def print_console(
+        self, root: Path, pr: int | None, repo: str = DEFAULT_GITHUB_REPO
+    ) -> None:
         if pr is not None:
-            pr_url = f"https://github.com/NixOS/nixpkgs/pull/{pr}"
+            url = pr_url(pr, repo)
             info("\nLink to currently reviewing PR:")
-            link(to_link(pr_url, pr_url))
+            link(to_link(url, url))
 
         logs_dir = get_log_dir(root)
         for system, report in self.system_reports.items():
