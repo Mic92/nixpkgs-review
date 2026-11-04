@@ -257,6 +257,26 @@ def write_error_logs(
             fut.result()
 
 
+def _verify_build_outputs(
+    attrs_per_system: dict[str, list[Attr]],
+    *,
+    max_workers: int | None = 1,
+) -> None:
+    """Run `nix store verify` for all attrs in parallel.
+
+    Attr.was_build() caches its result, so SystemReport does not run it again.
+    """
+    attrs = [
+        attr
+        for attrs in attrs_per_system.values()
+        for attr in attrs
+        if attr.exists and not attr.broken and not attr.blacklisted
+    ]
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        for fut in [pool.submit(attr.was_build) for attr in attrs]:
+            fut.result()
+
+
 def _serialize_attrs(attrs: list[Attr]) -> list[dict]:
     return [a.serialize() for a in attrs]
 
@@ -351,6 +371,8 @@ class Report:
             if options.extra_nixpkgs_config != "{ }"
             else None
         )
+
+        _verify_build_outputs(attrs_per_system, max_workers=self.max_workers)
 
         reports: dict[System, SystemReport] = {}
         for system, attrs in attrs_per_system.items():
