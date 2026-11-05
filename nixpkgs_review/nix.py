@@ -12,7 +12,7 @@ from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 from .errors import NixpkgsReviewError
-from .utils import ROOT, System, info, sh, warn
+from .utils import ROOT, System, info, nix_eval_command, sh, warn
 
 if TYPE_CHECKING:
     from .allow import AllowedFeatures
@@ -325,7 +325,7 @@ def multi_system_eval(
             "d: { inherit (d) exists broken; }",
         ]
 
-        info("$ " + shlex.join(cmd))
+        info("$ " + nix_eval_command(cmd))
         nix_eval = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, check=False)
         if nix_eval.returncode != 0:
             delete = False
