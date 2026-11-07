@@ -408,7 +408,9 @@ $ nixpkgs-review pr -p nixosTests.ferm 47077
 
 With `--tests`, the `passthru.tests` of every package that is going to be built
 are built as well and listed under "tests" in the report. They honour
-`--skip-package`/`--skip-package-regex`, e.g. `-P 'netbird\.tests\..*'`.
+`--skip-package`/`--skip-package-regex`, e.g. `-P 'netbird\.tests\..*'`. Nested
+test attribute sets are included, but the tests of test derivations are not
+evaluated further because they may refer back to the original package.
 
 ## Ignoring ofborg evaluations
 
