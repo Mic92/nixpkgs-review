@@ -43,7 +43,7 @@ mapAttrs (
       );
 
     getProperties =
-      name:
+      include-tests': name:
       let
         attrPath = lib.splitString "." name;
         maybePkg = tryEval (lib.attrByPath attrPath null pkgs);
@@ -63,10 +63,13 @@ mapAttrs (
           # if it is not a package, ignore it (it is probably something like overrideAttrs)
           [ ]
         else
-          lib.flatten (lib.mapAttrsToList (name': _: getProperties "${name}.${name'}") pkg)
+          lib.flatten (lib.mapAttrsToList (name': _: getProperties include-tests' "${name}.${name'}") pkg)
       else
         [ (pkgOrFake name pkg) ]
-        ++ lib.optionals (include-tests && pkg ? tests) (getProperties "${name}.tests");
+        # Tests can inherit their parent's tests via overrideAttrs, or refer to
+        # the parent itself (causing infinite recursion).
+        # Avoid infinite recursion by not including tests of tests.
+        ++ lib.optionals (include-tests' && pkg ? tests) (getProperties false "${name}.tests");
   in
-  listToAttrs (concatMap getProperties attrs) // { recurseForDerivations = true; }
+  listToAttrs (concatMap (getProperties include-tests) attrs) // { recurseForDerivations = true; }
 ) (fromJSON (readFile attr-json))
