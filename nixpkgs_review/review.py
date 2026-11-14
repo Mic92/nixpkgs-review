@@ -3,7 +3,6 @@ from __future__ import annotations
 import itertools
 import json
 import os
-import shlex
 import shutil
 import subprocess
 import sys
@@ -38,6 +37,7 @@ from .utils import (
     default_eval_resources,
     die,
     info,
+    nix_eval_command,
     system_order_key,
     warn,
 )
@@ -792,7 +792,7 @@ def list_packages(
             f"pkgs = {json.dumps(build_config.pkgs)}; }}"
         ),
     ]
-    info("$ " + shlex.join(cmd))
+    info("$ " + nix_eval_command(cmd))
     packages: dict[System, list[Package]] = {system: [] for system in systems}
     # keep nix-env -A semantics: attr paths are relative to <nixpkgs>
     prefix = [build_config.pkgs] if build_config.pkgs else []

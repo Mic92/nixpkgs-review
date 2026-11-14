@@ -64,6 +64,19 @@ class PackageFilter:
     skip_packages_regex: list[Pattern[str]] = field(default_factory=list)
 
 
+def nix_eval_command(command: list[str]) -> str:
+    """Return a nix evaluation command as a shell line that users can copy.
+
+    The eval expressions import the config from NIXPKGS_CONFIG, so the
+    command needs this variable to run outside of nixpkgs-review.
+    """
+    line = shlex.join(command)
+    config = os.environ.get("NIXPKGS_CONFIG")
+    if config:
+        line = f"NIXPKGS_CONFIG={shlex.quote(config)} {line}"
+    return line
+
+
 def sh(  # noqa: PLR0913
     command: list[str],
     *,
