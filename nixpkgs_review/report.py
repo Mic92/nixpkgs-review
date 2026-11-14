@@ -338,6 +338,7 @@ class ReportOptions:
     """Options controlling report generation."""
 
     extra_nixpkgs_config: str = "{ }"
+    extra_nixpkgs_args: str = "{ }"
     checkout: Literal["merge", "commit"] = "merge"
     included_prs: list[int] = field(default_factory=list)
     show_header: bool = True
@@ -372,6 +373,9 @@ class Report:
             if options.extra_nixpkgs_config != "{ }"
             else None
         )
+        self.extra_nixpkgs_args = (
+            options.extra_nixpkgs_args if options.extra_nixpkgs_args != "{ }" else None
+        )
 
         _verify_build_outputs(attrs_per_system, max_workers=self.max_workers)
 
@@ -402,6 +406,7 @@ class Report:
                 "checkout": self.checkout,
                 "included_prs": self.included_prs,
                 "extra-nixpkgs-config": self.extra_nixpkgs_config,
+                "extra-nixpkgs-args": self.extra_nixpkgs_args,
                 "only_packages": list(self.package_filter.only_packages),
                 "additional_packages": list(self.package_filter.additional_packages),
                 "package_regex": [
@@ -427,6 +432,8 @@ class Report:
             cmd += f" pr {pr}"
         if self.extra_nixpkgs_config:
             cmd += f" --extra-nixpkgs-config '{self.extra_nixpkgs_config}'"
+        if self.extra_nixpkgs_args:
+            cmd += f" --extra-nixpkgs-args '{self.extra_nixpkgs_args}'"
         if self.checkout != "merge":
             cmd += f" --checkout {self.checkout}"
         for included_pr in self.included_prs:

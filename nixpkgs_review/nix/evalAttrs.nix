@@ -7,9 +7,9 @@ with builtins;
 mapAttrs (
   system: attrs:
   let
-    pkgs = import <nixpkgs> {
+    pkgs = import <nixpkgs-wrapper> {
       inherit system;
-      config = import (getEnv "NIXPKGS_CONFIG") // {
+      config = {
         allowBroken = false;
       };
     };

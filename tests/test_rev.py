@@ -155,7 +155,10 @@ def test_rev_command_with_pkgs_and_package(helpers: Helpers) -> None:
 
 
 @pytest.mark.parametrize("pkg_count", [0, 1, 10, 51])
-def test_rev_command_with_pkg_count(helpers: Helpers, pkg_count: int) -> None:
+@pytest.mark.parametrize("use_args", [False, True])
+def test_rev_command_with_pkg_count(
+    helpers: Helpers, *, pkg_count: int, use_args: bool
+) -> None:
     with helpers.nixpkgs() as nixpkgs:
         nixpkgs.path.joinpath("pkg1.txt").write_text("foo")
         subprocess.run(["git", "add", "."], check=True)
@@ -171,9 +174,18 @@ def test_rev_command_with_pkg_count(helpers: Helpers, pkg_count: int) -> None:
                 "exit 0",
                 "--build-graph",
                 "nix",
-                "--extra-nixpkgs-config",
-                f"{{ pkgCount = {pkg_count}; }}",
-            ],
+            ]
+            + (
+                [
+                    "--extra-nixpkgs-args",
+                    f"{{ config = {{ pkgCount = {pkg_count}; }}; }}",
+                ]
+                if use_args
+                else [
+                    "--extra-nixpkgs-config",
+                    f"{{ pkgCount = {pkg_count}; }}",
+                ]
+            ),
         )
         pkgs = {f"pkg{x + 1}" for x in range(pkg_count)}
         helpers.assert_built(path, *pkgs)
