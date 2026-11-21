@@ -305,6 +305,18 @@ class SystemReport:
             else:
                 self.built.append(attr)
 
+    def has_packages(self) -> bool:
+        return any(
+            (
+                self.broken,
+                self.failed,
+                self.non_existent,
+                self.blacklisted,
+                self.tests,
+                self.built,
+            )
+        )
+
     def serialize(self) -> dict[str, list[dict]]:
         return {
             "broken": _serialize_attrs(self.broken),
@@ -345,6 +357,8 @@ class ReportOptions:
     max_workers: int | None = 1
     pkgs: str | None = None
     tests: bool = False
+    systems: list[str] = field(default_factory=list)
+    host_system: str | None = None
 
 
 class Report:
@@ -366,6 +380,7 @@ class Report:
         self.pkgs = options.pkgs
         self.tests = options.tests
         self.included_prs = options.included_prs
+        self.host_system = options.host_system
 
         self.extra_nixpkgs_config = (
             options.extra_nixpkgs_config
@@ -378,6 +393,8 @@ class Report:
         reports: dict[System, SystemReport] = {}
         for system, attrs in attrs_per_system.items():
             reports[system] = SystemReport(attrs)
+        for system in options.systems:
+            reports.setdefault(system, SystemReport([]))
         self.system_reports: dict[System, SystemReport] = order_reports(reports)
 
     def built_packages(self) -> list[Attr]:
@@ -456,6 +473,8 @@ class Report:
         msg += f"Command: `{self._generate_command_string(pr)}`\n"
         if self.commit:
             msg += f"Commit: `{self.commit}`\n"
+        if self.host_system:
+            msg += f"Host: `{self.host_system}`\n"
         return msg
 
     def _generate_system_report(self, system: str, report: SystemReport) -> str:
@@ -471,6 +490,8 @@ class Report:
         msg += html_pkgs_section("❌", report.failed, "failed to build")
         msg += html_pkgs_section("✅", report.tests, "built", what="test")
         msg += html_pkgs_section("✅", report.built, "built")
+        if not report.has_packages():
+            msg += "No packages to build.\n"
         msg += "\n"  # render concatenated multi report.md files correctly
         return msg
 

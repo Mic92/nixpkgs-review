@@ -696,6 +696,8 @@ class Review:
                 max_workers=min(32, os.cpu_count() or 1),
                 pkgs=self.build_config.pkgs,
                 tests=self.build_config.include_tests,
+                systems=sorted(self.systems, key=system_order_key),
+                host_system=current_system(),
             ),
         )
         report.print_console(path, pr, self.github_client.repo)
