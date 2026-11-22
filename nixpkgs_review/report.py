@@ -345,6 +345,7 @@ class ReportOptions:
     max_workers: int | None = 1
     pkgs: str | None = None
     tests: bool = False
+    host_system: str | None = None
 
 
 class Report:
@@ -366,6 +367,7 @@ class Report:
         self.pkgs = options.pkgs
         self.tests = options.tests
         self.included_prs = options.included_prs
+        self.host_system = options.host_system
 
         self.extra_nixpkgs_config = (
             options.extra_nixpkgs_config
@@ -456,6 +458,8 @@ class Report:
         msg += f"Command: `{self._generate_command_string(pr)}`\n"
         if self.commit:
             msg += f"Commit: `{self.commit}`\n"
+        if self.host_system:
+            msg += f"Host: `{self.host_system}`\n"
         return msg
 
     def _generate_system_report(self, system: str, report: SystemReport) -> str:
