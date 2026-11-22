@@ -305,18 +305,6 @@ class SystemReport:
             else:
                 self.built.append(attr)
 
-    def has_packages(self) -> bool:
-        return any(
-            (
-                self.broken,
-                self.failed,
-                self.non_existent,
-                self.blacklisted,
-                self.tests,
-                self.built,
-            )
-        )
-
     def serialize(self) -> dict[str, list[dict]]:
         return {
             "broken": _serialize_attrs(self.broken),
@@ -357,7 +345,6 @@ class ReportOptions:
     max_workers: int | None = 1
     pkgs: str | None = None
     tests: bool = False
-    systems: list[str] = field(default_factory=list)
     host_system: str | None = None
 
 
@@ -393,8 +380,6 @@ class Report:
         reports: dict[System, SystemReport] = {}
         for system, attrs in attrs_per_system.items():
             reports[system] = SystemReport(attrs)
-        for system in options.systems:
-            reports.setdefault(system, SystemReport([]))
         self.system_reports: dict[System, SystemReport] = order_reports(reports)
 
     def built_packages(self) -> list[Attr]:
@@ -490,8 +475,6 @@ class Report:
         msg += html_pkgs_section("❌", report.failed, "failed to build")
         msg += html_pkgs_section("✅", report.tests, "built", what="test")
         msg += html_pkgs_section("✅", report.built, "built")
-        if not report.has_packages():
-            msg += "No packages to build.\n"
         msg += "\n"  # render concatenated multi report.md files correctly
         return msg
 
